@@ -1,0 +1,27 @@
+import { SpendBar } from './components/SpendBar';
+
+export function App() {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <SpendBar />
+      <main style={{ flex: 1, padding: '2rem', maxWidth: 960, margin: '0 auto', width: '100%' }}>
+        <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '2.5rem', marginBottom: '0.25rem' }}>
+          Chronicles of Azeroth
+        </h1>
+        <p style={{ opacity: 0.7, marginTop: 0 }}>
+          Phase 0 — Proof of Concept. Scaffold ready. Build the character creation flow next.
+        </p>
+
+        <section style={{ marginTop: '2rem', padding: '1.5rem', border: '1px solid #3a3228', borderRadius: 8 }}>
+          <h2 style={{ marginTop: 0 }}>Next steps</h2>
+          <ol>
+            <li>Character creation interview screen → generate bible</li>
+            <li>NPC selection + chat screen (Tirion / Sylvanas / Jaina / Bolvar)</li>
+            <li>Model picker for live A/B testing</li>
+            <li>Wire the spend tracker to real LLM calls</li>
+          </ol>
+        </section>
+      </main>
+    </div>
+  );
+}
