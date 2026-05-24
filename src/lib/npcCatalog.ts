@@ -42,6 +42,11 @@ export interface NpcEntry {
    * with live data from the addon (zone, time of day, nearby NPCs, etc.).
    */
   defaultScene: string;
+  /**
+   * Optional portrait image. Path is resolved relative to the public/ root,
+   * so a file at public/npcs/foo.png is referenced as '/npcs/foo.png'.
+   */
+  portrait?: string;
 }
 
 export const NPC_CATALOG: NpcEntry[] = [
@@ -146,6 +151,7 @@ export const NPC_CATALOG: NpcEntry[] = [
     defaultScene:
       'A quiet alcove off the High Seat in Ironforge. Magni stands with one hand resting on the stone wall, ' +
       'as if listening to it. The hero has been granted a private audience. There are no guards in earshot.',
+    portrait: '/npcs/magni-bronzebeard.png',
   },
   {
     id: 'falstad-wildhammer',

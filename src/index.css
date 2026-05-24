@@ -493,16 +493,52 @@ select.coa-input {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: 1rem 1.1rem 1rem 1.1rem;
+  padding: 0;
   box-shadow: var(--sh-panel);
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0;
   font: inherit;
   color: inherit;
   width: 100%;
+  overflow: hidden;
+}
+
+.coa-npc-card-portrait {
+  display: block;
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  object-position: center 18%;
+  background: #0a0703;
+  border-bottom: 1px solid var(--border);
+}
+
+.coa-npc-card-portrait-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 180px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(214, 168, 88, 0.18) 0%, transparent 60%),
+    linear-gradient(180deg, #1a140d 0%, #0d0905 100%);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-size: 64px;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+  opacity: 0.55;
+}
+
+.coa-npc-card-body {
+  padding: 0.9rem 1.1rem 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
 .coa-npc-card:hover:not(:disabled) {
@@ -568,6 +604,42 @@ select.coa-input {
   font-style: italic;
   font-size: 14px;
   color: var(--fg-muted);
+}
+
+.coa-npc-header-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.coa-npc-header-portrait {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center 18%;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 16px rgba(214, 168, 88, 0.35), 0 2px 8px rgba(0, 0, 0, 0.6);
+  flex-shrink: 0;
+}
+
+.coa-npc-header-portrait-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 40% 30%, rgba(214, 168, 88, 0.25) 0%, transparent 60%),
+    linear-gradient(180deg, #1a140d 0%, #0d0905 100%);
+  border: 2px solid var(--gold);
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: var(--gold);
+  flex-shrink: 0;
+  opacity: 0.65;
 }
 
 .coa-npc-saved {

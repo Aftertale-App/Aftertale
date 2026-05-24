@@ -421,12 +421,26 @@ function NpcPicker({ onPick, disabled }: { onPick: (n: NpcEntry) => void; disabl
             onClick={() => onPick(n)}
             disabled={disabled}
           >
-            <div className="coa-npc-card-name">{n.name}</div>
-            <div className="coa-npc-card-title">{n.title}</div>
-            <div className="coa-npc-card-meta">
-              {n.race} • {n.zone}
+            {n.portrait ? (
+              <img
+                className="coa-npc-card-portrait"
+                src={n.portrait}
+                alt={`${n.name} portrait`}
+                loading="lazy"
+              />
+            ) : (
+              <div className="coa-npc-card-portrait-placeholder" aria-hidden="true">
+                {n.name.charAt(0)}
+              </div>
+            )}
+            <div className="coa-npc-card-body">
+              <div className="coa-npc-card-name">{n.name}</div>
+              <div className="coa-npc-card-title">{n.title}</div>
+              <div className="coa-npc-card-meta">
+                {n.race} • {n.zone}
+              </div>
+              <div className="coa-npc-card-desc">{n.shortDescription}</div>
             </div>
-            <div className="coa-npc-card-desc">{n.shortDescription}</div>
           </button>
         ))}
       </div>
@@ -473,11 +487,24 @@ function NpcChatView(p: ChatViewProps) {
   return (
     <div style={{ marginTop: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
-        <div className="coa-npc-header" style={{ flex: 1, marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
-          <div className="coa-npc-header-name">{p.npc.name}</div>
-          <div className="coa-npc-header-title">{p.npc.title} • {p.npc.zone}</div>
-          <div className="coa-npc-saved" title="Conversations are saved locally in your browser">
-            {formatSavedAt(p.savedAt)}
+        <div className="coa-npc-header coa-npc-header-row" style={{ flex: 1, marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+          {p.npc.portrait ? (
+            <img
+              className="coa-npc-header-portrait"
+              src={p.npc.portrait}
+              alt={`${p.npc.name} portrait`}
+            />
+          ) : (
+            <div className="coa-npc-header-portrait-placeholder" aria-hidden="true">
+              {p.npc.name.charAt(0)}
+            </div>
+          )}
+          <div>
+            <div className="coa-npc-header-name">{p.npc.name}</div>
+            <div className="coa-npc-header-title">{p.npc.title} • {p.npc.zone}</div>
+            <div className="coa-npc-saved" title="Conversations are saved locally in your browser">
+              {formatSavedAt(p.savedAt)}
+            </div>
           </div>
         </div>
         <button
