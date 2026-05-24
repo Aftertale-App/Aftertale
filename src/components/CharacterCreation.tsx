@@ -148,7 +148,8 @@ export function CharacterCreation() {
       ageStr ? `- Age: ${ageStr}` : null,
       '',
       'Rules:',
-      '1. Ask EXACTLY ONE question per turn. Under 60 words.',
+      '1. Your turn must be ONE focused question. A brief acknowledgment of the',
+      '   hero\u2019s last answer is welcome \u2014 keep the whole turn under ~100 words.',
       '2. Probe motivations, formative moments, contradictions, and HOW THIS PERSON SPEAKS.',
       '3. Do not repeat or rephrase questions you have already asked.',
       '4. Stay in-world. You are a loremaster, not an AI.',
@@ -178,7 +179,7 @@ export function CharacterCreation() {
       const res = await provider.chat({
         task: 'bible-gen',
         model: MODEL_CHOICES[modelIdx].pricingKey,
-        maxTokens: 512,
+        maxTokens: 1024,
         temperature: 0.9,
         messages,
       });
@@ -215,6 +216,25 @@ export function CharacterCreation() {
     setStep('asking');
     const provider = MODEL_CHOICES[modelIdx].factory();
     await fetchNextQuestion(provider, newHistory);
+  }
+
+  async function handleRetryLastQuestion() {
+    if (step !== 'interview') return;
+    // Pop the most recent assistant turn (and any orphan user turn after it,
+    // though there shouldn't be one) and re-ask.
+    const rewound: TranscriptTurn[] = [];
+    let droppedLastAssistant = false;
+    for (let i = transcript.length - 1; i >= 0; i--) {
+      if (!droppedLastAssistant && transcript[i].role === 'assistant') {
+        droppedLastAssistant = true;
+        continue;
+      }
+      rewound.unshift(transcript[i]);
+    }
+    setTranscript(rewound);
+    setStep('asking');
+    const provider = MODEL_CHOICES[modelIdx].factory();
+    await fetchNextQuestion(provider, rewound);
   }
 
   // ----------------------------------------------------------------
@@ -477,6 +497,7 @@ export function CharacterCreation() {
           setAnswer={setAnswer}
           onSubmit={handleSubmitAnswer}
           onGenerate={() => generateBible(transcript)}
+          onRetryQuestion={handleRetryLastQuestion}
           loading={step === 'asking'}
           canGenerate={canGenerateNow}
           atMax={atMaxTurns}
@@ -667,6 +688,7 @@ interface InterviewViewProps {
   setAnswer: (s: string) => void;
   onSubmit: () => void;
   onGenerate: () => void;
+  onRetryQuestion: () => void;
   loading: boolean;
   canGenerate: boolean;
   atMax: boolean;
@@ -700,6 +722,13 @@ function InterviewView(p: InterviewViewProps) {
               title={p.canGenerate ? '' : `Answer at least ${MIN_TURNS_BEFORE_GENERATE} questions first`}
             >
               I&apos;m ready — generate the bible
+            </button>
+            <button
+              onClick={p.onRetryQuestion}
+              style={secondaryBtn}
+              title="Re-ask the loremaster (use if the question was truncated or off-base)"
+            >
+              ↻ Retry question
             </button>
           </div>
         </div>
