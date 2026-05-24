@@ -10,11 +10,15 @@ export function SpendBar() {
   const [tick, setTick] = useState(0);
   const [expanded, setExpanded] = useState(false);
 
-  // Re-read on storage events so multi-tab usage stays in sync.
+  // Re-read on storage events (other tabs) AND custom in-tab events.
   useEffect(() => {
     const handler = () => setTick((n) => n + 1);
     window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
+    window.addEventListener('coa:usage-updated', handler);
+    return () => {
+      window.removeEventListener('storage', handler);
+      window.removeEventListener('coa:usage-updated', handler);
+    };
   }, []);
 
   const records = useMemo(() => loadTodayRecords(), [tick]);

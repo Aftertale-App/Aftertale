@@ -10,7 +10,7 @@ import type { LLMProvider, LLMRequest, LLMResponse } from '../types';
 
 export class GeminiProvider implements LLMProvider {
   readonly id = 'gemini' as const;
-  readonly models = ['gemini-3-flash-free', 'gemini-3-flash', 'gemini-3.5-pro'] as const;
+  readonly models = ['gemini-flash-free', 'gemini-flash-paid', 'gemini-pro'] as const;
 
   private client: GoogleGenAI;
 
@@ -38,17 +38,31 @@ export class GeminiProvider implements LLMProvider {
       model: pricing.model,
       contents: prompt,
       config: {
-        maxOutputTokens: request.maxTokens ?? 512,
+        maxOutputTokens: request.maxTokens ?? 2048,
         temperature: request.temperature ?? 0.8,
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
     const latencyMs = performance.now() - start;
+
+    // Diagnostics — remove once we're confident in the model behavior.
+    const candidate = result.candidates?.[0];
+    console.log('[GeminiProvider] response', {
+      model: pricing.model,
+      finishReason: candidate?.finishReason,
+      usageMetadata: result.usageMetadata,
+      textLength: (result.text ?? '').length,
+    });
 
     const text = result.text ?? '';
     const usage = result.usageMetadata;
     const inputTokens = usage?.promptTokenCount ?? 0;
     const cachedInputTokens = usage?.cachedContentTokenCount ?? 0;
-    const outputTokens = usage?.candidatesTokenCount ?? 0;
+    // Google bills `thoughtsTokenCount` at the output rate — it MUST be counted
+    // toward outputTokens for cost accuracy, even though it's invisible to the user.
+    const visibleOutputTokens = usage?.candidatesTokenCount ?? 0;
+    const thoughtsTokens = usage?.thoughtsTokenCount ?? 0;
+    const outputTokens = visibleOutputTokens + thoughtsTokens;
 
     const costUsd = calculateCost(request.model, inputTokens, cachedInputTokens, outputTokens);
 

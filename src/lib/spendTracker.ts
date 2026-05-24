@@ -38,6 +38,10 @@ export function recordUsage(record: Omit<UsageRecord, 'id'>): UsageRecord {
   const day = loadDay(key);
   day.push(full);
   saveDay(key, day);
+  // Notify in-tab subscribers (the native 'storage' event only fires for other tabs).
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('coa:usage-updated', { detail: full }));
+  }
   return full;
 }
 

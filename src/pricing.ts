@@ -20,9 +20,14 @@ export interface ModelPricing {
 
 export const PRICING: Record<string, ModelPricing> = {
   // ---------- Gemini ----------
-  'gemini-3-flash-free': {
+  // We pin to specific production models rather than `*-latest` aliases because
+  // newer Gemini models (3.x+) have *mandatory* thinking that silently ignores
+  // `thinkingBudget: 0` and burns 1000+ extra output tokens per call.
+  // gemini-2.5-flash is the last Flash where thinking can be cleanly disabled.
+  // gemini-2.5-pro is the matching premium tier.
+  'gemini-flash-free': {
     provider: 'gemini',
-    model: 'gemini-3-flash',
+    model: 'gemini-2.5-flash',
     tier: 'free',
     inputPer1M: 0,
     cachedInputPer1M: 0,
@@ -30,17 +35,17 @@ export const PRICING: Record<string, ModelPricing> = {
     freeRpmLimit: 15,
     freeRpdLimit: 1500,
   },
-  'gemini-3-flash': {
+  'gemini-flash-paid': {
     provider: 'gemini',
-    model: 'gemini-3-flash',
+    model: 'gemini-2.5-flash',
     tier: 'paid',
     inputPer1M: 0.25,
     cachedInputPer1M: 0.025,
     outputPer1M: 1.5,
   },
-  'gemini-3.5-pro': {
+  'gemini-pro': {
     provider: 'gemini',
-    model: 'gemini-3.5-pro',
+    model: 'gemini-2.5-pro',
     tier: 'paid',
     inputPer1M: 1.5,
     cachedInputPer1M: 0.15,
