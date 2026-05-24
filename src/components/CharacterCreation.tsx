@@ -245,7 +245,7 @@ export function CharacterCreation() {
   // AI assist — name suggestion + answer suggestion
   // ----------------------------------------------------------------
 
-  const canSuggestName = !!race && !!faction && !generatingName;
+  const canSuggestName = !generatingName;
   const canSuggestAnswer =
     step === 'interview' &&
     transcript.some((t) => t.role === 'assistant') &&
@@ -262,12 +262,16 @@ export function CharacterCreation() {
         'You are naming a character in World of Warcraft. Output ONLY a single name ' +
         'that fits the race\u2019s naming conventions and feels like a real person ' +
         '\u2014 not a fantasy parody, not a pun, not a meme. No quotes, no honorifics, ' +
-        'no commentary. Just first name and (when fitting for the race) a surname.';
-      const user = [
-        `Race: ${race}`,
-        `Faction: ${faction}`,
-        className ? `Class: ${className}` : 'Class: unspecified',
-      ].join('\n');
+        'no commentary. Just first name and (when fitting for the race) a surname. ' +
+        'If race is unspecified, pick something evocative that could work for any ' +
+        'WoW hero.';
+      const lines: string[] = [];
+      if (race) lines.push(`Race: ${race}`);
+      if (faction) lines.push(`Faction: ${faction}`);
+      if (className) lines.push(`Class: ${className}`);
+      const user = lines.length > 0
+        ? lines.join('\n')
+        : 'No constraints \u2014 pick a memorable WoW hero name.';
       const res = await provider.chat({
         task: 'bible-gen',
         model: MODEL_CHOICES[modelIdx].pricingKey,
@@ -730,7 +734,7 @@ function IdentityForm(p: IdentityFormProps) {
             onClick={p.onSuggestName}
             disabled={!p.canSuggestName}
             style={p.canSuggestName ? assistBtn : disabledBtn}
-            title={p.canSuggestName ? 'Suggest a name based on race + faction' : 'Pick race + faction first'}
+            title={p.canSuggestName ? 'Suggest a name (uses race/faction if picked)' : 'Generating…'}
           >
             {p.generatingName ? '…' : '\u2728'}
           </button>
