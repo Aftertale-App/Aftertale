@@ -1,7 +1,13 @@
+import { useState } from 'react';
 import { SpendBar } from './components/SpendBar';
 import { SmokeTest } from './components/SmokeTest';
+import { CharacterCreation } from './components/CharacterCreation';
+
+type Tab = 'character' | 'smoke';
 
 export function App() {
+  const [tab, setTab] = useState<Tab>('character');
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SpendBar />
@@ -10,21 +16,50 @@ export function App() {
           Chronicles of Azeroth
         </h1>
         <p style={{ opacity: 0.7, marginTop: 0 }}>
-          Phase 0 — Proof of Concept. Scaffold ready. Build the character creation flow next.
+          Phase 0 — Proof of Concept. Roll a character, then talk to an NPC (coming next).
         </p>
 
-        <SmokeTest />
+        <nav style={{ display: 'flex', gap: '0.25rem', marginTop: '1.5rem', borderBottom: '1px solid #3a3228' }}>
+          <TabButton active={tab === 'character'} onClick={() => setTab('character')}>
+            📜 Character
+          </TabButton>
+          <TabButton active={tab === 'smoke'} onClick={() => setTab('smoke')}>
+            🔥 Smoke test
+          </TabButton>
+        </nav>
 
-        <section style={{ marginTop: '2rem', padding: '1.5rem', border: '1px solid #3a3228', borderRadius: 8 }}>
-          <h2 style={{ marginTop: 0 }}>Next steps</h2>
-          <ol>
-            <li>Model picker → wire into chat (done in smoke test, generalize next)</li>
-            <li>Character creation interview screen → generate bible</li>
-            <li>NPC selection + chat screen (Tirion / Sylvanas / Jaina / Bolvar)</li>
-            <li>Manual event entry to feed the chat context</li>
-          </ol>
-        </section>
+        {tab === 'character' && <CharacterCreation />}
+        {tab === 'smoke' && <SmokeTest />}
       </main>
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: active ? '#1f1812' : 'transparent',
+        color: active ? '#e8e4d8' : '#a89c80',
+        border: '1px solid #3a3228',
+        borderBottom: active ? '1px solid #1f1812' : '1px solid #3a3228',
+        marginBottom: -1,
+        padding: '0.5rem 1rem',
+        borderRadius: '4px 4px 0 0',
+        fontSize: 14,
+        cursor: 'pointer',
+      }}
+    >
+      {children}
+    </button>
   );
 }

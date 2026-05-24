@@ -43,7 +43,7 @@ export interface TaskAverages {
 }
 
 // ----------------------------------------------------------------------------
-// Character bible (Phase 0: a single YAML-stringified blob in localStorage)
+// Character bible (Phase 0: a single JSON-stringified envelope in localStorage)
 // ----------------------------------------------------------------------------
 
 export interface CharacterBible {
@@ -60,6 +60,13 @@ export interface CharacterBible {
   createdAt: number;
   updatedAt: number;
   // Phase 1+ will add: relationships, scars, vows, contradictions, etc.
+}
+
+// Versioned envelope so Phase 1 (SQLite migration) can detect old shapes.
+export interface BibleEnvelope {
+  schemaVersion: number;
+  savedAt: number;
+  bible: CharacterBible;
 }
 
 // ----------------------------------------------------------------------------

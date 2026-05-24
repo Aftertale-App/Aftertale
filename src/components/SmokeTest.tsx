@@ -1,47 +1,13 @@
 import { useState } from 'react';
-import { GeminiProvider } from '../providers/GeminiProvider';
-import { AnthropicProvider } from '../providers/AnthropicProvider';
-import type { LLMProvider, LLMResponse } from '../types';
-
-interface ProviderChoice {
-  label: string;
-  pricingKey: string;
-  factory: () => LLMProvider;
-}
-
-const CHOICES: ProviderChoice[] = [
-  {
-    label: 'Gemini Flash (Free Tier)',
-    pricingKey: 'gemini-flash-free',
-    factory: () => new GeminiProvider(import.meta.env.VITE_GEMINI_API_KEY ?? ''),
-  },
-  {
-    label: 'Gemini Flash (Paid)',
-    pricingKey: 'gemini-flash-paid',
-    factory: () => new GeminiProvider(import.meta.env.VITE_GEMINI_API_KEY ?? ''),
-  },
-  {
-    label: 'Gemini Pro',
-    pricingKey: 'gemini-pro',
-    factory: () => new GeminiProvider(import.meta.env.VITE_GEMINI_API_KEY ?? ''),
-  },
-  {
-    label: 'Claude Haiku 4.5',
-    pricingKey: 'claude-haiku-4.5',
-    factory: () => new AnthropicProvider(import.meta.env.VITE_ANTHROPIC_API_KEY ?? ''),
-  },
-  {
-    label: 'Claude Sonnet 4.6',
-    pricingKey: 'claude-sonnet-4.6',
-    factory: () => new AnthropicProvider(import.meta.env.VITE_ANTHROPIC_API_KEY ?? ''),
-  },
-];
+import { MODEL_CHOICES, DEFAULT_MODEL_INDEX } from '../lib/modelChoices';
+import { ModelPicker } from './ModelPicker';
+import type { LLMResponse } from '../types';
 
 const SMOKE_PROMPT =
   'You are an ancient Azerothian historian. In exactly 2 sentences, tell me one obscure fact about the Old Gods.';
 
 export function SmokeTest() {
-  const [choiceIdx, setChoiceIdx] = useState(0);
+  const [choiceIdx, setChoiceIdx] = useState(DEFAULT_MODEL_INDEX);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<LLMResponse | null>(null);
@@ -51,7 +17,7 @@ export function SmokeTest() {
     setError(null);
     setResponse(null);
     try {
-      const choice = CHOICES[choiceIdx];
+      const choice = MODEL_CHOICES[choiceIdx];
       const provider = choice.factory();
       const res = await provider.chat({
         task: 'npc-chat',
@@ -84,25 +50,7 @@ export function SmokeTest() {
       </p>
 
       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-        <select
-          value={choiceIdx}
-          onChange={(e) => setChoiceIdx(Number(e.target.value))}
-          disabled={loading}
-          style={{
-            background: '#2a2018',
-            color: '#e8e4d8',
-            border: '1px solid #3a3228',
-            padding: '0.5rem 0.75rem',
-            borderRadius: 4,
-            fontSize: 14,
-          }}
-        >
-          {CHOICES.map((c, i) => (
-            <option key={c.pricingKey} value={i}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+        <ModelPicker value={choiceIdx} onChange={setChoiceIdx} disabled={loading} label="Model:" />
         <button
           onClick={handleRun}
           disabled={loading}
@@ -154,7 +102,8 @@ export function SmokeTest() {
             {response.text}
           </div>
           <div style={{ marginTop: '0.5rem', fontSize: 12, fontFamily: 'Consolas, monospace', opacity: 0.7 }}>
-            {response.inputTokens} in / {response.cachedInputTokens} cached / {response.outputTokens} out · {response.latencyMs.toFixed(0)}ms · {response.model}
+            {response.inputTokens} in / {response.cachedInputTokens} cached / {response.outputTokens} out ·{' '}
+            {response.latencyMs.toFixed(0)}ms · {response.model}
           </div>
         </div>
       )}
