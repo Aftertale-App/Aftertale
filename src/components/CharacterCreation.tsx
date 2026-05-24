@@ -462,7 +462,7 @@ export function CharacterCreation() {
       const firstRes = await provider.chat({
         task: 'bible-gen',
         model: MODEL_CHOICES[modelIdx].pricingKey,
-        maxTokens: 2048,
+        maxTokens: 4096,
         temperature: 0.6,
         messages: buildBibleGenMessages(history),
       });
@@ -474,11 +474,25 @@ export function CharacterCreation() {
         return;
       }
 
+      // If the first attempt was truncated, a repair retry can't fix that —
+      // it'd just be repairing an incomplete document. Skip straight to the
+      // manual editor with a clear truncation message.
+      if (firstRes.stopReason === 'truncated') {
+        setRawBibleText(firstRes.text);
+        setParseErrors([
+          'The bible generation was cut off at the model\u2019s output cap (4096 tokens).',
+          'The JSON is incomplete. Either finish it by hand below, or click "Retry with the LLM"',
+          'to start over (consider switching to Gemini Pro or Claude Sonnet for more headroom).',
+        ]);
+        setStep('parse-error');
+        return;
+      }
+
       // ---- One cheap repair retry ----
       const repairRes = await provider.chat({
         task: 'bible-gen',
         model: MODEL_CHOICES[modelIdx].pricingKey,
-        maxTokens: 2048,
+        maxTokens: 4096,
         temperature: 0.2,
         messages: buildRepairMessages(firstRes.text, firstAttempt.errors),
       });
@@ -492,7 +506,11 @@ export function CharacterCreation() {
 
       // Surface raw text for manual fix.
       setRawBibleText(repairRes.text);
-      setParseErrors(secondAttempt.errors);
+      const truncNote =
+        repairRes.stopReason === 'truncated'
+          ? ['The repair attempt was also cut off (hit output cap).']
+          : [];
+      setParseErrors([...truncNote, ...secondAttempt.errors]);
       setStep('parse-error');
     } catch (err) {
       if (myRequestId !== requestIdRef.current) return;
@@ -960,7 +978,7 @@ function ParseErrorView({
         value={rawText}
         onChange={(e) => setRawText(e.target.value)}
         rows={20}
-        style={{ fontFamily: 'var(--font-mono)', fontSize: 13, whiteSpace: 'pre' }}
+        style={{ fontFamily: 'var(--font-mono)', fontSize: 13, whiteSpace: 'pre-wrap' }}
       />
       <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.75rem' }}>
         <button className="coa-btn coa-btn-primary" onClick={onTryAgain}>
