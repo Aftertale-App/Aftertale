@@ -1,0 +1,27 @@
+:root {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+  color: #e8e4d8;
+  background: #1a1612;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, #2a221a 0%, #1a1612 60%),
+    #1a1612;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
