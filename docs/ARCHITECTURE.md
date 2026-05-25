@@ -52,15 +52,53 @@ src/
 │
 ├── components/
 │   ├── SpendBar.tsx          Always-visible cost header (collapsible)
+│   ├── AddonSimulator.tsx    Phase 0.75 WoW-addon event harness
 │   └── SmokeTest.tsx         Phase 0 dev tool — pick a model, run a prompt
 │
 ├── lib/
+│   ├── addonEvents.ts        WoW API-shaped normalized event contract
+│   ├── addonEventStore.ts    localStorage raw event log
+│   ├── addonIngest.ts        event → character bible / chronicle memory
+│   ├── classicQuestFixtures.ts Classic quest-chain simulator fixtures
 │   └── spendTracker.ts       localStorage usage log + averages + CSV export
 │
 └── providers/
     ├── GeminiProvider.ts     @google/genai wrapper, records usage internally
     └── AnthropicProvider.ts  @anthropic-ai/sdk wrapper, records usage internally
 ```
+
+### Addon Simulator flow
+
+The Addon Simulator is a Phase 0.75 bridge between the browser POC and the
+future WoW addon. It emits normalized events shaped around real addon events
+such as `QUEST_DETAIL`, `QUEST_ACCEPTED`, `QUEST_TURNED_IN`, `GOSSIP_SHOW`,
+`ZONE_CHANGED_NEW_AREA`, and `COMBAT_LOG_EVENT_UNFILTERED`.
+
+```
+   User clicks "Emit next event"
+        │
+        ▼
+   AddonSimulator.tsx
+        │  selects Classic quest fixture step + WoW event template
+        ▼
+   createSimulatorEvent()
+        │  builds AddonEvent { wowEvent, questId, npc, zone, storyCard }
+        ▼
+   ingestAddonEvent()
+        │  1. records raw event in addonEventStore
+        │  2. updates active CharacterBible level / zone
+        │  3. appends meaningful quest turn-ins to bible.history
+        ▼
+   Character bible history
+        │
+        ▼
+   NpcChat prompt includes recent chronicled deeds
+```
+
+Quest fixtures store IDs, NPCs, Wowhead links, and authored story cards rather
+than full quest text. The simulator includes a local-only quest-text/notes box
+so runtime text captured from the game client can enrich a step without
+shipping copied quest prose in the bundle.
 
 ### The provider contract
 

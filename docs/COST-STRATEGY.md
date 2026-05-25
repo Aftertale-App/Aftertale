@@ -6,10 +6,11 @@ tracking and rate management strategy from day one.
 
 ## TL;DR
 
-- **Default to Gemini 2.5 Flash on the free tier.** Free tier covers normal
-  dev + casual play (~15 RPM, ~1,500 RPD).
-- **Switch to paid only when free runs out** ($0.25 input / $1.50 output per
-  1M tokens — pennies per hour even at heavy use).
+- **Default to Gemini 2.5 Flash.** Free-tier keys cover normal dev + casual
+  play (~15 RPM, ~1,500 RPD), while paid keys are still pennies per hour.
+- **Cost-account at paid rates** ($0.25 input / $1.50 output per 1M tokens) so
+  the spend bar shows worst-case exposure even when the current key is under
+  free quota.
 - **Use Gemini 2.5 Pro for premium tasks** (bible generation, chapter
   rollups) — $1.50 / $9.00.
 - **Use Claude Sonnet for A/B taste tests**, not as the daily driver.
@@ -20,8 +21,7 @@ tracking and rate management strategy from day one.
 
 | Pricing key            | Provider  | Model                | Input $/1M | Cached $/1M | Output $/1M |
 | ---------------------- | --------- | -------------------- | ---------- | ----------- | ----------- |
-| `gemini-flash-free`    | Gemini    | gemini-2.5-flash     | 0          | 0           | 0           |
-| `gemini-flash-paid`    | Gemini    | gemini-2.5-flash     | 0.25       | 0.025       | 1.50        |
+| `gemini-flash`         | Gemini    | gemini-2.5-flash     | 0.25       | 0.025       | 1.50        |
 | `gemini-pro`           | Gemini    | gemini-2.5-pro       | 1.50       | 0.15        | 9.00        |
 | `claude-haiku-4.5`     | Anthropic | claude-haiku-4-5     | 1.00       | 0.10        | 5.00        |
 | `claude-sonnet-4.6`    | Anthropic | claude-sonnet-4-6    | 3.00       | 0.30        | 15.00       |
@@ -83,7 +83,8 @@ When we DO hit a limit:
 ## Spend tracker
 
 Lives in `src/lib/spendTracker.ts`. Backed by `localStorage`, keyed per day
-(`coa.spend.YYYY-MM-DD`). 90-day rolling retention with auto-purge.
+(`coa.spend.YYYY-MM-DD`). Records are kept until the user manually exports,
+resets, or purges old history from the spend bar.
 
 ### Public API
 
@@ -91,7 +92,7 @@ Lives in `src/lib/spendTracker.ts`. Backed by `localStorage`, keyed per day
 recordUsage(record: Omit<UsageRecord, 'id'>): UsageRecord
 loadRecentRecords(days?: number): UsageRecord[]
 loadTodayRecords(): UsageRecord[]
-purgeOldRecords(): void
+purgeOldRecords(): number
 computeAverages(records: UsageRecord[]): TaskAverages[]
 sumCost(records: UsageRecord[]): number
 exportCsv(records: UsageRecord[]): string
@@ -129,7 +130,8 @@ data, we can predict "1 hour of leveling = $X" with confidence.
 - **Expanded panel**: averages table grouped by task::model, CSV export button
 - **Updates live** via the `coa:usage-updated` CustomEvent
 
-If the spend bar ever shows > $0, you know you're on a paid model.
+The spend bar estimates paid-rate exposure. If you're using an unbilled Gemini
+free-tier key and stay within quota, the real invoice can still be $0.
 
 ## Privacy / training data
 

@@ -73,8 +73,9 @@ Open <http://localhost:5180>.
 ## Cost / privacy
 
 The app is built around **always-on cost tracking**. Every LLM call is logged
-to localStorage with per-call cost, plus averages by task × model. If the
-spend bar in the header ever shows > $0, you're using a paid model.
+to localStorage with per-call cost, plus averages by task × model. The spend
+bar estimates paid-rate exposure so you can see the risk even when a free-tier
+Gemini key keeps the actual bill at $0.
 
 Default config uses **Gemini's free tier** which is plenty for normal dev
 and casual play (~15 RPM, ~1,500 RPD). Free tier means your prompts are used

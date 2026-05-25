@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Node.js ≥ 22** (tested on 23.11)
+- **Node.js ≥ 20** (CI uses 20; local dev tested on 23.11)
 - **npm ≥ 10**
 - A Gemini API key from https://aistudio.google.com/apikey
 - *(Optional)* An Anthropic API key from https://console.anthropic.com
@@ -44,13 +44,15 @@ If 5180 ever conflicts, change it in `vite.config.ts` and update this table.
 
 ## Environment variables
 
-All env vars are prefixed `VITE_` so they're exposed to the browser. This is
-fine for Phase 0 (local dev only — we don't ship a bundle). Phase 1 moves
-these to the Electron main process and uses `keytar` for OS keychain storage.
+All env vars are prefixed `VITE_` so they're exposed to the browser. For local
+dev, `.env.local` is convenient; for the public GitHub Pages build, no keys are
+baked in and users paste runtime keys into the in-app settings panel. Phase 1
+moves keys to the Electron main process and uses `keytar` for OS keychain
+storage.
 
 | Variable                  | Required | Default       | Used by               |
 | ------------------------- | -------- | ------------- | --------------------- |
-| `VITE_GEMINI_API_KEY`     | Yes      | —             | `GeminiProvider`      |
+| `VITE_GEMINI_API_KEY`     | No       | —             | `GeminiProvider`      |
 | `VITE_ANTHROPIC_API_KEY`  | No       | (empty)       | `AnthropicProvider`   |
 
 `.env.local` is gitignored. `.env.example` is the template — keep it in sync
@@ -95,7 +97,7 @@ chronicles-of-azeroth/
 ### Trying a new prompt
 
 1. Open the app, expand the smoke test panel.
-2. Pick a model from the dropdown (default: free Flash).
+2. Pick a model from the dropdown (default: Gemini Flash).
 3. Paste your prompt, hit **Run smoke test**.
 4. Check the response, latency, and cost in the spend bar.
 5. Console logs show finish reason + full token breakdown — useful for

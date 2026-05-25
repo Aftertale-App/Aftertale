@@ -18,7 +18,7 @@ export function SmokeTest() {
     setResponse(null);
     try {
       const choice = MODEL_CHOICES[choiceIdx];
-      const provider = choice.factory();
+      const provider = await choice.factory();
       const res = await provider.chat({
         task: 'npc-chat',
         model: choice.pricingKey,

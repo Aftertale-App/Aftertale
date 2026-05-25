@@ -168,13 +168,26 @@ export function CharacterCreation() {
     !!className &&
     isValidCombo(faction, race, className);
 
+  async function createSelectedProvider(): Promise<LLMProvider | null> {
+    try {
+      return await MODEL_CHOICES[modelIdx].factory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return null;
+    }
+  }
+
   async function handleBeginInterview() {
     if (!identityValid) return;
     setError(null);
     setTranscript([]);
     setStep('asking');
 
-    const provider = MODEL_CHOICES[modelIdx].factory();
+    const provider = await createSelectedProvider();
+    if (!provider) {
+      setStep('identity');
+      return;
+    }
     await fetchNextQuestion(provider, []);
   }
 
@@ -269,7 +282,11 @@ export function CharacterCreation() {
     }
 
     setStep('asking');
-    const provider = MODEL_CHOICES[modelIdx].factory();
+    const provider = await createSelectedProvider();
+    if (!provider) {
+      setStep('interview');
+      return;
+    }
     await fetchNextQuestion(provider, newHistory);
   }
 
@@ -288,7 +305,11 @@ export function CharacterCreation() {
     }
     setTranscript(rewound);
     setStep('asking');
-    const provider = MODEL_CHOICES[modelIdx].factory();
+    const provider = await createSelectedProvider();
+    if (!provider) {
+      setStep('interview');
+      return;
+    }
     await fetchNextQuestion(provider, rewound);
   }
 
@@ -308,7 +329,7 @@ export function CharacterCreation() {
     setGeneratingName(true);
     const myRequestId = ++requestIdRef.current;
     try {
-      const provider = MODEL_CHOICES[modelIdx].factory();
+      const provider = await MODEL_CHOICES[modelIdx].factory();
       const system =
         'You are naming a character in World of Warcraft. Output ONLY a single name ' +
         'that fits the race\u2019s naming conventions and feels like a real person ' +
@@ -353,7 +374,7 @@ export function CharacterCreation() {
     setGeneratingAnswer(true);
     const myRequestId = ++requestIdRef.current;
     try {
-      const provider = MODEL_CHOICES[modelIdx].factory();
+      const provider = await MODEL_CHOICES[modelIdx].factory();
       const system = [
         'You are roleplaying as a hero of Azeroth being interviewed by a loremaster.',
         'Stay deep in character. Use natural speech \u2014 sentence fragments,',
@@ -504,9 +525,9 @@ export function CharacterCreation() {
     setError(null);
     setStep('generating');
     const myRequestId = ++requestIdRef.current;
-    const provider = MODEL_CHOICES[modelIdx].factory();
 
     try {
+      const provider = await MODEL_CHOICES[modelIdx].factory();
       const firstRes = await provider.chat({
         task: 'bible-gen',
         model: MODEL_CHOICES[modelIdx].pricingKey,

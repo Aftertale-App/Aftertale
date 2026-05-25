@@ -16,7 +16,7 @@ export interface LLMProvider {
 export interface LLMRequest {
   task: TaskType;          // 'npc-chat' | 'bible-gen' | 'summary' | 'embedding'
   messages: ChatMessage[]; // [{role: 'system'|'user'|'assistant', content: '...'}]
-  model: string;           // pricing key, e.g. 'gemini-flash-paid'
+  model: string;           // pricing key, e.g. 'gemini-flash'
   maxTokens?: number;
   temperature?: number;
 }
@@ -29,13 +29,14 @@ export interface LLMResponse {
   model: string;
   provider: ProviderId;
   latencyMs: number;
+  stopReason: 'end' | 'truncated' | 'other';
 }
 ```
 
 ### Two non-obvious rules
 
 1. **The `model` field is a pricing key, not an API model id.** The pricing
-   table maps keys like `gemini-flash-paid` to the actual API id like
+   table maps keys like `gemini-flash` to the actual API id like
    `gemini-2.5-flash` and the per-token prices. This lets us swap underlying
    models without changing call sites.
 
