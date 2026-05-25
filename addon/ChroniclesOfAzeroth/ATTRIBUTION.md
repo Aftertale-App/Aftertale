@@ -10,6 +10,7 @@ the Chronicles of Azeroth author).
 ### Art
 
 - `Art/Parchment.png` — adapted from `Art/Theme_Brown/Parchment.png`
+- `Art/GenericFrame.png` — `Art/Theme_Brown/GenericFrame-Tiled-Large.png` (9-slice parchment frame)
 - `Art/TopAlertBackground.png` — `Art/Theme_Shared/TopAlertBackground.png`
 - `Art/CloseButton.png` — `Art/Theme_Brown/Settings-CloseButton.png`
 - `Art/Checkbox.png` — `Art/Theme_Brown/Settings-Checkbox.png`

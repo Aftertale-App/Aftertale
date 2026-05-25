@@ -9,10 +9,15 @@
 
 local ADDON_NAME, NS = ...
 
-local CARD_WIDTH  = 460
-local CARD_HEIGHT = 132
+local CARD_WIDTH  = 480
+local CARD_HEIGHT = 160
 local FADE_IN     = 0.45
 local FADE_OUT    = 1.2
+local SLICE_MARGIN  = 60  -- smaller than Settings (80) so corners fit in 160-tall card
+local SHADOW_OFFSET = 14
+local INSET_X       = 50  -- keep text well clear of torn-paper edges
+local INSET_TOP     = 20
+local INSET_BOTTOM  = 20
 
 ------------------------------------------------------------------------
 -- Narrator templates -- pre-canned because we can't call an LLM in-game.
@@ -86,50 +91,48 @@ local function buildCard()
   card:Hide()
   card:SetAlpha(0)
 
-  -- Parchment background -- use the FULL scroll sprite from the 1024x2048
-  -- source (top 47% is the complete decorated parchment with torn-paper
-  -- edges and rolled-paper top). For a wide-and-short card this still
-  -- reads as a small letter, with the natural drop shadow lifting it off
-  -- the background.
+  -- 9-slice parchment background. Mirrors YUI's DUIGenericTitledFrame:
+  -- GenericFrame.png with corner slices kept crisp, body region tiled,
+  -- background extended past frame bounds for a soft drop shadow.
   local bg = card:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints(card)
-  bg:SetTexture(NS.ADDON_PATH .. "\\Art\\Parchment.png")
-  bg:SetTexCoord(0.02, 0.98, 0.02, 0.47)
+  bg:SetTexture(NS.ADDON_PATH .. "\\Art\\GenericFrame.png")
+  bg:SetPoint("TOPLEFT",     card, "TOPLEFT",     -SHADOW_OFFSET,  SHADOW_OFFSET)
+  bg:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT",  SHADOW_OFFSET, -SHADOW_OFFSET)
+  pcall(bg.SetTextureSliceMargins, bg, SLICE_MARGIN, SLICE_MARGIN, SLICE_MARGIN, SLICE_MARGIN)
+  if bg.SetTextureSliceMode and Enum and Enum.UITextureSliceMode then
+    pcall(bg.SetTextureSliceMode, bg, Enum.UITextureSliceMode.Tiled)
+  end
 
-  -- (No external vignette layer -- the parchment sprite already has its
-  -- own torn-paper edges and drop shadow; adding a dark rectangle vignette
-  -- creates a "grey box around the letter" effect that breaks the illusion.)
-
-  -- Header label -- italicized narrator chrome
+  -- Header label -- dark brown ink on parchment, not gold (gold reads
+  -- invisible against the parchment color).
   local header = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  header:SetPoint("TOP", card, "TOP", 0, -14)
-  header:SetTextColor(0.78, 0.62, 0.32, 1)
-  header:SetText("|cFFC9A969-- a chapter in the chronicle --|r")
+  header:SetPoint("TOP", card, "TOP", 0, -INSET_TOP)
+  header:SetTextColor(0.45, 0.30, 0.16, 1)
+  header:SetText("-- a chapter in the chronicle --")
   card.header = header
 
-  -- Divider line under header
+  -- Divider line under header (subtle, sized to safe interior)
   local divider = card:CreateTexture(nil, "OVERLAY")
   divider:SetTexture(NS.ADDON_PATH .. "\\Art\\Divider.png")
-  divider:SetSize(360, 8)
+  divider:SetSize(CARD_WIDTH - 2 * INSET_X - 30, 8)
   divider:SetPoint("TOP", header, "BOTTOM", 0, -4)
-  divider:SetVertexColor(1, 1, 1, 0.6)
+  divider:SetVertexColor(1, 1, 1, 0.55)
 
-  -- Body text -- the actual narrator line
+  -- Body text -- the narrator line. Anchored to a SAFE interior rect so
+  -- it never overflows the torn-paper edges left/right.
   local body = card:CreateFontString(nil, "OVERLAY")
   body:SetFont(STANDARD_TEXT_FONT, 16, "")
   if GameFontNormalLarge then
-    -- Use Morpheus-style font if game exposes it (it does on retail; the
-    -- serif feel is what we want for letter copy).
     local f = GameFontNormalLarge:GetFont()
     if f then body:SetFont(f, 16, "") end
   end
-  body:SetPoint("LEFT", card, "LEFT", 28, 0)
-  body:SetPoint("RIGHT", card, "RIGHT", -28, 0)
-  body:SetPoint("BOTTOM", card, "BOTTOM", 0, 22)
+  body:SetPoint("TOPLEFT",     card, "TOPLEFT",      INSET_X,        -(INSET_TOP + 30))
+  body:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -INSET_X,         INSET_BOTTOM)
   body:SetJustifyH("CENTER")
   body:SetJustifyV("MIDDLE")
   body:SetTextColor(0.18, 0.12, 0.06, 1)
-  body:SetSpacing(2)
+  body:SetSpacing(3)
+  body:SetWordWrap(true)
   card.body = body
 
   -- Click-to-dismiss
