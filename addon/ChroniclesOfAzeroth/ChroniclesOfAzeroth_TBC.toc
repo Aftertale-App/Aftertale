@@ -1,10 +1,14 @@
 ## Interface: 20505
 ## Title: Chronicles of Azeroth
-## Notes: Event spike -- captures WoW events to validate the simulator contract.
+## Notes: Turn your play into a chronicle -- captures events + a parchment-style story UI.
 ## Author: snoblitz
-## Version: 0.3.1
+## Version: 0.4.0
 ## SavedVariables: ChroniclesOfAzerothDB
 ## DefaultState: enabled
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 
 ChroniclesOfAzeroth.lua
+UI\StoryCard.lua
+UI\MinimapButton.lua
+UI\SessionRecap.lua
+UI\Settings.lua

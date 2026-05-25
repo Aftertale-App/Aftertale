@@ -90,6 +90,19 @@ local function ensureDB()
   if db.enrichmentEnabled == nil then db.enrichmentEnabled = true end
   -- Phase 0.75-C: character registry keyed by UnitGUID("player").
   db.characters = db.characters or {}
+  -- Phase 1.6: user-facing UX toggles. Each defaults ON; users can opt out
+  -- via /coa config. Session counters live alongside so the recap pulls
+  -- from persisted state.
+  db.config = db.config or {}
+  local c = db.config
+  if c.showStoryCards     == nil then c.showStoryCards     = true end
+  if c.showLevelCards     == nil then c.showLevelCards     = true end
+  if c.showSessionRecap   == nil then c.showSessionRecap   = true end
+  if c.showMinimapButton  == nil then c.showMinimapButton  = true end
+  if c.playSounds         == nil then c.playSounds         = true end
+  if c.storyCardDuration  == nil then c.storyCardDuration  = 5.0 end
+  if c.minimapAngle       == nil then c.minimapAngle       = 215  end
+  c.webAppUrl = c.webAppUrl or "https://snoblitz.github.io/Chronicles-of-Azeroth/"
   return db
 end
 
@@ -613,6 +626,28 @@ frame:SetScript("OnEvent", function(self, event, ...)
   local db = ensureDB()
   recordEvent(db, event, ...)
 
+  -- Phase 1.6: session counters + UI signal bus. UI/*.lua files subscribe
+  -- to the events they care about via NS.On(...). Wrapped so any UI
+  -- errors stay scoped and never poison the capture pipeline.
+  if NS then
+    NS.session.events = NS.session.events + 1
+    if event == "QUEST_ACCEPTED" then
+      NS.session.quests = NS.session.quests + 1
+      NS.Emit("QUEST_ACCEPTED", ...)
+    elseif event == "QUEST_TURNED_IN" then
+      NS.Emit("QUEST_TURNED_IN", ...)
+    elseif event == "PLAYER_LEVEL_UP" then
+      NS.session.levelsGained = NS.session.levelsGained + 1
+      NS.Emit("PLAYER_LEVEL_UP", ...)
+    elseif event == "GOSSIP_SHOW" then
+      NS.session.npcs = NS.session.npcs + 1
+    elseif event == "ZONE_CHANGED_NEW_AREA" then
+      NS.session.lastZone = GetZoneText and GetZoneText() or NS.session.lastZone
+    elseif event == "PLAYER_LOGOUT" then
+      NS.Emit("PLAYER_LOGOUT")
+    end
+  end
+
   -- Phase 0.75-C dispatch hooks (after recordEvent so the raw event is
   -- preserved in db.events for analysis).
   if event == "PLAYER_ENTERING_WORLD" then
@@ -624,6 +659,72 @@ frame:SetScript("OnEvent", function(self, event, ...)
 end)
 
 ------------------------------------------------------------------------
+-- Public namespace (consumed by UI/*.lua via the addon's shared table)
+--
+-- Each sibling file does `local ADDON_NAME, NS = ...` to receive this.
+-- We expose the minimum surface UI needs; everything else is private.
+------------------------------------------------------------------------
+
+NS = NS or {}
+NS.CHAT_TAG = CHAT_TAG
+NS.ADDON_PATH = "Interface\\AddOns\\" .. ADDON_NAME
+
+-- Session-only counters; reset on /reload and PLAYER_LOGOUT. Used by the
+-- session-recap banner so we can give the player closure.
+NS.session = {
+  startedAt = time(),
+  events = 0,
+  quests = 0,
+  npcs = 0,
+  levelsGained = 0,
+  lastZone = nil,
+}
+
+function NS.GetDB()
+  return ensureDB()
+end
+
+function NS.GetConfig()
+  return ensureDB().config
+end
+
+function NS.GetCurrentCharacter()
+  local db = ensureDB()
+  local guid = UnitGUID and UnitGUID("player")
+  if not guid then return nil end
+  return db.characters[guid], guid
+end
+
+function NS.PlaySound(file)
+  local cfg = NS.GetConfig()
+  if not cfg.playSounds then return end
+  if PlaySoundFile then
+    pcall(PlaySoundFile, NS.ADDON_PATH .. "\\Sound\\" .. file, "Master")
+  end
+end
+
+-- Lightweight signal bus -- UI files subscribe; core dispatches after
+-- recordEvent. Keeps UI cleanly decoupled from the capture pipeline.
+NS._subs = NS._subs or {}
+function NS.On(event, handler)
+  NS._subs[event] = NS._subs[event] or {}
+  table.insert(NS._subs[event], handler)
+end
+function NS.Emit(event, ...)
+  local list = NS._subs[event]
+  if not list then return end
+  for _, h in ipairs(list) do
+    local ok, err = pcall(h, ...)
+    if not ok then
+      -- swallow UI errors; never let cosmetic UX break the capture path
+      if DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage(CHAT_TAG .. " UI handler error: " .. tostring(err))
+      end
+    end
+  end
+end
+
+------------------------------------------------------------------------
 -- Slash commands
 ------------------------------------------------------------------------
 
@@ -631,6 +732,8 @@ SLASH_CHRONICLESOFAZEROTH1 = "/coa"
 
 local function cmdHelp()
   print(CHAT_TAG .. " commands:")
+  print("  /coa config            -- open the settings panel (UX toggles)")
+  print("  /coa preview           -- preview the story card")
   print("  /coa count             -- show captured event totals")
   print("  /coa tail [N]          -- print the last N events (default 10)")
   print("  /coa clear             -- wipe the capture log")
@@ -793,6 +896,12 @@ SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
   elseif cmd == "characters" then cmdCharacters()
   elseif cmd == "character" then cmdCharacterReset(arg)
   elseif cmd == "enrichment" then cmdEnrichment(arg)
+  elseif cmd == "config" or cmd == "settings" or cmd == "options" then
+    if NS and NS.OpenSettings then NS.OpenSettings()
+    else print(CHAT_TAG .. " settings UI not loaded yet -- /reload and retry.") end
+  elseif cmd == "preview" then
+    if NS and NS.PreviewStoryCard then NS.PreviewStoryCard()
+    else print(CHAT_TAG .. " preview not available yet -- /reload and retry.") end
   else
     print(CHAT_TAG .. " unknown command '" .. cmd .. "'. try /coa help.")
   end
