@@ -85,6 +85,9 @@ local function ensureDB()
   db.counts = db.counts or {}
   db.missingEvents = db.missingEvents or {}
   db.combatLogSampleRate = db.combatLogSampleRate or 50
+  -- Phase 0.75-B: per-event enrichment toggle (zone snapshot, quest titles,
+  -- NPC names, loot items, etc.). Default ON; flip off via /coa enrichment.
+  if db.enrichmentEnabled == nil then db.enrichmentEnabled = true end
   -- Phase 0.75-C: character registry keyed by UnitGUID("player").
   db.characters = db.characters or {}
   return db
@@ -133,6 +136,11 @@ local EVENTS = {
   -- Inbound addon transport (to test SendAddonMessageLogged round-trip)
   "CHAT_MSG_ADDON",
 
+  -- Phase 0.75-B enrichment: loot details + currency drops
+  "LOOT_OPENED",
+  "CHAT_MSG_LOOT",
+  "CHAT_MSG_MONEY",
+
   -- Phase 0.75-C: character detection async return channel.
   -- RequestTimePlayed() schedules TIME_PLAYED_MSG(totalSec, levelSec).
   "TIME_PLAYED_MSG",
@@ -171,6 +179,156 @@ end
 
 local combatLogCounter = 0
 
+------------------------------------------------------------------------
+-- Phase 0.75-B -- per-event enrichment
+--
+-- Goal: turn a bare "QUEST_ACCEPTED with arg '24469'" into a record the
+-- chronicle generator can actually narrate. We attach:
+--   * universal snapshot on every event (zone, subzone, level, hpPct,
+--     gameHourMin, mapID, coords)
+--   * per-event extras for the high-signal events (quest titles, NPC
+--     identity, loot items, money totals)
+--
+-- All Blizzard API calls are pcall-wrapped because surfaces drift
+-- between flavors and we never want enrichment to crash the addon.
+------------------------------------------------------------------------
+
+local function safeCall(fn, ...)
+  local ok, a, b, c, d, e, f, g, h = pcall(fn, ...)
+  if ok then return a, b, c, d, e, f, g, h end
+  return nil
+end
+
+local function snapshot()
+  local snap = {}
+  snap.zoneText    = safeCall(GetZoneText) or nil
+  snap.subzoneText = safeCall(GetSubZoneText) or nil
+  snap.minimapZone = safeCall(GetMinimapZoneText) or nil
+  if snap.zoneText == "" then snap.zoneText = nil end
+  if snap.subzoneText == "" then snap.subzoneText = nil end
+  if snap.minimapZone == "" then snap.minimapZone = nil end
+
+  local lvl = safeCall(UnitLevel, "player")
+  if lvl and lvl > 0 then snap.level = lvl end
+
+  local hp = safeCall(UnitHealth, "player")
+  local hpMax = safeCall(UnitHealthMax, "player")
+  if hp and hpMax and hpMax > 0 then
+    snap.hpPct = math.floor((hp / hpMax) * 100 + 0.5)
+  end
+
+  if C_Map and C_Map.GetBestMapForUnit then
+    local mapID = safeCall(C_Map.GetBestMapForUnit, "player")
+    if mapID then
+      snap.mapID = mapID
+      if C_Map.GetPlayerMapPosition then
+        local pos = safeCall(C_Map.GetPlayerMapPosition, mapID, "player")
+        if pos and pos.GetXY then
+          local x, y = pos:GetXY()
+          if x and y and (x > 0 or y > 0) then
+            snap.coords = { x = math.floor(x * 10000) / 10000, y = math.floor(y * 10000) / 10000 }
+          end
+        end
+      end
+    end
+  end
+
+  local h, m = safeCall(GetGameTime)
+  if h and m then snap.gameTime = string.format("%02d:%02d", h, m) end
+
+  return snap
+end
+
+local function questTitleFor(questID)
+  local id = tonumber(questID)
+  if not id then return nil end
+  if C_QuestLog and C_QuestLog.GetTitleForQuestID then
+    return safeCall(C_QuestLog.GetTitleForQuestID, id)
+  end
+  if QuestUtils_GetQuestName then
+    return safeCall(QuestUtils_GetQuestName, id)
+  end
+  return nil
+end
+
+local function captureNpc()
+  local name = safeCall(UnitName, "npc")
+  if not name then return nil end
+  local out = { name = name }
+  local guid = safeCall(UnitGUID, "npc")
+  if guid then out.guid = guid end
+  local lvl = safeCall(UnitLevel, "npc")
+  if lvl and lvl > 0 then out.level = lvl end
+  local reaction = safeCall(UnitReaction, "npc", "player")
+  if reaction then out.reaction = reaction end
+  return out
+end
+
+local function captureLoot()
+  if not GetNumLootItems then return nil end
+  local n = safeCall(GetNumLootItems) or 0
+  if n == 0 then return nil end
+  local items = {}
+  for i = 1, n do
+    local link = safeCall(GetLootSlotLink, i)
+    local _, name, qty, _, quality = safeCall(GetLootSlotInfo, i)
+    if link or name then
+      table.insert(items, {
+        slot = i,
+        link = link,
+        name = name,
+        qty = qty,
+        quality = quality,
+      })
+    end
+  end
+  if #items == 0 then return nil end
+  return items
+end
+
+local function buildEnrichment(event, args)
+  local enr = snapshot()
+
+  if event == "QUEST_ACCEPTED" or event == "QUEST_REMOVED"
+      or event == "QUEST_TURNED_IN" or event == "QUEST_COMPLETE"
+      or event == "QUEST_PROGRESS" then
+    local questID = args and args[1]
+    local title = questTitleFor(questID)
+    if title then enr.questTitle = title end
+
+  elseif event == "QUEST_DETAIL" then
+    if GetTitleText then
+      local t = safeCall(GetTitleText)
+      if t and t ~= "" then enr.questTitle = t end
+    end
+    local npc = captureNpc()
+    if npc then enr.npc = npc end
+
+  elseif event == "GOSSIP_SHOW" then
+    local npc = captureNpc()
+    if npc then enr.npc = npc end
+
+  elseif event == "LOOT_OPENED" then
+    local loot = captureLoot()
+    if loot then enr.loot = loot end
+
+  elseif event == "PLAYER_DEAD" then
+    -- Coords + zone already in snapshot; combat log unavailable to
+    -- unsigned addons on Retail, so we cannot yet name the killer.
+    enr.deathContext = "killer-unknown (no combat log access)"
+
+  elseif event == "PLAYER_LEVEL_UP" then
+    -- args[1] is new level per Blizzard docs; snapshot already has it
+    -- as the new level since UnitLevel fires after the event.
+    if GetXPExhaustion then
+      local rest = safeCall(GetXPExhaustion)
+      if rest then enr.restedXP = rest end
+    end
+  end
+
+  return enr
+end
+
 local function recordEvent(db, event, ...)
   local args
   if event == "COMBAT_LOG_EVENT_UNFILTERED" then
@@ -197,6 +355,10 @@ local function recordEvent(db, event, ...)
     event = event,
     args = args,
   }
+  if db.enrichmentEnabled and event ~= "COMBAT_LOG_EVENT_UNFILTERED" then
+    -- COMBAT_LOG is sampled and high-volume; skip enrichment for it.
+    rec.enrichment = buildEnrichment(event, args)
+  end
   table.insert(db.events, rec)
 
   -- Mirror compact form via SendAddonMessageLogged so we can also verify
@@ -475,6 +637,17 @@ local function cmdHelp()
   print("  /coa version           -- show addon + client version info")
   print("  /coa characters        -- list characters Chronicles has seen")
   print("  /coa character reset <guid>  -- force re-onboarding for a character")
+  print("  /coa enrichment [on|off]  -- toggle per-event enrichment (zone/quest title/NPC/loot)")
+end
+
+local function cmdEnrichment(arg)
+  local db = ensureDB()
+  if arg == "on" or arg == "true" or arg == "1" then
+    db.enrichmentEnabled = true
+  elseif arg == "off" or arg == "false" or arg == "0" then
+    db.enrichmentEnabled = false
+  end
+  print(string.format("%s enrichment is %s.", CHAT_TAG, db.enrichmentEnabled and "ON" or "OFF"))
 end
 
 local function cmdCount()
@@ -617,6 +790,7 @@ SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
   elseif cmd == "version" then cmdVersion()
   elseif cmd == "characters" then cmdCharacters()
   elseif cmd == "character" then cmdCharacterReset(arg)
+  elseif cmd == "enrichment" then cmdEnrichment(arg)
   else
     print(CHAT_TAG .. " unknown command '" .. cmd .. "'. try /coa help.")
   end
