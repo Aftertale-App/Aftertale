@@ -91,19 +91,16 @@ local function buildPanel()
   panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
   panel:Hide()
 
-  -- Parchment background -- clip to the OPAQUE BODY band of the source
-  -- (1024x2048 image has decorative scroll caps and a torn-paper element
-  -- in its lower half that we don't want stretched into the panel).
+  -- Parchment background -- use the FULL scroll sprite (top 46% of the
+  -- 1024x2048 source contains the complete parchment with torn-paper
+  -- edges, rolled top, and natural drop shadow). Stretch to fill panel.
   local bg = panel:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints(panel)
   bg:SetTexture(NS.ADDON_PATH .. "\\Art\\Parchment.png")
-  bg:SetTexCoord(0.06, 0.94, 0.10, 0.55)
+  bg:SetTexCoord(0.02, 0.98, 0.02, 0.47)
 
-  -- Vignette edges
-  local vig = panel:CreateTexture(nil, "BORDER")
-  vig:SetAllPoints(panel)
-  vig:SetTexture(NS.ADDON_PATH .. "\\Art\\ScreenVignette.png")
-  vig:SetVertexColor(0, 0, 0, 0.5)
+  -- (No external vignette -- the parchment sprite has its own drop shadow
+  -- that's enough to lift it off the background.)
 
   -- Title
   local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -120,16 +117,11 @@ local function buildPanel()
   div:SetPoint("TOP", sub, "BOTTOM", 0, -8)
   div:SetVertexColor(1, 1, 1, 0.6)
 
-  -- Close button (YUI's CloseButton.png -- warm brown X that matches parchment)
-  local close = CreateFrame("Button", nil, panel)
-  close:SetSize(28, 28)
-  close:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -10)
-  local cx = close:CreateTexture(nil, "ARTWORK")
-  cx:SetAllPoints(close)
-  cx:SetTexture(NS.ADDON_PATH .. "\\Art\\CloseButton.png")
-  cx:SetTexCoord(0, 0.5, 0, 0.5)
-  close:SetScript("OnEnter", function() cx:SetTexCoord(0.5, 1, 0, 0.5); cx:SetVertexColor(1.1, 1.0, 0.8, 1) end)
-  close:SetScript("OnLeave", function() cx:SetTexCoord(0, 0.5, 0, 0.5); cx:SetVertexColor(1, 1, 1, 1) end)
+  -- Close button -- a simple parchment-style "X" that matches the rest of
+  -- the panel's button palette. (The YUI CloseButton.png is a 3-sprite
+  -- atlas that requires more glue than it's worth at this size.)
+  local close = makeParchmentButton(panel, "X", 26, 26)
+  close:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -18, -18)
   close:SetScript("OnClick", function() panel:Hide() end)
 
   -- Checkboxes
