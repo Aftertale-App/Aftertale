@@ -82,34 +82,14 @@ export function ChronicleReader() {
     setError(null);
     setRecap(null);
     try {
-      const choice = MODEL_CHOICES[modelIdx];
-      const provider = await choice.factory();
       const scopedEntries =
         mode === 'latest'
           ? visibleEntries
           : visibleEntries.slice(-FULL_RECAP_ENTRY_LIMIT);
-      const res = await provider.chat({
-        task: 'summary',
-        model: choice.pricingKey,
-        maxTokens: 1800,
-        temperature: 0.7,
-        messages: [
-          {
-            role: 'system',
-            content: [
-              'You are the in-world chronicler for Chronicles of Azeroth.',
-              'Write polished story prose from structured character-history notes.',
-              'Use only the provided facts. Do not invent completed quests, locations, NPC relationships, or outcomes.',
-              'Keep the hero as the subject. Do not mention prompts, models, localStorage, UI tabs, or the app.',
-              'Output plain text with a title, 3-5 short paragraphs, and a final "So what changed:" section with 3 bullets.',
-            ].join('\n'),
-          },
-          {
-            role: 'user',
-            content: buildRecapPrompt(bible, scopedEntries, mode, visibleEntries.length),
-          },
-        ],
-      });
+      const res = await requestCampfireRecap(
+        modelIdx,
+        buildRecapPrompt(bible, scopedEntries, mode, visibleEntries.length),
+      );
       setRecap(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -234,19 +214,15 @@ export function ChronicleReader() {
             </div>
           )}
 
-          {recap && (
-            <article className="coa-chronicle-recap">
-              <span className="coa-bubble-label">CAMPFIRE RECAP</span>
-              <div>{recap.text}</div>
-              <footer>
-                {recap.inputTokens} in / {recap.cachedInputTokens} cached / {recap.outputTokens} out ·{' '}
-                {recap.latencyMs.toFixed(0)}ms · {recap.model}
-              </footer>
-            </article>
-          )}
+          {recap && <CampfireRecapArticle recap={recap} />}
 
           {mode === 'sessions' ? (
-            <SessionTrail sessions={sessions} />
+            <SessionTrail
+              sessions={sessions}
+              bible={bible}
+              modelIdx={modelIdx}
+              onModelChange={setModelIdx}
+            />
           ) : (
             <section className="coa-chronicle-book">
               <header>
@@ -397,7 +373,85 @@ function InsightGrid({
   );
 }
 
-function SessionTrail({ sessions }: { sessions: ChronicleSession[] }) {
+async function requestCampfireRecap(modelIdx: number, prompt: string): Promise<LLMResponse> {
+  const choice = MODEL_CHOICES[modelIdx];
+  const provider = await choice.factory();
+  return provider.chat({
+    task: 'summary',
+    model: choice.pricingKey,
+    maxTokens: 1800,
+    temperature: 0.7,
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'You are the in-world chronicler for Chronicles of Azeroth.',
+          'Write polished story prose from structured character-history notes.',
+          'Use only the provided facts. Do not invent completed quests, locations, NPC relationships, or outcomes.',
+          'Keep the hero as the subject. Do not mention prompts, models, localStorage, UI tabs, or the app.',
+          'Output plain text with a title, 3-5 short paragraphs, and a final "So what changed:" section with 3 bullets.',
+        ].join('\n'),
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+  });
+}
+
+function CampfireRecapArticle({ recap }: { recap: LLMResponse }) {
+  return (
+    <article className="coa-chronicle-recap">
+      <span className="coa-bubble-label">CAMPFIRE RECAP</span>
+      <div>{recap.text}</div>
+      <footer>
+        {recap.inputTokens} in / {recap.cachedInputTokens} cached / {recap.outputTokens} out ·{' '}
+        {recap.latencyMs.toFixed(0)}ms · {recap.model}
+      </footer>
+    </article>
+  );
+}
+
+function SessionTrail({
+  sessions,
+  bible,
+  modelIdx,
+  onModelChange,
+}: {
+  sessions: ChronicleSession[];
+  bible: CharacterBible;
+  modelIdx: number;
+  onModelChange: (modelIdx: number) => void;
+}) {
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(sessions[0]?.id ?? null);
+  const [busySessionId, setBusySessionId] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionRecaps, setSessionRecaps] = useState<Record<string, LLMResponse>>({});
+
+  useEffect(() => {
+    if (sessions.length === 0) {
+      setSelectedSessionId(null);
+      return;
+    }
+    if (!selectedSessionId || !sessions.some((session) => session.id === selectedSessionId)) {
+      setSelectedSessionId(sessions[0].id);
+    }
+  }, [sessions, selectedSessionId]);
+
+  async function generateSelectedSessionRecap(session: ChronicleSession) {
+    setBusySessionId(session.id);
+    setSessionError(null);
+    try {
+      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session));
+      setSessionRecaps((current) => ({ ...current, [session.id]: res }));
+    } catch (err) {
+      setSessionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusySessionId(null);
+    }
+  }
+
   return (
     <section className="coa-chronicle-book coa-session-trail">
       <header>
@@ -414,9 +468,15 @@ function SessionTrail({ sessions }: { sessions: ChronicleSession[] }) {
         </p>
       ) : (
         <div className="coa-session-list">
-          {sessions.map((session, i) => (
-            <details key={session.id} className="coa-session-card" open={i === 0}>
-              <summary>
+          {sessions.map((session) => (
+            <details key={session.id} className="coa-session-card" open={selectedSessionId === session.id}>
+              <summary
+                onClick={(event) => {
+                  event.preventDefault();
+                  setSelectedSessionId(session.id);
+                  setSessionError(null);
+                }}
+              >
                 <div>
                   <span className="coa-chronicle-chapter-num">{session.isOpen ? 'Active session' : 'Closed session'}</span>
                   <h4>{session.title}</h4>
@@ -428,6 +488,43 @@ function SessionTrail({ sessions }: { sessions: ChronicleSession[] }) {
                 </div>
                 <strong>{session.stats.questsCompleted} quests · +{session.stats.levelsGained} levels</strong>
               </summary>
+
+              <section className="coa-session-campfire-hero">
+                <div className="coa-session-campfire-head">
+                  <div>
+                    <p className="coa-kicker">Selected session campfire</p>
+                    <h4>Make this session the story</h4>
+                    <p className="muted">
+                      Writes the same full campfire recap as Latest session, scoped to this session's addon-observed facts.
+                    </p>
+                  </div>
+                  <div className="coa-chronicle-generate-controls">
+                    <ModelPicker value={modelIdx} onChange={onModelChange} disabled={Boolean(busySessionId)} label="Narrator model" />
+                    <button
+                      className="coa-btn coa-btn-primary"
+                      onClick={() => generateSelectedSessionRecap(session)}
+                      disabled={Boolean(busySessionId)}
+                    >
+                      {busySessionId === session.id ? 'Writing...' : '◆ Write session recap'}
+                    </button>
+                  </div>
+                </div>
+
+                {sessionError && selectedSessionId === session.id && (
+                  <div className="coa-callout-danger coa-chronicle-error">
+                    <strong>Session recap failed:</strong> {sessionError}
+                  </div>
+                )}
+
+                {sessionRecaps[session.id] ? (
+                  <CampfireRecapArticle recap={sessionRecaps[session.id]} />
+                ) : (
+                  <p className="coa-session-campfire-empty">
+                    No generated recap yet. Pick this session, hit the button, and the Chronicle will turn these facts into the
+                    title, paragraphs, and "So what changed" section.
+                  </p>
+                )}
+              </section>
 
               <div className="coa-session-stats">
                 <article>
@@ -471,17 +568,87 @@ function SessionTrail({ sessions }: { sessions: ChronicleSession[] }) {
                   ))}
                 </ol>
               </div>
-
-              <article className="coa-session-campfire">
-                <span className="coa-bubble-label">CAMPFIRE RECAP</span>
-                <p>{session.campfireRecap}</p>
-              </article>
             </details>
           ))}
         </div>
       )}
     </section>
   );
+}
+
+function buildSessionRecapPrompt(bible: CharacterBible, session: ChronicleSession): string {
+  const historyEntries = (bible.history ?? []).filter((entry) =>
+    session.records.some((record) => entry.id === `addon_${record.event.id}`),
+  );
+
+  return [
+    `Hero: ${bible.name}, ${bible.faction} ${bible.race} ${bible.class}`,
+    typeof bible.level === 'number' ? `Current level: ${bible.level}` : null,
+    bible.currentZone ? `Current zone: ${bible.currentZone}` : null,
+    bible.homeland ? `Homeland: ${bible.homeland}` : null,
+    bible.coreQuote ? `Core sentence: ${bible.coreQuote}` : null,
+    '',
+    'Voice:',
+    bible.voice,
+    '',
+    'Backstory:',
+    bible.backstory,
+    '',
+    'Beliefs:',
+    ...bible.beliefs.map((belief) => `- ${belief}`),
+    '',
+    'Motivations:',
+    ...bible.motivations.map((motivation) => `- ${motivation}`),
+    ...(bible.fears && bible.fears.length > 0
+      ? ['', 'Fears:', ...bible.fears.map((fear) => `- ${fear}`)]
+      : []),
+    ...(bible.flaws && bible.flaws.length > 0
+      ? ['', 'Flaws:', ...bible.flaws.map((flaw) => `- ${flaw}`)]
+      : []),
+    '',
+    'Scope: selected addon-observed play session from Session trail.',
+    'Write this as character story, not a stats dashboard. Use counters only when they support the narrative.',
+    `Session title: ${session.title}`,
+    `Session window: ${formatDateRange(session.startedAt, session.finishedAt)}`,
+    `Duration: ${formatDuration(session.finishedAt - session.startedAt)}`,
+    `Level movement: ${levelRange(session)}`,
+    session.startZone || session.endZone ? `Zone movement: ${session.startZone ?? 'unknown'} -> ${session.endZone ?? 'unknown'}` : null,
+    session.stats.zonesVisited.length > 0 ? `Zones observed: ${session.stats.zonesVisited.join(' -> ')}` : null,
+    `Session facts: ${session.stats.questsAccepted} quests accepted, ${session.stats.questsCompleted} quests completed, ${session.stats.levelsGained} levels gained, ${session.stats.deaths} deaths, ${session.stats.kills} notable kills, ${session.stats.npcsMet} NPCs met.`,
+    session.stats.notableUnits.length > 0 ? `Notable foes: ${session.stats.notableUnits.join(', ')}` : null,
+    session.stats.notableItems.length > 0 ? `Notable items: ${session.stats.notableItems.join(', ')}` : null,
+    session.isOpen ? 'Session status: still active; do not write it as fully resolved.' : 'Session status: closed.',
+    '',
+    historyEntries.length > 0 ? 'Chronicle entries from this session, oldest first:' : null,
+    ...historyEntries.map((entry) => `- ${formatPromptTimestamp(entry.timestamp)}${entryContext(entry) ? ` (${entryContext(entry)})` : ''}: ${entry.text}`),
+    historyEntries.length > 0 ? '' : null,
+    'Addon-observed facts from this session, oldest first:',
+    ...session.records.map(sessionRecordPromptLine),
+  ]
+    .filter((line): line is string => line !== null)
+    .join('\n');
+}
+
+function sessionRecordPromptLine(record: AddonEventRecord): string {
+  const event = record.event;
+  const story = event.storyCard
+    ? [
+        `story moment: ${event.storyCard.moment}`,
+        `setup: ${event.storyCard.setup}`,
+        `player action: ${event.storyCard.playerAction}`,
+        `outcome: ${event.storyCard.outcome}`,
+        `emotional weight: ${event.storyCard.emotionalWeight}`,
+        `chronicle entry: ${event.storyCard.chronicleEntry}`,
+      ].join('; ')
+    : null;
+  const questText = event.questTextEnrichment?.text.trim()
+    ? `quest text note: ${event.questTextEnrichment.text.trim()}`
+    : null;
+  return [
+    `- ${formatPromptTimestamp(event.timestamp)}: ${eventFactLine(event)}`,
+    story ? ` [${story}]` : '',
+    questText ? ` [${questText}]` : '',
+  ].join('');
 }
 
 function buildRecapPrompt(
