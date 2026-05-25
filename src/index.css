@@ -2200,3 +2200,225 @@ select.coa-input {
     font-size: 19px;
   }
 }
+
+/* ============================================================================
+   Trait Selection Wizard + Inspire Me cards
+   ============================================================================ */
+
+.coa-trait-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.coa-trait-wizard-header h2 {
+  font-family: var(--font-display);
+  color: var(--gold-bright);
+  margin: 0 0 0.4rem;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+.coa-trait-wizard-header .muted {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.coa-trait-buckets {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.coa-trait-bucket {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 1rem 1.1rem 1.2rem;
+  background: var(--bg-elevated);
+}
+
+.coa-trait-bucket-header {
+  margin-bottom: 0.8rem;
+}
+
+.coa-trait-bucket-label {
+  font-family: var(--font-display);
+  color: var(--gold);
+  margin: 0 0 0.2rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+.coa-trait-bucket-desc {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.coa-trait-chip-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.55rem;
+}
+
+.coa-trait-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.65rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms, transform 80ms;
+}
+
+.coa-trait-chip:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-strong);
+}
+
+.coa-trait-chip:active {
+  transform: translateY(1px);
+}
+
+.coa-trait-chip-selected,
+.coa-trait-chip-selected:hover {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(212, 163, 115, 0.12), rgba(212, 163, 115, 0.04));
+  box-shadow: var(--sh-glow-gold);
+}
+
+.coa-trait-chip:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+.coa-trait-chip-label {
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--gold-bright);
+  letter-spacing: 0.01em;
+}
+
+.coa-trait-chip-selected .coa-trait-chip-label {
+  color: var(--gold-bright);
+}
+
+.coa-trait-chip-desc {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: var(--fg-muted);
+  line-height: 1.35;
+}
+
+.coa-trait-wizard-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(180deg, rgba(21,17,13,0.85), var(--bg-elevated));
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  backdrop-filter: blur(6px);
+}
+
+.coa-trait-progress {
+  font-family: var(--font-body);
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+}
+
+.coa-trait-wizard-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* --- Inspire Me cards (used in onboarding open-text answer screen) --- */
+
+.coa-inspire-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+}
+
+.coa-inspire-trigger {
+  align-self: flex-start;
+}
+
+.coa-inspire-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.7rem;
+}
+
+.coa-inspire-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms;
+  color: var(--fg);
+  font-family: inherit;
+}
+
+.coa-inspire-card:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--magic);
+  box-shadow: var(--sh-glow-magic);
+}
+
+.coa-inspire-card-selected,
+.coa-inspire-card-selected:hover {
+  border-color: var(--magic);
+  background: linear-gradient(180deg, rgba(184, 158, 255, 0.12), rgba(184, 158, 255, 0.04));
+  box-shadow: var(--sh-glow-magic);
+}
+
+.coa-inspire-card:focus-visible {
+  outline: 2px solid var(--magic);
+  outline-offset: 2px;
+}
+
+.coa-inspire-card-title {
+  font-family: var(--font-display);
+  color: var(--magic);
+  font-size: 1.02rem;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.coa-inspire-card-text {
+  font-family: var(--font-body);
+  font-size: 0.96rem;
+  line-height: 1.45;
+  color: var(--fg);
+}
+
+.coa-inspire-meta {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--fg-faint);
+  font-family: var(--font-body);
+}
