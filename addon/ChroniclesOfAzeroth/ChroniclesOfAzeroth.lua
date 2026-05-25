@@ -52,11 +52,28 @@ end
 -- Saved data
 --
 -- ChroniclesOfAzerothDB = {
---   meta = { version, project, build, characterName, realm, startedAt },
---   events = { { t, event, args = {...} }, ... },
+--   meta = { version, project, build, characterName, realm, startedAt,
+--            chatLogEnabled, combatLogEnabled },
+--   events = { { t, ts, event, args = {...} }, ... },
 --   counts = { [eventName] = number },
 --   combatLogSampleRate = 50,
---   missingEvents = { [eventName] = true } -- events RegisterEvent rejected
+--   missingEvents = { [eventName] = reasonString },
+--   characters = {                              -- Phase 0.75-C
+--     [guid] = {
+--       identity = { guid, name, realm, class, classFile, race, raceFile,
+--                    sex, faction },
+--       firstSeen = { timestamp, iso, level, mapID, zoneText, subzoneText,
+--                     coords = { x, y }, addonBuild, project,
+--                     timePlayedSec, levelTimeSec },
+--       lastSeen = { timestamp, iso, level, zoneText, subzoneText },
+--       classification = "brand-new" | "boosted" | "pre-existing" | "pending",
+--       classificationReason = string,
+--       onboardingState = "pending" | "seeded" | "complete" | "skipped",
+--       onboardingPayloadVersion = number,
+--       announced = boolean,                    -- chat-frame ping fired?
+--       sightings = number,                     -- count of PEWs we have seen
+--     },
+--   },
 -- }
 ------------------------------------------------------------------------
 
@@ -68,6 +85,8 @@ local function ensureDB()
   db.counts = db.counts or {}
   db.missingEvents = db.missingEvents or {}
   db.combatLogSampleRate = db.combatLogSampleRate or 50
+  -- Phase 0.75-C: character registry keyed by UnitGUID("player").
+  db.characters = db.characters or {}
   return db
 end
 
@@ -113,6 +132,10 @@ local EVENTS = {
 
   -- Inbound addon transport (to test SendAddonMessageLogged round-trip)
   "CHAT_MSG_ADDON",
+
+  -- Phase 0.75-C: character detection async return channel.
+  -- RequestTimePlayed() schedules TIME_PLAYED_MSG(totalSec, levelSec).
+  "TIME_PLAYED_MSG",
 }
 
 -- Events known to be refused by RegisterEvent on certain flavors.
@@ -187,6 +210,183 @@ local function recordEvent(db, event, ...)
 end
 
 ------------------------------------------------------------------------
+-- Character detection -- Phase 0.75-C
+--
+-- Identity = UnitGUID("player"). Stable within a character's lifetime
+-- except for paid realm transfer / faction change (both regenerate the
+-- GUID). For v1 those will look like a new character; merge UX is
+-- deferred to the app side.
+--
+-- Classification fires once per character per Chronicles-installation,
+-- the first time we see a GUID. Three lanes:
+--   * brand-new      timePlayed <  60s, level == 1   -> birth voice
+--   * boosted        timePlayed <  60s, level  > 1   -> arrival-w/o-memory voice
+--   * pre-existing   timePlayed >= 60s               -> met-mid-journey voice
+--
+-- GetTimePlayed is asynchronous: RequestTimePlayed() schedules
+-- TIME_PLAYED_MSG, which arrives moments later with (total, level).
+-- We snapshot identity + location synchronously on PLAYER_ENTERING_WORLD,
+-- park a pending record, and finalize when TIME_PLAYED_MSG fires.
+--
+-- "firstSeen" means first-seen-by-Chronicles, not character birth. A
+-- level-60 main installed-into-mid-life will have firstSeen pointing at
+-- whatever zone they happened to be standing in when the addon loaded.
+------------------------------------------------------------------------
+
+local CHRONICLES_TAG = "|cff00ff00[Chronicles]|r"
+
+local pendingCharacterGuid = nil
+
+local function snapshotIdentity()
+  local guid = UnitGUID("player")
+  if not guid then return nil end
+  local localizedClass, classFile = UnitClass("player")
+  local localizedRace, raceFile = UnitRace("player")
+  local faction = UnitFactionGroup("player")
+  return {
+    guid = guid,
+    name = UnitName("player") or "?",
+    realm = GetRealmName() or "?",
+    class = localizedClass,
+    classFile = classFile,
+    race = localizedRace,
+    raceFile = raceFile,
+    sex = UnitSex("player"), -- 1=neutral, 2=male, 3=female per Blizzard API
+    faction = faction,        -- "Alliance" | "Horde" | "Neutral"
+  }
+end
+
+local function snapshotLocation()
+  local mapID = (C_Map and C_Map.GetBestMapForUnit) and C_Map.GetBestMapForUnit("player") or nil
+  local coords
+  if mapID and C_Map and C_Map.GetPlayerMapPosition then
+    local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+    if pos then
+      local x, y = pos:GetXY()
+      coords = { x = x, y = y }
+    end
+  end
+  return {
+    mapID = mapID,
+    zoneText = GetZoneText() or "",
+    subzoneText = GetSubZoneText() or "",
+    coords = coords,
+  }
+end
+
+local function classify(timePlayedSec, level)
+  if (timePlayedSec or 0) < 60 and (level or 0) == 1 then
+    return "brand-new", string.format("timePlayedSec=%s, level=1", tostring(timePlayedSec))
+  end
+  if (timePlayedSec or 0) < 60 and (level or 0) > 1 then
+    return "boosted", string.format("timePlayedSec=%s, level=%d", tostring(timePlayedSec), level)
+  end
+  return "pre-existing", string.format("timePlayedSec=%s, level=%d", tostring(timePlayedSec), level or 0)
+end
+
+local function announceNewCharacter(record)
+  local lvl = record.firstSeen.level or 0
+  local zone = record.firstSeen.zoneText
+  if not zone or zone == "" then zone = "the world" end
+  local pronoun
+  if record.identity.sex == 3 then pronoun = "her"
+  elseif record.identity.sex == 2 then pronoun = "his"
+  else pronoun = "their" end
+  print(string.format(
+    "%s New character detected: %s (%s %s, lvl %d, %s) -- %s. Open the Chronicles app to begin %s story.",
+    CHRONICLES_TAG,
+    record.identity.name,
+    record.identity.race or "?",
+    record.identity.class or "?",
+    lvl,
+    zone,
+    record.classification,
+    pronoun
+  ))
+end
+
+local function bumpLastSeen(record, identity)
+  record.lastSeen = {
+    timestamp = time(),
+    iso = date("%Y-%m-%dT%H:%M:%S"),
+    level = UnitLevel("player") or 0,
+    zoneText = GetZoneText() or "",
+    subzoneText = GetSubZoneText() or "",
+  }
+  -- Refresh identity in case of name change (race change, appearance change
+  -- preserve GUID but mutate fingerprint fields).
+  record.identity = identity
+  record.sightings = (record.sightings or 0) + 1
+end
+
+local function beginCharacterDetection(db)
+  local identity = snapshotIdentity()
+  if not identity or not identity.guid then return end
+
+  local existing = db.characters[identity.guid]
+  if existing then
+    bumpLastSeen(existing, identity)
+    return
+  end
+
+  local location = snapshotLocation()
+  local record = {
+    identity = identity,
+    firstSeen = {
+      timestamp = time(),
+      iso = date("%Y-%m-%dT%H:%M:%S"),
+      level = UnitLevel("player") or 0,
+      mapID = location.mapID,
+      zoneText = location.zoneText,
+      subzoneText = location.subzoneText,
+      coords = location.coords,
+      addonBuild = select(4, GetBuildInfo()) or "?",
+      project = projectName(),
+    },
+    classification = "pending",
+    classificationReason = "awaiting TIME_PLAYED_MSG",
+    onboardingState = "pending",
+    onboardingPayloadVersion = 1,
+    announced = false,
+    sightings = 1,
+  }
+  db.characters[identity.guid] = record
+  pendingCharacterGuid = identity.guid
+
+  if RequestTimePlayed then
+    RequestTimePlayed()
+  else
+    -- No async return channel available; classify with what we have.
+    record.firstSeen.timePlayedSec = -1
+    record.classification, record.classificationReason = classify(9999, record.firstSeen.level)
+    record.classificationReason = record.classificationReason .. " (RequestTimePlayed unavailable)"
+    if not record.announced then
+      announceNewCharacter(record)
+      record.announced = true
+    end
+    pendingCharacterGuid = nil
+  end
+end
+
+local function finalizeCharacterDetection(db, totalTimeSec, levelTimeSec)
+  local guid = pendingCharacterGuid
+  if not guid then return end
+  local record = db.characters[guid]
+  if not record then
+    pendingCharacterGuid = nil
+    return
+  end
+  record.firstSeen.timePlayedSec = totalTimeSec
+  record.firstSeen.levelTimeSec = levelTimeSec
+  record.classification, record.classificationReason = classify(totalTimeSec, record.firstSeen.level)
+  if not record.announced then
+    announceNewCharacter(record)
+    record.announced = true
+  end
+  pendingCharacterGuid = nil
+end
+
+------------------------------------------------------------------------
 -- Frame + registration
 ------------------------------------------------------------------------
 
@@ -248,6 +448,15 @@ frame:SetScript("OnEvent", function(self, event, ...)
 
   local db = ensureDB()
   recordEvent(db, event, ...)
+
+  -- Phase 0.75-C dispatch hooks (after recordEvent so the raw event is
+  -- preserved in db.events for analysis).
+  if event == "PLAYER_ENTERING_WORLD" then
+    beginCharacterDetection(db)
+  elseif event == "TIME_PLAYED_MSG" then
+    local totalTimeSec, levelTimeSec = ...
+    finalizeCharacterDetection(db, totalTimeSec, levelTimeSec)
+  end
 end)
 
 ------------------------------------------------------------------------
@@ -258,12 +467,14 @@ SLASH_CHRONICLESOFAZEROTH1 = "/coa"
 
 local function cmdHelp()
   print(CHAT_TAG .. " commands:")
-  print("  /coa count        -- show captured event totals")
-  print("  /coa tail [N]     -- print the last N events (default 10)")
-  print("  /coa clear        -- wipe the capture log")
-  print("  /coa sample N     -- set combat-log sample rate (default 50)")
-  print("  /coa missing      -- list events RegisterEvent refused on this flavor")
-  print("  /coa version      -- show addon + client version info")
+  print("  /coa count             -- show captured event totals")
+  print("  /coa tail [N]          -- print the last N events (default 10)")
+  print("  /coa clear             -- wipe the capture log")
+  print("  /coa sample N          -- set combat-log sample rate (default 50)")
+  print("  /coa missing           -- list events RegisterEvent refused on this flavor")
+  print("  /coa version           -- show addon + client version info")
+  print("  /coa characters        -- list characters Chronicles has seen")
+  print("  /coa character reset <guid>  -- force re-onboarding for a character")
 end
 
 local function cmdCount()
@@ -295,11 +506,12 @@ local function cmdClear()
   local db = ensureDB()
   db.events = {}
   db.counts = {}
-  -- Preserve meta (populated once at ADDON_LOADED) and missingEvents
-  -- (forbidden-event annotations) across clears. Only the rolling
-  -- capture data resets.
+  -- Preserve meta (populated once at ADDON_LOADED), missingEvents
+  -- (forbidden-event annotations), and characters (Phase 0.75-C
+  -- character registry) across clears. Only the rolling capture data
+  -- resets.
   combatLogCounter = 0
-  print(CHAT_TAG .. " capture log cleared (meta preserved).")
+  print(CHAT_TAG .. " capture log cleared (meta + characters preserved).")
 end
 
 local function cmdSample(nStr)
@@ -333,6 +545,56 @@ local function cmdMissing()
   end
 end
 
+local function cmdCharacters()
+  local db = ensureDB()
+  local guids = {}
+  for k in pairs(db.characters) do table.insert(guids, k) end
+  if #guids == 0 then
+    print(CHAT_TAG .. " no characters detected yet (login once to seed).")
+    return
+  end
+  table.sort(guids, function(a, b)
+    local ra, rb = db.characters[a], db.characters[b]
+    return (ra.firstSeen.timestamp or 0) < (rb.firstSeen.timestamp or 0)
+  end)
+  print(string.format("%s %d character(s) on record:", CHAT_TAG, #guids))
+  for _, guid in ipairs(guids) do
+    local r = db.characters[guid]
+    print(string.format(
+      "  %s-%s  (%s %s, lvl %d)  [%s -> %s]  seen %dx",
+      r.identity.name, r.identity.realm,
+      r.identity.race or "?", r.identity.class or "?",
+      (r.lastSeen and r.lastSeen.level) or r.firstSeen.level or 0,
+      r.classification, r.onboardingState,
+      r.sightings or 1
+    ))
+    print(string.format("    guid: %s", guid))
+    print(string.format("    firstSeen: %s in %s (timePlayed=%s)",
+      r.firstSeen.iso or "?", r.firstSeen.zoneText or "?",
+      tostring(r.firstSeen.timePlayedSec)))
+  end
+end
+
+local function cmdCharacterReset(arg)
+  local db = ensureDB()
+  local guid = arg and arg:match("^reset%s+(.+)$") or nil
+  if not guid or guid == "" then
+    print(CHAT_TAG .. " usage: /coa character reset <guid>")
+    return
+  end
+  local r = db.characters[guid]
+  if not r then
+    print(CHAT_TAG .. " no character with guid '" .. guid .. "'.")
+    return
+  end
+  r.classification = "pending"
+  r.classificationReason = "manually reset"
+  r.onboardingState = "pending"
+  r.announced = false
+  print(string.format("%s reset onboarding for %s-%s. Will re-announce on next PEW.",
+    CHAT_TAG, r.identity.name, r.identity.realm))
+end
+
 local function cmdVersion()
   local db = ensureDB()
   print(string.format(
@@ -353,6 +615,8 @@ SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
   elseif cmd == "sample" then cmdSample(arg)
   elseif cmd == "missing" then cmdMissing()
   elseif cmd == "version" then cmdVersion()
+  elseif cmd == "characters" then cmdCharacters()
+  elseif cmd == "character" then cmdCharacterReset(arg)
   else
     print(CHAT_TAG .. " unknown command '" .. cmd .. "'. try /coa help.")
   end

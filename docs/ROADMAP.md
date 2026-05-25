@@ -69,12 +69,26 @@ Phase 2 (Lua addon) before either commits to an architecture.
   transport that Phase 1 and Phase 2 rely on
 - [x] Combat-log sampling (`/coa sample N`) so `COMBAT_LOG_EVENT_UNFILTERED`
   doesn't drown the capture
-- [ ] **Capture a real session** (~30-60 min of mixed quest / zone /
-  combat / dialogue on Retail) and a shorter Classic session
+- [x] **Capture 01** (Coldridge Valley, ~8 min) — proved chat log file
+  doesn't exist by default and `/coa clear` bug wiped meta. Both fixed.
+- [x] **Capture 02** (~29 min, Garygidney, Coldridge -> New Tinkertown
+  with death + res + multi-option NPCs) — 240 events, closed most ❓ rows
+- [x] `docs/EVENT-CONTRACT.md` — living spec with three major findings:
+  (1) `SendAddonMessageLogged` self-whisper is broken, (2) combat-log
+  file writes even without `RegisterEvent` access, (3) GUID changes on
+  realm transfer + faction change but is stable otherwise
+- [ ] **Phase 0.75-B**: addon enrichment pass (NPC names, quest titles,
+  per-event location + player snapshot, loot drops). See session plan.
+- [x] **Phase 0.75-C**: character detection (v0.2.0) — every new
+  `UnitGUID` triggers a classification (`brand-new` / `boosted` /
+  `pre-existing`) + chat-frame ping, with full identity + location +
+  time-played snapshot in `ChroniclesOfAzerothDB.characters` for the
+  app's onboarding wizard to read
 - [ ] Diff actual events against the simulator's `WowEventName` and
-  payload assumptions
-- [ ] Write up findings in `docs/EVENT-CONTRACT.md`
-- [ ] Update `src/lib/addonEvents.ts` + simulator fixtures to match reality
+  payload assumptions; update `src/lib/addonEvents.ts` + simulator
+  fixtures to match reality
+- [ ] Classic Era capture (test `COMBAT_LOG_EVENT_UNFILTERED` restriction
+  across flavors)
 
 ### Phase 0.75 exit criteria
 
