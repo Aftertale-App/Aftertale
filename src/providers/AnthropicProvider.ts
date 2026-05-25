@@ -1,7 +1,7 @@
 // ============================================================================
 // Anthropic provider — uses the official @anthropic-ai/sdk.
-// Phase 0: client-side calls. Real production deployment would proxy via backend
-// to keep the API key off the client (we don't ship Phase 0).
+// Phase 0: client-side calls. Phase 1 proxies via the Electron main process
+// so the API key never touches the renderer.
 // ============================================================================
 
 import Anthropic from '@anthropic-ai/sdk';

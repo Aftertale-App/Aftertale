@@ -7,7 +7,7 @@ import { v4 as uuid } from 'uuid';
 import type { TaskAverages, UsageRecord } from '../types';
 
 const STORAGE_KEY_PREFIX = 'coa.spend.';
-const RETENTION_DAYS = 90;
+export const SPEND_RETENTION_DAYS = 90;
 
 function dateKey(timestamp = Date.now()): string {
   const d = new Date(timestamp);
@@ -59,17 +59,24 @@ export function loadTodayRecords(): UsageRecord[] {
   return loadDay(dateKey());
 }
 
-export function purgeOldRecords(): void {
-  const cutoff = Date.now() - RETENTION_DAYS * 86_400_000;
+export function purgeOldRecords(): number {
+  const cutoff = Date.now() - SPEND_RETENTION_DAYS * 86_400_000;
+  const keysToRemove: string[] = [];
+
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key?.startsWith(STORAGE_KEY_PREFIX)) continue;
     const datePart = key.slice(STORAGE_KEY_PREFIX.length);
     const ts = Date.parse(datePart);
     if (!Number.isNaN(ts) && ts < cutoff) {
-      localStorage.removeItem(key);
+      keysToRemove.push(key);
     }
   }
+
+  for (const key of keysToRemove) {
+    localStorage.removeItem(key);
+  }
+  return keysToRemove.length;
 }
 
 // ----------------------------------------------------------------------------

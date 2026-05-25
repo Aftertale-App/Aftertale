@@ -5,9 +5,10 @@ import { CharacterCreation } from './components/CharacterCreation';
 import { NpcChat } from './components/NpcChat';
 import { CharacterSelector } from './components/CharacterSelector';
 import { SettingsPanel } from './components/SettingsPanel';
+import { AddonSimulator } from './components/AddonSimulator';
 import { getKeyStatus } from './lib/apiKeys';
 
-type Tab = 'character' | 'npc' | 'smoke';
+type Tab = 'character' | 'npc' | 'addon' | 'smoke';
 
 export function App() {
   const [tab, setTab] = useState<Tab>('character');
@@ -19,6 +20,7 @@ export function App() {
       const target = (e as CustomEvent<string>).detail;
       if (target === 'tavern' || target === 'npc') setTab('npc');
       else if (target === 'character') setTab('character');
+      else if (target === 'addon') setTab('addon');
       else if (target === 'smoke') setTab('smoke');
     }
     window.addEventListener('coa:request-tab', handler);
@@ -81,6 +83,14 @@ export function App() {
           </button>
           <button
             role="tab"
+            aria-selected={tab === 'addon'}
+            className="coa-tab"
+            onClick={() => setTab('addon')}
+          >
+            ◆ Addon Sim
+          </button>
+          <button
+            role="tab"
             aria-selected={tab === 'smoke'}
             className="coa-tab"
             onClick={() => setTab('smoke')}
@@ -92,6 +102,7 @@ export function App() {
         <div style={{ marginTop: '2rem' }}>
           {tab === 'character' && <CharacterCreation />}
           {tab === 'npc' && <NpcChat />}
+          {tab === 'addon' && <AddonSimulator />}
           {tab === 'smoke' && <SmokeTest />}
         </div>
       </main>

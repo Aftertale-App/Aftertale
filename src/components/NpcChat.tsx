@@ -196,7 +196,7 @@ export function NpcChat() {
 
     let provider: LLMProvider;
     try {
-      provider = MODEL_CHOICES[modelIdx].factory();
+      provider = await MODEL_CHOICES[modelIdx].factory();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy('idle');
@@ -255,7 +255,7 @@ export function NpcChat() {
     saveNpcThread(rewound);
 
     try {
-      const provider = MODEL_CHOICES[modelIdx].factory();
+      const provider = await MODEL_CHOICES[modelIdx].factory();
       const res = await provider.chat({
         task: 'npc-chat',
         model: MODEL_CHOICES[modelIdx].pricingKey,
@@ -348,7 +348,7 @@ export function NpcChat() {
     ].join('\n');
 
     try {
-      const provider = MODEL_CHOICES[modelIdx].factory();
+      const provider = await MODEL_CHOICES[modelIdx].factory();
       const res = await provider.chat({
         task: 'npc-chat',
         model: MODEL_CHOICES[modelIdx].pricingKey,

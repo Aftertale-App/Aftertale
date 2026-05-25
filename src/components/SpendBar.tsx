@@ -3,6 +3,8 @@ import {
   computeAverages,
   exportCsv,
   loadTodayRecords,
+  purgeOldRecords,
+  SPEND_RETENTION_DAYS,
   sumCost,
 } from '../lib/spendTracker';
 
@@ -14,6 +16,7 @@ interface SpendBarProps {
 export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {}) {
   const [tick, setTick] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const [historyMessage, setHistoryMessage] = useState<string | null>(null);
 
   // Re-read on storage events (other tabs) AND custom in-tab events.
   useEffect(() => {
@@ -42,6 +45,22 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
     a.download = `coa-spend-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function handlePurgeOldRecords() {
+    const ok = window.confirm(
+      `Remove spend-tracking buckets older than ${SPEND_RETENTION_DAYS} days?\n\n` +
+      'Recent spend records, character bibles, NPC chats, and API keys will not be touched.',
+    );
+    if (!ok) return;
+
+    const removed = purgeOldRecords();
+    setTick((n) => n + 1);
+    setHistoryMessage(
+      removed === 1
+        ? `Removed 1 spend bucket older than ${SPEND_RETENTION_DAYS} days.`
+        : `Removed ${removed} spend buckets older than ${SPEND_RETENTION_DAYS} days.`,
+    );
   }
 
   return (
@@ -86,46 +105,60 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
           {averages.length === 0 ? (
             <p style={{ opacity: 0.6 }}>No usage yet today. Make an LLM call to see data.</p>
           ) : (
-            <>
-              <table className="coa-spendbar-table">
-                <thead>
-                  <tr>
-                    <th>Task</th>
-                    <th>Model</th>
-                    <th style={{ textAlign: 'right' }}>Calls</th>
-                    <th style={{ textAlign: 'right' }}>Avg in</th>
-                    <th style={{ textAlign: 'right' }}>Avg cached</th>
-                    <th style={{ textAlign: 'right' }}>Avg out</th>
-                    <th style={{ textAlign: 'right' }}>Avg $</th>
-                    <th style={{ textAlign: 'right' }}>Total $</th>
+            <table className="coa-spendbar-table">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Model</th>
+                  <th style={{ textAlign: 'right' }}>Calls</th>
+                  <th style={{ textAlign: 'right' }}>Avg in</th>
+                  <th style={{ textAlign: 'right' }}>Avg cached</th>
+                  <th style={{ textAlign: 'right' }}>Avg out</th>
+                  <th style={{ textAlign: 'right' }}>Avg $</th>
+                  <th style={{ textAlign: 'right' }}>Total $</th>
+                </tr>
+              </thead>
+              <tbody>
+                {averages.map((a) => (
+                  <tr key={`${a.task}::${a.model}`}>
+                    <td>{a.task}</td>
+                    <td>{a.model}</td>
+                    <td style={{ textAlign: 'right' }}>{a.calls}</td>
+                    <td style={{ textAlign: 'right' }}>{a.avgInput.toFixed(0)}</td>
+                    <td style={{ textAlign: 'right' }}>{a.avgCached.toFixed(0)}</td>
+                    <td style={{ textAlign: 'right' }}>{a.avgOutput.toFixed(0)}</td>
+                    <td style={{ textAlign: 'right' }}>${a.avgCostUsd.toFixed(5)}</td>
+                    <td style={{ textAlign: 'right' }}>${a.totalCostUsd.toFixed(4)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {averages.map((a) => (
-                    <tr key={`${a.task}::${a.model}`}>
-                      <td>{a.task}</td>
-                      <td>{a.model}</td>
-                      <td style={{ textAlign: 'right' }}>{a.calls}</td>
-                      <td style={{ textAlign: 'right' }}>{a.avgInput.toFixed(0)}</td>
-                      <td style={{ textAlign: 'right' }}>{a.avgCached.toFixed(0)}</td>
-                      <td style={{ textAlign: 'right' }}>{a.avgOutput.toFixed(0)}</td>
-                      <td style={{ textAlign: 'right' }}>${a.avgCostUsd.toFixed(5)}</td>
-                      <td style={{ textAlign: 'right' }}>${a.totalCostUsd.toFixed(4)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <button
-                className="coa-btn coa-btn-secondary coa-btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleExport();
-                }}
-                style={{ marginTop: '0.75rem' }}
-              >
-                Export CSV
-              </button>
-            </>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+            <button
+              className="coa-btn coa-btn-secondary coa-btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleExport();
+              }}
+            >
+              Export CSV
+            </button>
+            <button
+              className="coa-btn coa-btn-secondary coa-btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePurgeOldRecords();
+              }}
+              title={`Remove only spend buckets older than ${SPEND_RETENTION_DAYS} days`}
+            >
+              Purge old spend records
+            </button>
+          </div>
+          {historyMessage && (
+            <p style={{ opacity: 0.65, margin: '0.5rem 0 0', fontSize: 12 }}>
+              {historyMessage}
+            </p>
           )}
         </div>
       )}

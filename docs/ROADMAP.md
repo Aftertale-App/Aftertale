@@ -29,6 +29,7 @@ investing in Electron and addon work.
 - [x] **Chronicle log** — quick-add entries, snapshot level + zone at write time, NPC prompt injects the last 5 deeds so NPCs can react to recent history
 - [x] **API key entry UI** (Settings panel) so the deployed Pages bundle works without baked-in secrets
 - [x] **GitHub Pages deploy workflow** (`.github/workflows/deploy.yml`)
+- [x] **Addon Simulator** tab with Classic quest-chain fixtures, WoW API-shaped events, local event log, and ingest-to-chronicle memory
 - [ ] Manual event entry (combat log style: "I just killed Hogger") feeds NPC memory automatically
 - [ ] Side-by-side A/B comparison view (same prompt, two models, diff)
 - [ ] More NPCs beyond Magni / Muradin (Brann, Falstad, Moira)
