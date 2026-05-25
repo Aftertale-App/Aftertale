@@ -75,34 +75,41 @@ local function buildButton()
     GameTooltip:Hide()
   end)
 
+-- StaticPopup for the URL-copy dialog. Registered ONCE at module load so
+-- a /reload always picks up the latest definition (avoiding the
+-- "cached broken handler keeps eating Escape" footgun).
+if StaticPopupDialogs then
+  StaticPopupDialogs["COA_URL_POPUP"] = {
+    text = "Your chronicle lives at this URL.\nCopy it, then paste into a browser:",
+    button1 = OKAY or "OK",
+    hasEditBox = true,
+    editBoxWidth = 350,
+    OnShow = function(self, data)
+      local eb = self.EditBox or self.editBox
+      if not eb then return end
+      eb:SetText((data and data.url) or "")
+      eb:HighlightText()
+      eb:SetFocus()
+    end,
+    OnHide = function(self)
+      local eb = self.EditBox or self.editBox
+      if eb then eb:SetText("") end
+    end,
+    EditBoxOnEscapePressed = function(self) self:GetParent():Hide() end,
+    EditBoxOnEnterPressed = function(self) self:GetParent():Hide() end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+  }
+end
+
   btn:SetScript("OnClick", function(self, button)
     if button == "LeftButton" then
       local url = NS.GetConfig().webAppUrl
-      print(NS.CHAT_TAG .. " open your chronicle:")
-      -- Show the URL in a dialog so users can ctrl+c it (since addons can't
-      -- launch external browsers).
-      if StaticPopupDialogs then
-        StaticPopupDialogs["COA_URL_POPUP"] = StaticPopupDialogs["COA_URL_POPUP"] or {
-          text = "Your chronicle lives at this URL.\nCopy it, then paste into a browser:",
-          button1 = OKAY or "OK",
-          hasEditBox = true,
-          editBoxWidth = 350,
-          OnShow = function(self)
-            local eb = self.EditBox or self.editBox
-            if eb then eb:SetText(url); eb:HighlightText(); eb:SetFocus() end
-          end,
-          OnHide = function(self)
-            local eb = self.EditBox or self.editBox
-            if eb then eb:SetText("") end
-          end,
-          EditBoxOnEscapePressed = function(self) self:GetParent():Hide() end,
-          EditBoxOnEnterPressed = function(self) self:GetParent():Hide() end,
-          timeout = 0,
-          whileDead = true,
-          hideOnEscape = true,
-          preferredIndex = 3,
-        }
-        StaticPopup_Show("COA_URL_POPUP")
+      print(NS.CHAT_TAG .. " open your chronicle: " .. url)
+      if StaticPopup_Show then
+        StaticPopup_Show("COA_URL_POPUP", nil, nil, { url = url })
       end
     elseif button == "RightButton" then
       if NS.OpenSettings then NS.OpenSettings() end
