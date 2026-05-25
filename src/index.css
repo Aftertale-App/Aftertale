@@ -384,10 +384,12 @@ select.coa-input {
 
 .coa-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   margin-top: 1.5rem;
   border-bottom: 1px solid var(--border);
   position: relative;
+  max-width: 100%;
 }
 
 .coa-tab {
@@ -402,6 +404,7 @@ select.coa-input {
   padding: 0.75rem 1.5rem;
   cursor: pointer;
   position: relative;
+  min-width: 0;
   transition: color 0.15s ease;
 }
 .coa-tab:hover { color: var(--fg); }
@@ -415,6 +418,36 @@ select.coa-input {
   height: 2px;
   background: linear-gradient(to right, transparent, var(--gold), transparent);
   box-shadow: 0 0 8px rgba(212, 163, 115, 0.5);
+}
+
+@media (max-width: 560px) {
+  .coa-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    border-bottom: 0;
+  }
+
+  .coa-tab {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: rgba(17, 13, 9, 0.45);
+    padding: 0.65rem 0.45rem;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  .coa-tab[aria-selected='true'] {
+    border-color: var(--gold-deep);
+    background: rgba(178, 132, 49, 0.1);
+  }
+
+  .coa-tab[aria-selected='true']::after {
+    left: 0.35rem;
+    right: 0.35rem;
+    bottom: 0;
+  }
 }
 
 /* ===========================================================================

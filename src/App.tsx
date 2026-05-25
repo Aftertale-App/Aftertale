@@ -52,7 +52,15 @@ export function App() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SpendBar onOpenSettings={() => setSettingsOpen(true)} hasAnyKey={anyKey} />
-      <main style={{ flex: 1, padding: '2.5rem 2rem 4rem', maxWidth: 980, margin: '0 auto', width: '100%' }}>
+      <main
+        style={{
+          flex: 1,
+          padding: 'clamp(1.25rem, 6vw, 2.5rem) clamp(0.75rem, 5vw, 2rem) 4rem',
+          maxWidth: 980,
+          margin: '0 auto',
+          width: '100%',
+        }}
+      >
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
           <CharacterSelector />
         </div>
