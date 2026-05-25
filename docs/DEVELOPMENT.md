@@ -75,7 +75,7 @@ chronicles-of-azeroth/
 │   ├── pricing.ts            Single source of truth for model prices
 │   ├── components/
 │   │   ├── SpendBar.tsx      Always-visible cost header
-│   │   └── SmokeTest.tsx     Phase 0 dev tool
+│   │   └── AddonSimulator.tsx WoW-addon event harness
 │   ├── lib/
 │   │   └── spendTracker.ts   localStorage usage log + averages
 │   └── providers/
@@ -94,19 +94,10 @@ chronicles-of-azeroth/
 
 ## Common dev workflows
 
-### Trying a new prompt
+### Comparing two models
 
-1. Open the app, expand the smoke test panel.
-2. Pick a model from the dropdown (default: Gemini Flash).
-3. Paste your prompt, hit **Run smoke test**.
-4. Check the response, latency, and cost in the spend bar.
-5. Console logs show finish reason + full token breakdown — useful for
-   diagnosing weirdness like the Gemini thinking trap.
-
-### Comparing two models on the same prompt
-
-1. Run with model A.
-2. Switch model in dropdown, run again with same prompt.
+1. Pick a model from the Character or Tavern dropdown.
+2. Run the same character prompt or NPC exchange with model A and model B.
 3. Expand spend bar → averages table groups by `task::model`, so you can
    compare cost / token usage / latency side by side.
 4. Export CSV for offline analysis if needed.

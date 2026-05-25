@@ -72,8 +72,7 @@ export interface LLMResponse {
    - call `recordUsage(...)`
    - return `LLMResponse`
 
-4. Wire it into the model picker in `SmokeTest.tsx` (and eventually the
-   shared model picker).
+4. Wire it into the shared model picker in `src/lib/modelChoices.ts`.
 
 5. Add an env var: `VITE_OPENAI_API_KEY` in `.env.local` + `.env.example`.
 

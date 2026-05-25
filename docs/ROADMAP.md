@@ -17,10 +17,10 @@ investing in Electron and addon work.
 - [x] Spend tracker (localStorage, day-keyed, 90-day retention)
 - [x] Always-visible spend bar with averages-by-task table
 - [x] CSV export of usage records
-- [x] Smoke test UI (model picker + run button + response display)
+- [x] Smoke test UI (retired after Addon Simulator became the primary dev harness)
 - [x] Real Gemini model IDs discovered + wired (`gemini-2.5-flash` etc.)
 - [x] Gemini thinking-tokens accounted for in cost
-- [x] Reusable `ModelPicker` component (extracted from SmokeTest)
+- [x] Reusable `ModelPicker` component shared by character creation and NPC chat
 - [x] **Character creation interview** → `CharacterBible` in localStorage
 - [x] **Multi-character storage** (`coa.bible.roster.v1` + per-character entries) with a CharacterSelector dropdown in the header
 - [x] **Full character sheet** with portrait, faction-tinted glow, voice, backstory, beliefs, motivations, fears, flaws, core quote, level + zone pills, chronicle log

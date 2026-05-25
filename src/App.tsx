@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { SpendBar } from './components/SpendBar';
-import { SmokeTest } from './components/SmokeTest';
 import { CharacterCreation } from './components/CharacterCreation';
 import { NpcChat } from './components/NpcChat';
 import { CharacterSelector } from './components/CharacterSelector';
@@ -8,7 +7,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { AddonSimulator } from './components/AddonSimulator';
 import { getKeyStatus } from './lib/apiKeys';
 
-type Tab = 'character' | 'npc' | 'addon' | 'smoke';
+type Tab = 'character' | 'npc' | 'addon';
 
 export function App() {
   const [tab, setTab] = useState<Tab>('character');
@@ -21,7 +20,6 @@ export function App() {
       if (target === 'tavern' || target === 'npc') setTab('npc');
       else if (target === 'character') setTab('character');
       else if (target === 'addon') setTab('addon');
-      else if (target === 'smoke') setTab('smoke');
     }
     window.addEventListener('coa:request-tab', handler);
     return () => window.removeEventListener('coa:request-tab', handler);
@@ -89,21 +87,12 @@ export function App() {
           >
             ◆ Addon Sim
           </button>
-          <button
-            role="tab"
-            aria-selected={tab === 'smoke'}
-            className="coa-tab"
-            onClick={() => setTab('smoke')}
-          >
-            ◆ Smoke test
-          </button>
         </nav>
 
         <div style={{ marginTop: '2rem' }}>
           {tab === 'character' && <CharacterCreation />}
           {tab === 'npc' && <NpcChat />}
           {tab === 'addon' && <AddonSimulator />}
-          {tab === 'smoke' && <SmokeTest />}
         </div>
       </main>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />

@@ -52,8 +52,7 @@ src/
 │
 ├── components/
 │   ├── SpendBar.tsx          Always-visible cost header (collapsible)
-│   ├── AddonSimulator.tsx    Phase 0.75 WoW-addon event harness
-│   └── SmokeTest.tsx         Phase 0 dev tool — pick a model, run a prompt
+│   └── AddonSimulator.tsx    Phase 0.75 WoW-addon event harness
 │
 ├── lib/
 │   ├── addonEvents.ts        WoW API-shaped normalized event contract
@@ -121,32 +120,6 @@ This is the most important pattern in the project. It means:
 - Phase 1's Electron IPC layer wraps `chat()` the same way the browser does.
 
 See [PROVIDERS.md](./PROVIDERS.md) for details on adding a provider.
-
-### Data flow (Phase 0 smoke test)
-
-```
-   User clicks "Run smoke test"
-        │
-        ▼
-   SmokeTest.tsx
-        │  builds LLMRequest { task, messages, model, maxTokens }
-        ▼
-   GeminiProvider.chat()
-        │  1. look up pricing by request.model key
-        │  2. call client.models.generateContent()
-        │  3. read usageMetadata (incl. thoughtsTokenCount!)
-        │  4. calculateCost(...)
-        │  5. recordUsage(...)  ──┐
-        │                         │
-        ▼                         │
-   Return LLMResponse             │
-                                  ▼
-                          spendTracker.ts
-                                  │ writes to localStorage
-                                  │ dispatches CustomEvent('coa:usage-updated')
-                                  ▼
-                          SpendBar.tsx re-renders
-```
 
 ## Why this layering will survive
 
