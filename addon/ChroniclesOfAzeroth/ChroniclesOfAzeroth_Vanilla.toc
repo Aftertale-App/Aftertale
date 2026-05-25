@@ -1,0 +1,10 @@
+## Interface: 11508
+## Title: Chronicles of Azeroth
+## Notes: Event spike -- captures WoW events to validate the simulator contract.
+## Author: snoblitz
+## Version: 0.1.0
+## SavedVariables: ChroniclesOfAzerothDB
+## DefaultState: enabled
+## IconTexture: Interface\Icons\INV_Misc_Book_09
+
+ChroniclesOfAzeroth.lua

@@ -52,6 +52,43 @@ paste their own Gemini / Anthropic key into the in-app Settings panel and
 it stays in their browser's localStorage only. See
 [docs/DEVELOPMENT.md](./DEVELOPMENT.md#deployment) for the deploy flow.
 
+## Phase 0.75 — Event spike  *(in progress)*
+
+Goal: validate that the **WoW API actually fires the events the Addon
+Simulator promises**, with the payload shapes the simulator assumes,
+across both Retail and Classic. De-risks Phase 1 (chat-log tailing) and
+Phase 2 (Lua addon) before either commits to an architecture.
+
+- [x] Pure event-capture addon at `addon/ChroniclesOfAzeroth/` (no AI, no
+  UI) — listens for every event in `WowEventName`, plus adjacent events
+  worth grafting in, and dumps payloads to `SavedVariables`
+- [x] Multi-flavor TOC (Retail 120005, Mists 50503, TBC 20505, Vanilla 11508)
+- [x] `scripts/install-addon.ps1` — junctions the addon source into every
+  detected WoW client so edits are one-and-done
+- [x] `SendAddonMessageLogged` mirror so we also validate the chat-log
+  transport that Phase 1 and Phase 2 rely on
+- [x] Combat-log sampling (`/coa sample N`) so `COMBAT_LOG_EVENT_UNFILTERED`
+  doesn't drown the capture
+- [ ] **Capture a real session** (~30-60 min of mixed quest / zone /
+  combat / dialogue on Retail) and a shorter Classic session
+- [ ] Diff actual events against the simulator's `WowEventName` and
+  payload assumptions
+- [ ] Write up findings in `docs/EVENT-CONTRACT.md`
+- [ ] Update `src/lib/addonEvents.ts` + simulator fixtures to match reality
+
+### Phase 0.75 exit criteria
+
+Phase 0.75 is done when:
+
+1. We have a `SavedVariables` capture from at least one Retail and one
+   Classic session.
+2. `docs/EVENT-CONTRACT.md` documents which events fire, with what
+   payload, on which flavors — including any deltas from the simulator.
+3. The simulator's fixtures have been updated (or explicitly kept) based
+   on what reality showed.
+4. We know whether `C_ChatInfo.SendAddonMessageLogged` reliably lands in
+   `WoWChatLog.txt` for Phase 1's tailing to consume.
+
 ## Phase 1 — Electron companion app  *(planned)*
 
 Goal: long-running desktop app with durable storage and the start of real
