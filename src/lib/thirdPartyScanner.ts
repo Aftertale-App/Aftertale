@@ -74,9 +74,10 @@ function isTable(v: LuaValue): v is { [k: string]: LuaValue } {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function getKey(v: LuaValue, key: string): LuaValue | undefined {
-  if (!isTable(v)) return undefined;
-  return v[key];
+function getKey(v: LuaValue, key: string): LuaValue {
+  if (!isTable(v)) return null;
+  const child = v[key];
+  return child === undefined ? null : child;
 }
 
 /**

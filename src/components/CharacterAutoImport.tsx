@@ -354,7 +354,7 @@ function SeedAnswerStep({
         const result = scanSavedVariables(inputs, {
           name: character.identity.name,
           realm: character.identity.realm,
-          guid: character.identity.guid,
+          guid: character.guid,
         });
         setScanFindings((prev) => [...prev, ...result.findings]);
         setScanErrors((prev) => [...prev, ...result.errors]);
@@ -366,7 +366,7 @@ function SeedAnswerStep({
         setScanning(false);
       }
     },
-    [character.identity.name, character.identity.realm, character.identity.guid],
+    [character.identity.name, character.identity.realm, character.guid],
   );
 
   const inspireContext = useMemo<Omit<InspireMeContext, 'clickIndex'>>(() => {
@@ -378,9 +378,10 @@ function SeedAnswerStep({
         name: character.identity.name,
         race: character.identity.race,
         class: character.identity.class,
-        sex: character.identity.sex,
+        sex: (character.identity.sex as 1 | 2 | 3) ?? 1,
         faction: character.identity.faction,
-        classification: character.classification,
+        classification:
+          character.classification === 'pending' ? 'brand-new' : character.classification,
         level: lvl,
         zone,
         subzone,
