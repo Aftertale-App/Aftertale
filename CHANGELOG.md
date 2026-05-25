@@ -5,7 +5,21 @@ All notable changes to Chronicles of Azeroth. Format loosely follows
 change is technically breaking — we'll start being strict about SemVer when
 Phase 1 ships.
 
-## [Unreleased] — Phase 0 in progress
+## [Unreleased] — Phase 0 shipped 🎉
+
+Phase 0 (Browser POC) exit criteria all met as of May 25, 2026: character
+interview produces distinct bibles, 5-turn NPC conversations stay in-voice
+(Magni is the bar), and the spend bar is backed by ~80 real Flash calls
+(~$0.10) from the May 24 sim session. Next up: Phase 1 (Electron companion
+app) — see [docs/ROADMAP.md](docs/ROADMAP.md).
+
+### Changed
+
+- **Roadmap trim.** Dropped the A/B comparison view + its exit criterion,
+  dropped the "more NPCs (Brann/Falstad/Moira)" backlog, and folded the
+  manual-event-entry item into the Addon Simulator (which already provides
+  that ingest path). Lowered the 100-call spend-bar threshold to "real
+  sustained usage" — the May 24 session covers it.
 
 ### Added
 

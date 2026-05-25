@@ -8,7 +8,7 @@ chapter-by-chapter chronicle of your hero's story in real time. Quests have
 permanent consequences. NPCs remember you. Your character is *yours* — voice,
 backstory, beliefs, scars and all.
 
-**Status:** Phase 0 (Browser POC) — see [docs/ROADMAP.md](./docs/ROADMAP.md)
+**Status:** Phase 0 (Browser POC) — **complete ✅**. See [docs/ROADMAP.md](./docs/ROADMAP.md) for what's next (Phase 1: Electron companion app).
 
 ## 🌐 Live demo
 
@@ -61,7 +61,7 @@ Open <http://localhost:5180>.
 
 ## Stack
 
-- **Phase 0** (current): Vite 6 + React 19 + TypeScript, browser-only,
+- **Phase 0** (complete): Vite 6 + React 19 + TypeScript, browser-only,
   deployed to GitHub Pages
 - **Phase 1** (planned): Electron 28 + better-sqlite3 + sqlite-vec
 - **Phase 2** (planned): Lua addon (extends Peterodox's YUI-Dialogue)

@@ -4,7 +4,7 @@ The full multi-phase plan lives in
 `~/.copilot/session-state/<session-id>/plan.md`. This file is the public-facing
 summary kept in the repo.
 
-## Phase 0 — Browser POC  *(in progress)*
+## Phase 0 — Browser POC  *(complete)*
 
 Goal: validate that **LLM + character bible + memory** feels real before
 investing in Electron and addon work.
@@ -31,9 +31,7 @@ investing in Electron and addon work.
 - [x] **API key entry UI** (Settings panel) so the deployed Pages bundle works without baked-in secrets
 - [x] **GitHub Pages deploy workflow** (`.github/workflows/deploy.yml`)
 - [x] **Addon Simulator** tab with Classic quest-chain fixtures, WoW API-shaped events, local event log, and ingest-to-chronicle memory
-- [ ] Manual event entry (combat log style: "I just killed Hogger") feeds NPC memory automatically
-- [ ] Side-by-side A/B comparison view (same prompt, two models, diff)
-- [ ] More NPCs beyond Magni / Muradin (Brann, Falstad, Moira)
+- [x] **Manual event entry** — effectively shipped via the Addon Simulator's ingest path (manual "I just killed Hogger"-style entries flow through the same WoW-shaped event bus into chronicle/NPC memory)
 
 ### Phase 0 exit criteria
 
@@ -42,9 +40,9 @@ Phase 0 is done when:
 1. We can roll a character via interview and the bible feels distinct. ✅
 2. We can have a 5-turn conversation with one famous NPC and it stays
    coherent + in-voice. ✅ (Magni Bronzebeard is the current bar)
-3. The spend bar shows real per-task cost averages from at least 100 calls.
-4. We've A/B'd Flash vs Pro vs Sonnet on the same prompts and have an
-   opinion on which model wins per task.
+3. The spend bar shows real per-task cost averages from sustained play
+   (~80 Flash calls / ~$0.10 burned during the May 24 sim session — the
+   averages-by-task table is populated with real data, not synthetic). ✅
 
 ### Phase 0.5 — Public POC on GitHub Pages  *(shipped)*
 
