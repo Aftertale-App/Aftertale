@@ -211,11 +211,10 @@ local function snapshot()
   local lvl = safeCall(UnitLevel, "player")
   if lvl and lvl > 0 then snap.level = lvl end
 
-  local hp = safeCall(UnitHealth, "player")
-  local hpMax = safeCall(UnitHealthMax, "player")
-  if hp and hpMax and hpMax > 0 then
-    snap.hpPct = math.floor((hp / hpMax) * 100 + 0.5)
-  end
+  -- Retail Midnight returns UnitHealth("player") as a "secret number" for
+  -- unsigned addons; any arithmetic on it taints execution. Skip HP%
+  -- entirely until we can register as a signed addon or use a different
+  -- surface. The other snapshot fields are not tainted.
 
   if C_Map and C_Map.GetBestMapForUnit then
     local mapID = safeCall(C_Map.GetBestMapForUnit, "player")
@@ -224,9 +223,12 @@ local function snapshot()
       if C_Map.GetPlayerMapPosition then
         local pos = safeCall(C_Map.GetPlayerMapPosition, mapID, "player")
         if pos and pos.GetXY then
-          local x, y = pos:GetXY()
-          if x and y and (x > 0 or y > 0) then
-            snap.coords = { x = math.floor(x * 10000) / 10000, y = math.floor(y * 10000) / 10000 }
+          local okXY, x, y = pcall(pos.GetXY, pos)
+          if okXY and x and y and (x > 0 or y > 0) then
+            local okMath, cx, cy = pcall(function()
+              return math.floor(x * 10000) / 10000, math.floor(y * 10000) / 10000
+            end)
+            if okMath then snap.coords = { x = cx, y = cy } end
           end
         end
       end
