@@ -9,9 +9,10 @@ import {
 } from '../lib/characterIngest';
 import { TraitSelectionWizard } from './TraitSelectionWizard';
 import { InspireMePanel } from './InspireMePanel';
+import { scanSavedVariables, findingsToIntel, type ScanFinding } from '../lib/thirdPartyScanner';
 import type { PersonalityProfile } from '../lib/personalityTraits';
 import type { LLMProvider } from '../types';
-import type { InspireMeContext } from '../lib/inspireMePrompt';
+import type { InspireMeContext, InspireMeIntel } from '../lib/inspireMePrompt';
 
 interface CharacterAutoImportProps {
   provider: LLMProvider;
@@ -29,6 +30,8 @@ export interface AutoImportResult {
     question: string;
     text: string;
   };
+  /** Third-party intel collected during the seed step (optional). */
+  intel?: InspireMeIntel[];
 }
 
 type Step =
@@ -332,6 +335,39 @@ function SeedAnswerStep({
 }: SeedAnswerStepProps) {
   const question = SEED_QUESTION_BY_CLASSIFICATION[character.classification];
   const [draft, setDraft] = useState('');
+  const [intel, setIntel] = useState<InspireMeIntel[]>([]);
+  const [scanFindings, setScanFindings] = useState<ScanFinding[]>([]);
+  const [scanErrors, setScanErrors] = useState<Array<{ filename: string; error: string }>>([]);
+  const [scanning, setScanning] = useState(false);
+
+  const handleIntelFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      setScanning(true);
+      try {
+        const inputs = await Promise.all(
+          Array.from(files).map(async (f) => ({
+            filename: f.name,
+            content: await f.text(),
+          })),
+        );
+        const result = scanSavedVariables(inputs, {
+          name: character.identity.name,
+          realm: character.identity.realm,
+          guid: character.identity.guid,
+        });
+        setScanFindings((prev) => [...prev, ...result.findings]);
+        setScanErrors((prev) => [...prev, ...result.errors]);
+        setIntel((prev) => [
+          ...prev,
+          ...findingsToIntel(result.findings, 8 - prev.length),
+        ]);
+      } finally {
+        setScanning(false);
+      }
+    },
+    [character.identity.name, character.identity.realm, character.identity.guid],
+  );
 
   const inspireContext = useMemo<Omit<InspireMeContext, 'clickIndex'>>(() => {
     const lvl = character.lastSeen?.level ?? character.firstSeen.level;
@@ -350,11 +386,11 @@ function SeedAnswerStep({
         subzone,
       },
       profile,
-      intel: [], // future: feed third-party SV scanner results in here
+      intel,
       currentQuestion: question,
       draft: draft.trim() || undefined,
     };
-  }, [character, profile, question, draft]);
+  }, [character, profile, question, draft, intel]);
 
   const canFinish = draft.trim().length >= 10;
 
@@ -388,6 +424,54 @@ function SeedAnswerStep({
         />
       </div>
 
+      <div className="coa-trait-bucket">
+        <header className="coa-trait-bucket-header">
+          <h3 className="coa-trait-bucket-label">Optional: add intel from other addons</h3>
+          <p className="muted coa-trait-bucket-desc">
+            Drop any other addon's <code>.lua</code> SavedVariables files
+            (Altoholic, Details!/Skada, RaiderIO, BagSync, TSM, or anything else).
+            We'll scan for mentions of <strong>{character.identity.name}</strong> and
+            feed the findings into Inspire Me.
+          </p>
+        </header>
+        <label
+          className="coa-dropzone"
+          style={{ cursor: 'pointer', display: 'block', padding: '0.75rem', textAlign: 'center' }}
+        >
+          <span>{scanning ? 'Scanning…' : '+ Add SavedVariables files'}</span>
+          <input
+            type="file"
+            accept=".lua,text/plain"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              handleIntelFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+        </label>
+        {scanFindings.length > 0 && (
+          <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+            <strong>{scanFindings.length} finding{scanFindings.length === 1 ? '' : 's'}:</strong>
+            <ul style={{ margin: '0.25rem 0', paddingLeft: '1.2rem' }}>
+              {scanFindings.slice(0, 6).map((f, i) => (
+                <li key={i}>
+                  <span className="muted">[{f.source}]</span> {f.summary}
+                </li>
+              ))}
+              {scanFindings.length > 6 && (
+                <li className="muted">…and {scanFindings.length - 6} more</li>
+              )}
+            </ul>
+          </div>
+        )}
+        {scanErrors.length > 0 && (
+          <p className="muted" style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
+            Could not parse: {scanErrors.map((e) => e.filename).join(', ')}
+          </p>
+        )}
+      </div>
+
       <div className="coa-trait-wizard-footer">
         <span className="muted">Step 4 of 4 -- {canFinish ? 'ready when you are' : 'a few sentences will do'}.</span>
         <div className="coa-trait-wizard-actions">
@@ -408,6 +492,7 @@ function SeedAnswerStep({
                 character,
                 profile,
                 seedAnswer: { question, text: draft.trim() },
+                intel: intel.length > 0 ? intel : undefined,
               })
             }
           >
