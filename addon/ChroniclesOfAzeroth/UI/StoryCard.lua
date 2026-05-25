@@ -86,21 +86,19 @@ local function buildCard()
   card:Hide()
   card:SetAlpha(0)
 
-  -- Parchment background (YUI-Dialogue Theme_Brown/Parchment.png). Clip to
-  -- the OPAQUE BODY band of the source -- the 1024x2048 texture has a
-  -- decorative top scroll cap and a torn-paper element in the lower half
-  -- that we don't want bleeding into our small card.
+  -- Parchment background -- use the FULL scroll sprite from the 1024x2048
+  -- source (top 47% is the complete decorated parchment with torn-paper
+  -- edges and rolled-paper top). For a wide-and-short card this still
+  -- reads as a small letter, with the natural drop shadow lifting it off
+  -- the background.
   local bg = card:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints(card)
   bg:SetTexture(NS.ADDON_PATH .. "\\Art\\Parchment.png")
-  bg:SetTexCoord(0.08, 0.92, 0.18, 0.42)
+  bg:SetTexCoord(0.02, 0.98, 0.02, 0.47)
 
-  -- Soft vignette around the edges so the rectangle reads as a letter
-  local vig = card:CreateTexture(nil, "BORDER")
-  vig:SetAllPoints(card)
-  vig:SetTexture(NS.ADDON_PATH .. "\\Art\\ScreenVignette.png")
-  vig:SetVertexColor(0, 0, 0, 0.55)
-  vig:SetBlendMode("BLEND")
+  -- (No external vignette layer -- the parchment sprite already has its
+  -- own torn-paper edges and drop shadow; adding a dark rectangle vignette
+  -- creates a "grey box around the letter" effect that breaks the illusion.)
 
   -- Header label -- italicized narrator chrome
   local header = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
