@@ -9,6 +9,62 @@ local ADDON_NAME, NS = ...
 local PANEL_WIDTH  = 480
 local PANEL_HEIGHT = 480
 
+------------------------------------------------------------------------
+-- Custom parchment-toned button -- replaces UIPanelButtonTemplate's
+-- jarring red gradient with a warm brown backdrop + gold serif text +
+-- hover glow that fits the letter aesthetic.
+------------------------------------------------------------------------
+
+local function makeParchmentButton(parent, label, width, height)
+  local btn = CreateFrame("Button", nil, parent)
+  btn:SetSize(width or 160, height or 30)
+
+  -- Dark-brown backdrop using Blizzard's built-in flat texture
+  local bg = btn:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints(btn)
+  bg:SetColorTexture(0.18, 0.11, 0.06, 0.85)
+
+  -- Thin gold border (4 edges)
+  local function edge(p1, p2)
+    local t = btn:CreateTexture(nil, "BORDER")
+    t:SetColorTexture(0.78, 0.62, 0.32, 0.9)
+    t:SetPoint(p1, btn, p1)
+    t:SetPoint(p2, btn, p2)
+    return t
+  end
+  local top    = edge("TOPLEFT",    "TOPRIGHT");    top:SetHeight(1)
+  local bottom = edge("BOTTOMLEFT", "BOTTOMRIGHT"); bottom:SetHeight(1)
+  local left   = edge("TOPLEFT",    "BOTTOMLEFT");  left:SetWidth(1)
+  local right  = edge("TOPRIGHT",   "BOTTOMRIGHT"); right:SetWidth(1)
+
+  -- Gold serif label
+  local text = btn:CreateFontString(nil, "OVERLAY")
+  local f = GameFontNormalLarge:GetFont()
+  text:SetFont(f, 14, "")
+  text:SetPoint("CENTER", btn, "CENTER", 0, 0)
+  text:SetText(label)
+  text:SetTextColor(0.90, 0.78, 0.48, 1)
+  btn.text = text
+
+  -- Hover glow
+  btn:SetScript("OnEnter", function(self)
+    bg:SetColorTexture(0.28, 0.19, 0.10, 0.92)
+    text:SetTextColor(1, 0.92, 0.65, 1)
+  end)
+  btn:SetScript("OnLeave", function(self)
+    bg:SetColorTexture(0.18, 0.11, 0.06, 0.85)
+    text:SetTextColor(0.90, 0.78, 0.48, 1)
+  end)
+  btn:SetScript("OnMouseDown", function(self)
+    text:SetPoint("CENTER", btn, "CENTER", 1, -1)
+  end)
+  btn:SetScript("OnMouseUp", function(self)
+    text:SetPoint("CENTER", btn, "CENTER", 0, 0)
+  end)
+
+  return btn
+end
+
 local function makeCheckbox(parent, label, getter, setter)
   local cb = CreateFrame("CheckButton", nil, parent, "InterfaceOptionsCheckButtonTemplate")
   cb.Text:SetText(label)
@@ -64,11 +120,16 @@ local function buildPanel()
   div:SetPoint("TOP", sub, "BOTTOM", 0, -8)
   div:SetVertexColor(1, 1, 1, 0.6)
 
-  -- Close button (use Blizzard's UIPanelCloseButton template -- the YUI
-  -- close-button asset is here for the visual catalog but Blizzard's
-  -- built-in works fine and avoids needing to size/scale a PNG cleanly).
-  local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -6, -6)
+  -- Close button (YUI's CloseButton.png -- warm brown X that matches parchment)
+  local close = CreateFrame("Button", nil, panel)
+  close:SetSize(28, 28)
+  close:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -10)
+  local cx = close:CreateTexture(nil, "ARTWORK")
+  cx:SetAllPoints(close)
+  cx:SetTexture(NS.ADDON_PATH .. "\\Art\\CloseButton.png")
+  cx:SetTexCoord(0, 0.5, 0, 0.5)
+  close:SetScript("OnEnter", function() cx:SetTexCoord(0.5, 1, 0, 0.5); cx:SetVertexColor(1.1, 1.0, 0.8, 1) end)
+  close:SetScript("OnLeave", function() cx:SetTexCoord(0, 0.5, 0, 0.5); cx:SetVertexColor(1, 1, 1, 1) end)
   close:SetScript("OnClick", function() panel:Hide() end)
 
   -- Checkboxes
@@ -113,31 +174,30 @@ local function buildPanel()
     _G[self:GetName() .. "Text"]:SetText("Story card hold: " .. string.format("%.1fs", cfg.storyCardDuration))
   end)
 
-  -- Preview button
+  -- Preview button (custom parchment style, not Blizzard red)
   y = y - 60
-  local preview = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  preview:SetSize(160, 28)
+  local preview = makeParchmentButton(panel, "Preview story card", 170, 30)
   preview:SetPoint("TOPLEFT", panel, "TOPLEFT", 60, y)
-  preview:SetText("Preview story card")
   preview:SetScript("OnClick", function()
     if NS.PreviewStoryCard then NS.PreviewStoryCard() end
   end)
 
-  local openWeb = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  openWeb:SetSize(160, 28)
-  openWeb:SetPoint("LEFT", preview, "RIGHT", 16, 0)
-  openWeb:SetText("Open chronicle URL")
+  local openWeb = makeParchmentButton(panel, "Open chronicle URL", 170, 30)
+  openWeb:SetPoint("LEFT", preview, "RIGHT", 20, 0)
   openWeb:SetScript("OnClick", function()
     if NS.minimapButton then
       NS.minimapButton:GetScript("OnClick")(NS.minimapButton, "LeftButton")
     end
   end)
 
-  -- Footer / attribution
-  local footer = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  footer:SetPoint("BOTTOM", panel, "BOTTOM", 0, 18)
-  footer:SetWidth(PANEL_WIDTH - 60)
+  -- Footer / attribution -- sits INSIDE the parchment, above the bottom edge
+  local footer = panel:CreateFontString(nil, "OVERLAY")
+  local ff = GameFontNormalSmall:GetFont()
+  footer:SetFont(ff, 10, "")
+  footer:SetPoint("BOTTOM", panel, "BOTTOM", 0, 22)
+  footer:SetWidth(PANEL_WIDTH - 80)
   footer:SetJustifyH("CENTER")
+  footer:SetSpacing(2)
   footer:SetText(
     "|cFF7A5A33Parchment and sound assets adapted from|r " ..
     "|cFFC9A969YUI-Dialogue|r |cFF7A5A33by Peterodox, used with permission.|r"
