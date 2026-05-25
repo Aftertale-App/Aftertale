@@ -35,11 +35,13 @@ local function buildPanel()
   panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
   panel:Hide()
 
-  -- Parchment background
+  -- Parchment background -- clip to the OPAQUE BODY band of the source
+  -- (1024x2048 image has decorative scroll caps and a torn-paper element
+  -- in its lower half that we don't want stretched into the panel).
   local bg = panel:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints(panel)
   bg:SetTexture(NS.ADDON_PATH .. "\\Art\\Parchment.png")
-  bg:SetTexCoord(0.03, 0.97, 0.03, 0.97)
+  bg:SetTexCoord(0.06, 0.94, 0.10, 0.55)
 
   -- Vignette edges
   local vig = panel:CreateTexture(nil, "BORDER")

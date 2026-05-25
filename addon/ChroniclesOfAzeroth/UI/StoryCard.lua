@@ -86,12 +86,14 @@ local function buildCard()
   card:Hide()
   card:SetAlpha(0)
 
-  -- Parchment background (YUI-Dialogue Theme_Brown/Parchment.png)
+  -- Parchment background (YUI-Dialogue Theme_Brown/Parchment.png). Clip to
+  -- the OPAQUE BODY band of the source -- the 1024x2048 texture has a
+  -- decorative top scroll cap and a torn-paper element in the lower half
+  -- that we don't want bleeding into our small card.
   local bg = card:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints(card)
   bg:SetTexture(NS.ADDON_PATH .. "\\Art\\Parchment.png")
-  -- The parchment image is a tileable texture; show a soft sliver of it
-  bg:SetTexCoord(0.05, 0.95, 0.10, 0.90)
+  bg:SetTexCoord(0.08, 0.92, 0.18, 0.42)
 
   -- Soft vignette around the edges so the rectangle reads as a letter
   local vig = card:CreateTexture(nil, "BORDER")

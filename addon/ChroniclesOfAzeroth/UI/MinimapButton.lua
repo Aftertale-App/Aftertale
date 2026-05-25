@@ -87,9 +87,16 @@ local function buildButton()
           button1 = OKAY or "OK",
           hasEditBox = true,
           editBoxWidth = 350,
-          OnShow = function(self) self.editBox:SetText(url); self.editBox:HighlightText() end,
-          OnHide = function(self) self.editBox:SetText("") end,
+          OnShow = function(self)
+            local eb = self.EditBox or self.editBox
+            if eb then eb:SetText(url); eb:HighlightText(); eb:SetFocus() end
+          end,
+          OnHide = function(self)
+            local eb = self.EditBox or self.editBox
+            if eb then eb:SetText("") end
+          end,
           EditBoxOnEscapePressed = function(self) self:GetParent():Hide() end,
+          EditBoxOnEnterPressed = function(self) self:GetParent():Hide() end,
           timeout = 0,
           whileDead = true,
           hideOnEscape = true,
