@@ -8,6 +8,12 @@ import { AddonSimulator } from './components/AddonSimulator';
 import { ChronicleReader } from './components/ChronicleReader';
 import { getKeyStatus } from './lib/apiKeys';
 
+// The Addon Simulator is a developer-only tool: it fires synthetic addon
+// events into the bible/history layer to test narration without playing
+// WoW. Hidden from production builds; flip the build mode via Vite's
+// `import.meta.env.DEV` flag (true for `npm run dev`, false for `build`).
+const SHOW_DEV_TOOLS = import.meta.env.DEV;
+
 type Tab = 'character' | 'chronicle' | 'npc' | 'addon';
 
 export function App() {
@@ -21,7 +27,7 @@ export function App() {
       if (target === 'tavern' || target === 'npc') setTab('npc');
       else if (target === 'character') setTab('character');
       else if (target === 'chronicle') setTab('chronicle');
-      else if (target === 'addon') setTab('addon');
+      else if (target === 'addon' && SHOW_DEV_TOOLS) setTab('addon');
     }
     window.addEventListener('coa:request-tab', handler);
     return () => window.removeEventListener('coa:request-tab', handler);
@@ -97,21 +103,24 @@ export function App() {
           >
             ◆ Tavern
           </button>
-          <button
-            role="tab"
-            aria-selected={tab === 'addon'}
-            className="coa-tab"
-            onClick={() => setTab('addon')}
-          >
-            ◆ Addon Sim
-          </button>
+          {SHOW_DEV_TOOLS && (
+            <button
+              role="tab"
+              aria-selected={tab === 'addon'}
+              className="coa-tab"
+              onClick={() => setTab('addon')}
+              title="Developer-only: fires synthetic addon events"
+            >
+              ◆ Addon Sim (dev)
+            </button>
+          )}
         </nav>
 
         <div style={{ marginTop: '2rem' }}>
           {tab === 'character' && <CharacterTab />}
           {tab === 'chronicle' && <ChronicleReader />}
           {tab === 'npc' && <NpcChat />}
-          {tab === 'addon' && <AddonSimulator />}
+          {tab === 'addon' && SHOW_DEV_TOOLS && <AddonSimulator />}
         </div>
       </main>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
