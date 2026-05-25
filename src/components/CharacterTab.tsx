@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { CharacterCreation } from './CharacterCreation';
 import { CharacterAutoImport, type AutoImportResult } from './CharacterAutoImport';
-import type { LLMProvider } from '../types';
+import type { LLMProvider, CharacterBible } from '../types';
 import { MODEL_CHOICES, DEFAULT_MODEL_INDEX } from '../lib/modelChoices';
 import { getKeyStatus } from '../lib/apiKeys';
+import { generatePrologue, PrologueError } from '../lib/prologueGenerator';
+import { saveBible } from '../lib/bibleStore';
 
 const DRAFT_KEY = 'coa:autoimport-draft';
 
@@ -21,6 +23,45 @@ export function CharacterTab() {
   const [provider, setProvider] = useState<LLMProvider | null>(null);
   const [providerError, setProviderError] = useState<string | null>(null);
   const [savedDraft, setSavedDraft] = useState<AutoImportResult | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generatedBible, setGeneratedBible] = useState<CharacterBible | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  async function handleGeneratePrologue() {
+    if (!savedDraft || !provider) return;
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      const result = await generatePrologue(
+        {
+          character: savedDraft.character,
+          profile: savedDraft.profile,
+          seedAnswer: savedDraft.seedAnswer,
+          intel: savedDraft.intel,
+        },
+        provider,
+      );
+      setGeneratedBible(result.bible);
+    } catch (e) {
+      const msg = e instanceof PrologueError ? e.message : (e as Error).message;
+      setGenerateError(msg);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function handleAcceptBible() {
+    if (!generatedBible) return;
+    saveBible(generatedBible);
+    setGeneratedBible(null);
+    setSavedDraft(null);
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+    setMode('manual'); // drop user into the standard reader UI
+  }
 
   useEffect(() => {
     if (mode !== 'auto' || provider) return;
@@ -112,21 +153,120 @@ export function CharacterTab() {
       )}
 
       {mode === 'auto' && provider && savedDraft && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-          <button
-            type="button"
-            className="coa-btn coa-btn-secondary"
-            onClick={() => setSavedDraft(null)}
-          >
-            Onboard another character
-          </button>
-          <button
-            type="button"
-            className="coa-btn coa-btn-primary"
-            onClick={() => setMode('manual')}
-          >
-            Done
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {!generatedBible && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="coa-btn coa-btn-primary"
+                onClick={handleGeneratePrologue}
+                disabled={generating}
+              >
+                {generating ? 'Generating prologue…' : '✦ Generate prologue & bible'}
+              </button>
+              <button
+                type="button"
+                className="coa-btn coa-btn-secondary"
+                onClick={() => setSavedDraft(null)}
+                disabled={generating}
+              >
+                Onboard another character
+              </button>
+              <button
+                type="button"
+                className="coa-btn coa-btn-secondary"
+                onClick={() => setMode('manual')}
+                disabled={generating}
+              >
+                Done
+              </button>
+            </div>
+          )}
+
+          {generateError && (
+            <div className="coa-callout coa-callout-danger">
+              <strong>Generation failed.</strong> {generateError}
+            </div>
+          )}
+
+          {generatedBible && (
+            <div className="coa-panel" style={{ padding: '1.2rem' }}>
+              <h3 style={{ marginTop: 0 }}>{generatedBible.name}'s prologue draft</h3>
+              <p className="muted" style={{ fontSize: '0.9rem' }}>
+                Generated from your trait selections and seed answer. Accept to save as
+                the active chronicle; reject to regenerate.
+              </p>
+              <h4>Backstory</h4>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{generatedBible.backstory}</p>
+              <h4>Voice</h4>
+              <p>{generatedBible.voice}</p>
+              {generatedBible.coreQuote && (
+                <p>
+                  <em>"{generatedBible.coreQuote}"</em>
+                </p>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <h4>Beliefs</h4>
+                  <ul>
+                    {generatedBible.beliefs.map((b, i) => (
+                      <li key={i}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h4>Motivations</h4>
+                  <ul>
+                    {generatedBible.motivations.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+                {generatedBible.fears && generatedBible.fears.length > 0 && (
+                  <div>
+                    <h4>Fears</h4>
+                    <ul>
+                      {generatedBible.fears.map((f, i) => (
+                        <li key={i}>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {generatedBible.flaws && generatedBible.flaws.length > 0 && (
+                  <div>
+                    <h4>Flaws</h4>
+                    <ul>
+                      {generatedBible.flaws.map((f, i) => (
+                        <li key={i}>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', justifyContent: 'center' }}>
+                <button type="button" className="coa-btn coa-btn-primary" onClick={handleAcceptBible}>
+                  ✓ Accept & save bible
+                </button>
+                <button
+                  type="button"
+                  className="coa-btn coa-btn-secondary"
+                  onClick={() => {
+                    setGeneratedBible(null);
+                    handleGeneratePrologue();
+                  }}
+                >
+                  ↻ Regenerate
+                </button>
+                <button
+                  type="button"
+                  className="coa-btn coa-btn-secondary"
+                  onClick={() => setGeneratedBible(null)}
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
