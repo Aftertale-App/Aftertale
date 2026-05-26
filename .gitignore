@@ -39,3 +39,6 @@ Thumbs.db
 # TypeScript incremental build cache
 *.tsbuildinfo
 
+
+# Cost probe reports (per-run JSON dumps)
+tools/cost-probe-reports/

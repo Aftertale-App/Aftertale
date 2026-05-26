@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "db2:bake": "node tools/fetch-db2.mjs"
+    "db2:bake": "node tools/fetch-db2.mjs",
+    "cost:probe": "node tools/cost-probe.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.1",
