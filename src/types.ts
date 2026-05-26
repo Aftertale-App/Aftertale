@@ -3,7 +3,7 @@
 // Keep them stable and well-named.
 // ============================================================================
 
-export type ProviderId = 'gemini' | 'anthropic';
+export type ProviderId = 'openrouter';
 
 export type TaskType =
   | 'npc-chat'      // turn-by-turn dialog with an NPC

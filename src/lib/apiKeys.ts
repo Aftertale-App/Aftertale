@@ -1,9 +1,12 @@
 // ============================================================================
 // API key resolution.
 //
+// As of 2026-05-26 the only LLM gateway is OpenRouter — one key gets the user
+// access to every model. See docs/companion-architecture.md §8a for rationale.
+//
 // Order of precedence:
 //   1. Runtime key in localStorage (user-entered via SettingsPanel)
-//   2. Build-time env var (VITE_GEMINI_API_KEY / VITE_ANTHROPIC_API_KEY)
+//   2. Build-time env var (VITE_OPENROUTER_API_KEY)
 //
 // This lets the same bundle work in two very different deployments:
 //   - Local dev: drop a key in .env.local, restart Vite, done.
@@ -15,7 +18,7 @@
 // status to the UI.
 // ============================================================================
 
-export type Provider = 'gemini' | 'anthropic';
+export type Provider = 'openrouter';
 
 const STORAGE_KEY_PREFIX = 'coa.apikey.';
 
@@ -23,9 +26,8 @@ function storageKey(provider: Provider): string {
   return `${STORAGE_KEY_PREFIX}${provider}`;
 }
 
-function envKey(provider: Provider): string {
-  if (provider === 'gemini') return import.meta.env.VITE_GEMINI_API_KEY ?? '';
-  return import.meta.env.VITE_ANTHROPIC_API_KEY ?? '';
+function envKey(_provider: Provider): string {
+  return import.meta.env.VITE_OPENROUTER_API_KEY ?? '';
 }
 
 export function getApiKey(provider: Provider): string {

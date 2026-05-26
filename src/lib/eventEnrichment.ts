@@ -35,6 +35,44 @@ function bibleHeader(bible: CharacterBible): string {
     .join('\n');
 }
 
+function lootBlock(event: AddonEvent): string | null {
+  if (!event.loot || event.loot.length === 0) return null;
+  // Surface item names + quality so the LLM can prioritize the standout
+  // pieces over the trash. Quality enum: 0 Poor … 5 Legendary.
+  const lines = event.loot
+    .filter((item) => item.name)
+    .map((item) => {
+      const q = typeof item.quality === 'number' ? qualityName(item.quality) : null;
+      const qty = item.qty && item.qty > 1 ? ` ×${item.qty}` : '';
+      return `- ${item.name}${qty}${q ? ` (${q})` : ''}`;
+    });
+  if (lines.length === 0) return null;
+  return `Loot pulled from this haul:\n${lines.join('\n')}`;
+}
+
+function qualityName(q: number): string {
+  switch (q) {
+    case 0:
+      return 'poor';
+    case 1:
+      return 'common';
+    case 2:
+      return 'uncommon';
+    case 3:
+      return 'rare';
+    case 4:
+      return 'epic';
+    case 5:
+      return 'legendary';
+    case 6:
+      return 'artifact';
+    case 7:
+      return 'heirloom';
+    default:
+      return `quality ${q}`;
+  }
+}
+
 function eventBlock(event: AddonEvent): string {
   const story = event.storyCard
     ? [
@@ -46,6 +84,7 @@ function eventBlock(event: AddonEvent): string {
       ].join('\n')
     : null;
   const questText = event.questTextEnrichment?.text.trim();
+  const loot = lootBlock(event);
   return [
     `Event: ${eventFactLine(event)}`,
     event.zone ? `Zone: ${event.zone}${event.subZone ? ` (${event.subZone})` : ''}` : null,
@@ -53,6 +92,7 @@ function eventBlock(event: AddonEvent): string {
     event.npcName ? `NPC: ${event.npcName}` : null,
     event.unitName ? `Unit: ${event.unitName}` : null,
     event.itemName ? `Item: ${event.itemName}` : null,
+    loot ? `\n${loot}` : null,
     story ? `\nStory card:\n${story}` : null,
     questText ? `\nIn-game quest text (player-captured):\n${questText}` : null,
   ]

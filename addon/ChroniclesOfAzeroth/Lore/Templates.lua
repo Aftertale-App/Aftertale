@@ -96,6 +96,39 @@ T.ACHIEVEMENT_EARNED = {
   "A line drawn under {name}'s name: '{achievement}'.",
 }
 
+T.ENCOUNTER_END = {
+  "{encounter} falls. {name} stands in the quiet that comes after.",
+  "The encounter with {encounter} ends; {name} draws breath and counts the cost.",
+  "{name} sees {encounter} broken at last. {zone} is changed by it.",
+  "What {encounter} demanded of {name}, {name} paid in full.",
+  "{encounter} is finished. The room cools. {name} sheathes a weapon that still hums.",
+  "The fight against {encounter} concludes the way fights do -- abruptly, then silence.",
+  "{name} walks out of the encounter with {encounter} carrying news worth telling.",
+  "{encounter} did not give ground easily. {name} took it anyway.",
+}
+
+T.BOSS_KILL = {
+  "{name} stands over {encounter}. The story of this place gains a new ending.",
+  "{encounter} falls to {name}. {zone} will remember.",
+  "Down. {encounter} is down, and {name} is still standing.",
+  "{name} ends {encounter}'s reign. Whatever held this place in fear, holds it no longer.",
+  "{encounter} -- defeated. The kind of victory that earns a name in songs.",
+  "{name} closes the chapter on {encounter}. Few do; fewer live to say so.",
+  "The last blow lands. {encounter} is no more. {name} breathes again.",
+  "{encounter} meets {name} and finds {name} the harder of the two.",
+}
+
+T.LOOT_OPENED = {
+  "{name} kneels and lifts {loot} from the wreckage.",
+  "Among the spoils: {loot}. {name} pockets what matters.",
+  "{name} finds {loot} where the fight ended.",
+  "The body yields {loot}. {name} takes it without ceremony.",
+  "{name} pulls {loot} from the grim pile and stands.",
+  "Worth pausing for: {loot}. {name} adds it to the pack.",
+  "{name} brushes the dust off and reads the make of {loot}.",
+  "Something gleams in the wreck -- {loot}. {name} claims it.",
+}
+
 ------------------------------------------------------------------------
 -- Helpers
 ------------------------------------------------------------------------
@@ -183,9 +216,64 @@ local function resolveZone(enr)
   return nil
 end
 
+local function resolveEncounter(enr, args)
+  if enr.encounterName and enr.encounterName ~= "" then return enr.encounterName end
+  -- args layout for ENCOUNTER_END / BOSS_KILL: [1]=encounterID, [2]=encounterName
+  if args and args[2] and tostring(args[2]) ~= "" then return tostring(args[2]) end
+  if args and args[1] then return "encounter #" .. tostring(args[1]) end
+  return nil
+end
+
+-- WoW item quality enum: 0 Poor, 1 Common, 2 Uncommon, 3 Rare, 4 Epic,
+-- 5 Legendary. Default floor is 2 (uncommon+) to match the web companion.
+local LOOT_MIN_QUALITY_DEFAULT = 2
+
+-- Strips a WoW item link like "|cffffffff|Hitem:2589::|h[Linen Cloth]|h|r"
+-- down to "Linen Cloth". Falls back to the bare name field if the link
+-- isn't parseable.
+local function lootDisplay(item)
+  if not item then return nil end
+  if type(item.link) == "string" then
+    local bracketed = item.link:match("%[(.-)%]")
+    if bracketed and bracketed ~= "" then return bracketed end
+  end
+  if type(item.name) == "string" and item.name ~= "" then return item.name end
+  return nil
+end
+
+local function pickLootItems(enr, minQuality)
+  if not enr or type(enr.loot) ~= "table" then return {} end
+  minQuality = minQuality or LOOT_MIN_QUALITY_DEFAULT
+  local kept = {}
+  for _, item in ipairs(enr.loot) do
+    local q = tonumber(item and item.quality)
+    if not q or q >= minQuality then
+      local name = lootDisplay(item)
+      if name then table.insert(kept, name) end
+    end
+  end
+  return kept
+end
+
+local function resolveLoot(enr, minQuality)
+  local items = pickLootItems(enr, minQuality)
+  if #items == 0 then return nil end
+  if #items == 1 then return items[1] end
+  if #items == 2 then return items[1] .. " and " .. items[2] end
+  -- 3+: oxford-comma-ish, cap at the first 3 to keep the line readable.
+  local head = items[1] .. ", " .. items[2] .. ", and " .. items[3]
+  if #items > 3 then
+    head = head .. " (and " .. tostring(#items - 3) .. " more)"
+  end
+  return head
+end
+
 T.ResolveQuestTitle      = resolveQuestTitle
 T.ResolveAchievementName = resolveAchievementName
 T.ResolveZone            = resolveZone
+T.ResolveEncounter       = resolveEncounter
+T.ResolveLoot            = resolveLoot
+T.LOOT_MIN_QUALITY       = LOOT_MIN_QUALITY_DEFAULT
 
 function T.Narrate(entry, charName)
   local pool = T[entry.event]
@@ -202,6 +290,8 @@ function T.Narrate(entry, charName)
     zone        = resolveZone(enr) or "the road",
     level       = tostring(lvlFallback or "?"),
     achievement = resolveAchievementName(enr, args) or "a quiet honor",
+    encounter   = resolveEncounter(enr, args) or "the foe",
+    loot        = resolveLoot(enr) or "something worth keeping",
   }
   if not pool then
     return string.format("%s in %s. (%s)", vars.name, vars.zone, entry.event)
@@ -230,6 +320,15 @@ function T.Preview(entry, charName)
     return "Fell in " .. (resolveZone(enr) or "battle")
   elseif e == "ACHIEVEMENT_EARNED" then
     return "Earned: " .. (resolveAchievementName(enr, args) or "an achievement")
+  elseif e == "ENCOUNTER_END" then
+    return "Encounter: " .. (resolveEncounter(enr, args) or "a fight")
+  elseif e == "BOSS_KILL" then
+    return "Defeated: " .. (resolveEncounter(enr, args) or "a boss")
+  elseif e == "LOOT_OPENED" then
+    local items = pickLootItems(enr)
+    if #items == 0 then return "Found loot" end
+    if #items == 1 then return "Found: " .. items[1] end
+    return "Found: " .. items[1] .. " (+" .. tostring(#items - 1) .. " more)"
   end
   return e
 end
@@ -241,6 +340,23 @@ function T.IsNarrativeEvent(eventName)
       or eventName == "ZONE_CHANGED_NEW_AREA"
       or eventName == "PLAYER_DEAD"
       or eventName == "ACHIEVEMENT_EARNED"
+      or eventName == "ENCOUNTER_END"
+      or eventName == "BOSS_KILL"
+      or eventName == "LOOT_OPENED"
+end
+
+-- Per-entry narrative check. Wraps IsNarrativeEvent and applies any
+-- entry-level filtering the book needs. Today the only entry-level rule
+-- is the loot quality floor (LOOT_OPENED with no items at or above
+-- LOOT_MIN_QUALITY_DEFAULT is skipped). Callers that don't want any
+-- entry-level filtering can still call IsNarrativeEvent(entry.event).
+function T.IsNarrativeEntry(entry)
+  if not entry or not entry.event then return false end
+  if not T.IsNarrativeEvent(entry.event) then return false end
+  if entry.event == "LOOT_OPENED" then
+    return #pickLootItems(entry.enrichment) > 0
+  end
+  return true
 end
 
 -- Chapter label: "Chapter III -- Westfall" derived from grouping by

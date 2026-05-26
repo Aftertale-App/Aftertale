@@ -1,5 +1,14 @@
 # Architecture
 
+> **Heads up (2026-05-26):** the multi-phase framing below describes the
+> Phase 0 Browser POC accurately and is still useful as internal reference
+> for how the codebase is structured today. The forward-looking "Phase 1 =
+> Electron companion, Phase 2 = WoW addon" picture has been **superseded
+> by the multi-tier launch architecture** in
+> [`companion-architecture.md`](./companion-architecture.md). Read that
+> first for the canonical current direction; come back here for Phase 0
+> internals (provider contract, custom events, simulator flow).
+
 Chronicles of Azeroth is a three-phase build. Each phase is deployable on its
 own, and each one keeps the same **provider abstraction**, **spend tracker**,
 and **character bible** primitives so nothing gets thrown away.
@@ -8,8 +17,7 @@ and **character bible** primitives so nothing gets thrown away.
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  Phase 0: Browser POC               (current)                            │
 │  ────────────────────────                                                │
-│  Vite + React 19 + TS   →   @google/genai   →   localStorage             │
-│                             @anthropic-ai/sdk                            │
+│  Vite + React 19 + TS   →   OpenRouter (fetch)   →   localStorage        │
 │                                                                          │
 │  Validate: bible gen, NPC chat feel, cost per task, A/B model comparison │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -78,8 +86,8 @@ src/
 │   └── spendTracker.ts       localStorage usage log + averages + CSV export
 │
 └── providers/
-    ├── GeminiProvider.ts     @google/genai 2.6 wrapper, records usage
-    └── AnthropicProvider.ts  @anthropic-ai/sdk wrapper, records usage
+    └── OpenRouterProvider.ts  Fetch wrapper, records usage; the only
+                               LLM gateway. See docs/PROVIDERS.md.
 ```
 
 ### Key custom events

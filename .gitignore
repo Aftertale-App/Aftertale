@@ -42,3 +42,6 @@ Thumbs.db
 
 # Cost probe reports (per-run JSON dumps)
 tools/cost-probe-reports/
+
+# Private / internal — never push (monetization dashboards, draft pricing docs, etc.)
+private/

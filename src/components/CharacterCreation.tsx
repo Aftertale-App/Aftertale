@@ -551,7 +551,7 @@ export function CharacterCreation() {
         setParseErrors([
           'The bible generation was cut off at the model\u2019s output cap (4096 tokens).',
           'The JSON is incomplete. Either finish it by hand below, or click "Retry with the LLM"',
-          'to start over (consider switching to Gemini Pro or Claude Sonnet for more headroom).',
+          'to start over (consider switching to a larger model like Claude Opus or GPT-5).',
         ]);
         setStep('parse-error');
         return;

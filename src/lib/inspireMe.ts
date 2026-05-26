@@ -3,7 +3,7 @@
  *
  * Wraps the prompt builder, an LLMProvider, and response parsing into a
  * single async call the UI can fire. Provider-agnostic: pass any
- * LLMProvider (Gemini, Anthropic, mock for tests).
+ * LLMProvider (OpenRouter in production, mock for tests).
  *
  * Spend tracking happens inside the provider's chat() implementation,
  * so calls made through here will show up in the spend tracker tagged
@@ -33,7 +33,7 @@ export class InspireMeError extends Error {
 }
 
 export interface InspireMeCallOptions {
-  /** Override the default model. Default: 'gemini-flash'. */
+  /** Override the default model. Default: 'openrouter/anthropic/claude-sonnet-4.5'. */
   model?: string;
   /** Override sampling temperature. Default: 0.9 (high variety). */
   temperature?: number;
@@ -61,7 +61,7 @@ export interface InspireMeMixResult extends InspireMeMixResponse {
   promptVersion: number;
 }
 
-const DEFAULT_MODEL = 'gemini-flash';
+const DEFAULT_MODEL = 'openrouter/anthropic/claude-sonnet-4.5';
 const DEFAULT_TEMPERATURE = 0.9;
 const DEFAULT_MAX_TOKENS = 800;
 

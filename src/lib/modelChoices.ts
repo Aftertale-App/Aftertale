@@ -1,6 +1,9 @@
 // ============================================================================
 // Single source of truth for the model dropdown across the app.
-// Adding a model? Add an entry here AND a pricing row in `src/pricing.ts`.
+//
+// All enrichment goes through OpenRouter (see docs/companion-architecture.md
+// §8a). Adding a model? Add an entry here AND a pricing row in
+// `src/pricing.ts`. Model slug should match an OpenRouter model id exactly.
 // ============================================================================
 
 import { getApiKey } from './apiKeys';
@@ -12,39 +15,40 @@ export interface ModelChoice {
   factory: () => Promise<LLMProvider>;
 }
 
+async function openRouter() {
+  const { OpenRouterProvider } = await import('../providers/OpenRouterProvider');
+  return new OpenRouterProvider(getApiKey('openrouter'));
+}
+
 export const MODEL_CHOICES: ModelChoice[] = [
   {
-    label: 'Gemini Flash',
-    pricingKey: 'gemini-flash',
-    factory: async () => {
-      const { GeminiProvider } = await import('../providers/GeminiProvider');
-      return new GeminiProvider(getApiKey('gemini'));
-    },
+    label: 'Claude Sonnet 4.5',
+    pricingKey: 'openrouter/anthropic/claude-sonnet-4.5',
+    factory: openRouter,
   },
   {
-    label: 'Gemini Pro',
-    pricingKey: 'gemini-pro',
-    factory: async () => {
-      const { GeminiProvider } = await import('../providers/GeminiProvider');
-      return new GeminiProvider(getApiKey('gemini'));
-    },
+    label: 'Claude Opus 4.5',
+    pricingKey: 'openrouter/anthropic/claude-opus-4.5',
+    factory: openRouter,
   },
   {
-    label: 'Claude Haiku 4.5',
-    pricingKey: 'claude-haiku-4.5',
-    factory: async () => {
-      const { AnthropicProvider } = await import('../providers/AnthropicProvider');
-      return new AnthropicProvider(getApiKey('anthropic'));
-    },
+    label: 'GPT-5',
+    pricingKey: 'openrouter/openai/gpt-5',
+    factory: openRouter,
   },
   {
-    label: 'Claude Sonnet 4.6',
-    pricingKey: 'claude-sonnet-4.6',
-    factory: async () => {
-      const { AnthropicProvider } = await import('../providers/AnthropicProvider');
-      return new AnthropicProvider(getApiKey('anthropic'));
-    },
+    label: 'Gemini 2.5 Pro',
+    pricingKey: 'openrouter/google/gemini-2.5-pro',
+    factory: openRouter,
+  },
+  {
+    label: 'Gemini 2.5 Flash',
+    pricingKey: 'openrouter/google/gemini-2.5-flash',
+    factory: openRouter,
   },
 ];
 
-export const DEFAULT_MODEL_INDEX = 0; // Gemini Flash — cheapest, fast, plenty for the POC
+// Default = Claude Sonnet 4.5: best-in-class for long-form narrative at a
+// sensible price. Per the architecture doc, per-tier defaults are configurable
+// in the backend at launch; this is the dev / Phase-0 default.
+export const DEFAULT_MODEL_INDEX = 0;

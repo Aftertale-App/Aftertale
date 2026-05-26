@@ -21,12 +21,14 @@
 
 ## §0. Contract surface between the addon and the web companion
 
-> **Status (2026-05-25):** Round-trip is **broken in practice** — bible
-> renders, chapters group, but narrative pages fall back to templates. The
-> blob format (C3 below) is too lossy. See `ROADMAP.md` → **"Known issues —
-> round-trip rework"** for the full breakdown. The contracts described
-> here are aspirational; treat as the target shape, not the current
-> shipping behavior. Tony's next session opens with the rework.
+> **Status (2026-05-26):** Round-trip **fixed pre-launch**. Replaced the
+> lossy `COA-CHRONICLE-V1` blob (C3 below) with a structured
+> `ChroniclesOfAzerothRestore.lua` snippet — see
+> [`companion-architecture.md`](./companion-architecture.md) §12 and the
+> `2026-05-26` entries in [`CHANGELOG.md`](../CHANGELOG.md). The blob
+> contract documented below is retained as fallback / historical reference.
+> Same Lua snippet format is the universal handoff for both Free workflow
+> and the Companion daemon.
 
 The system has many files but only **three contracts** must stay in sync. Everything else is internal to one side.
 
@@ -109,6 +111,16 @@ This is the document that puts the *current* CoA branding in extreme risk. Table
 ---
 
 ## §5. Technical architecture for compliant monetization
+
+> **2026-05-26 update:** The high-level pattern below (addon = MIT, no
+> network; companion = Electron, holds auth; backend = entitlement +
+> LLM proxy) is still correct, but the implementation specifics have
+> moved on. Authoritative current architecture (Supabase backend,
+> OpenRouter LLM layer, 6-digit TV-login pairing instead of license
+> keys + JWT activation, character cap as license per account, PWA
+> read surface) lives in [`companion-architecture.md`](./companion-architecture.md).
+> Read that for what we're actually building; this section is preserved
+> as the original compliance-framing rationale.
 
 The Zygor pattern, but using the WeakAuras Companion stack:
 

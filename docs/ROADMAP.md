@@ -1,8 +1,13 @@
 # Roadmap
 
-The full multi-phase plan lives in
-`~/.copilot/session-state/<session-id>/plan.md`. This file is the public-facing
-summary kept in the repo.
+> **Strategic constraint (2026-05-26):** Nothing ships to users until all
+> tiers (Free / Free+account / Companion / Chronicler / Loremaster) are
+> coordinated and right. No standalone slice launches. Items below labeled
+> "✅ Built (pre-launch)" exist in `main` but are not deployed to anyone.
+>
+> **Canonical architecture:** [`docs/companion-architecture.md`](./companion-architecture.md).
+> The Phase 1 (standalone Electron) and Phase 2 (WoW addon) framing in this
+> doc's history is superseded by the multi-tier picture in that file.
 
 ## Phase 0 — Browser POC  *(complete)*
 
@@ -103,55 +108,64 @@ Phase 0.75 is done when:
 4. We know whether `C_ChatInfo.SendAddonMessageLogged` reliably lands in
    `WoWChatLog.txt` for Phase 1's tailing to consume.
 
-## Phase 1 — Electron companion app  *(planned)*
+## Phase 1 — Multi-tier launch  *(in design)*
 
-Goal: long-running desktop app with durable storage and the start of real
-quest-log integration via chat log tailing.
+**Superseded framing:** Phase 1 used to mean "standalone Electron POC,"
+Phase 2 used to mean "WoW addon." Both of those are now sub-components of
+a single coordinated launch governed by
+[`docs/companion-architecture.md`](./companion-architecture.md).
 
-- [ ] Electron 28 main / preload / renderer split
-- [ ] better-sqlite3 + sqlite-vec for RAG memory
-- [ ] keytar for OS keychain API key storage
-- [ ] chokidar tailing `WoW\Logs\WoWChatLog.txt` (or Combat Log)
-- [ ] Migrate localStorage → SQLite (same schema, just different backend)
-- [ ] Provider calls move from renderer → main process IPC
-- [ ] Daily budget cap with soft + hard limits
-- [ ] Optional TTS pipeline (ElevenLabs? local?)
-- [ ] Chapter rollups using the Gemini Batch API (50% cheaper)
-- [ ] Per-task `enableThinking` flag on `LLMRequest`
+The WoW addon is largely shipped already (capture, restore, narrative
+templates). The Electron Companion is one of several pieces of the broader
+launch — it doesn't ship until the full stack is ready.
+
+### Build order (from `companion-architecture.md` §12)
+
+Tier-agnostic infrastructure first, user-facing UX last:
+
+- [ ] Supabase project + schema migration (`users`, `characters`, `events`,
+  `chapters`, `bible`, `companion_devices`, `pair_codes`, `subscriptions`)
+- [ ] Auth UI (sign in / sign up / "keep your stuff" anonymous→account migration)
+- [ ] Cloud sync layer (mirror localStorage → cloud for Free+account)
+- [ ] OpenRouter integration (BYOK + managed key paths)
+- [ ] Enrichment edge function (managed LLM via OpenRouter)
+- [ ] Scribe's Desk page (`/desk` route, linear stepper) — refactor of
+  current `ChronicleReader` import/export surface
+- [ ] Pairing endpoint + UI (`/pair`, 6-digit TV-login pattern)
+- [ ] Companion Electron app (separate repo, watches SV folder, writes
+  the same `ChroniclesOfAzerothRestore.lua` format)
+- [ ] Web push service worker + VAPID setup (PWA notifications)
+- [ ] Subscription / billing (Stripe Checkout → Supabase webhooks)
+- [ ] Privacy page (what the LLM provider chain is, what we send)
+- [ ] Resolve multi-WoW-account question (architecture doc §10 TODO)
 
 ### Phase 1 exit criteria
 
-We can play WoW for 4 hours and the app builds a coherent, in-character
-narrative of what happened — purely from chat log tailing + manual NPC
-interactions, without any addon yet.
+A new player can:
+1. Sign up, paste an OpenRouter key, manually walk through Scribe's Desk
+   end-to-end on the free tier.
+2. OR upgrade to Companion, install the desktop app, pair it, and have a
+   chapter land on their phone within a couple minutes of WoW logout —
+   without doing any work between those two events.
+3. Cancel Companion and walk back to the free tier with their chronicle
+   intact and readable.
 
-## Phase 2 — WoW addon  *(planned, Path B)*
+## Phase 2 — Polish and expand  *(post-launch)*
 
-Goal: deep, real-time integration so NPC chat and quest events feel native
-to the game.
+Reserved for genuinely-after-launch work. Anything that would compromise
+the tier coordination goes here, not into Phase 1.
 
-- [ ] Fork / extend YUI-Dialogue addon (Peterodox)
-- [ ] Hook `QUEST_DETAIL`, `GOSSIP_SHOW`, `QUEST_TURNED_IN`, `UNIT_SPELLCAST`
-- [ ] Render AI-generated NPC responses in YUI-Dialogue's chrome
-- [ ] Emit structured events via `C_ChatInfo.SendAddonMessageLogged()` so the
-      Electron app can ingest via chat log
-- [ ] Bidirectional: app pushes NPC dialogue back to addon for display
-- [ ] In-game "ask the historian" macro
-- [ ] Combat log significant-event detection (boss kills, deaths, etc.)
-
-### Phase 2 exit criteria
-
-A real WoW session where the addon-driven NPC chat is indistinguishable in
-feel from Blizzard's own dialogue, and the chronicle of the session reads
-like a chapter of a novel afterwards.
-
-## Beyond Phase 2
-
-- Multi-character chronicles (alts)
-- "Read my story" mode — browse past sessions chapter-by-chapter, zone-by-zone
-- Voice acting via TTS with consistent per-NPC voices
-- Optional Discord posting of chapter summaries
+Candidate items (none committed):
+- Per-task `enableThinking` flag on `LLMRequest` (deferred from Phase 1
+  planning when LLM layer moved to OpenRouter)
+- Daily budget cap with soft + hard limits (currently spend-bar-only)
+- Optional TTS pipeline (ElevenLabs? local?)
+- Chapter rollups using cheaper batch model paths
+- Native mobile apps (currently PWA-only by design — see architecture
+  doc §14)
+- Multi-WoW-account households if §10 TODO resolves toward "support it"
 - Community lore graph (shared NPC knowledge, opt-in)
+- Discord posting of chapter summaries
 
 ## Known issues — round-trip rework (2026-05-25 stress test)
 
@@ -162,7 +176,7 @@ End-to-end test with 580 captured events surfaced fundamental gaps in the
 companion → addon round-trip. Bible renders, chapters group, but the
 narrative read is broken. Needs rework before this pipeline is shippable.
 
-### 1. Blob format is too lossy
+### 1. Blob format is too lossy — ✅ Built (pre-launch) 2026-05-26
 **Problem:** `COA-CHRONICLE-V1` only carries `EntryID + paragraph`. The book's
 resolvers and chapter grouping need event metadata that's getting dropped at
 export time:
@@ -171,23 +185,23 @@ export time:
 - `enrichment.npcName`, `enrichment.levelText`, etc. → likewise templated
 - `ZONE_CHANGED` args are empty in the blob (WoW event has no payload; addon queries `GetMinimapZoneText()` separately and stores on the event, not in args)
 
-**Path forward:** Either (a) extend the blob grammar with per-entry metadata
-columns, or (b) drop the blob format entirely for the bypass path and ship
-a structured `.lua` snippet from the web companion that contains full
-`db.events` + `db.enriched` + `db.bible`. Option (b) is cleaner and is what
-`inject-chronicle.ps1` had to reverse-engineer this round.
+**Shipped:** Took option (b). `src/lib/chronicleSnippet.ts` produces a
+`ChroniclesOfAzerothRestore.lua` file carrying full event rows (incl. the
+verbatim `enrichment` subtable, preserved through ingest via new
+`AddonEvent.rawEnrichment`) plus enriched paragraphs + bible. Addon's new
+`Companion/Restore.lua` registers a dedicated SV channel, merges on
+`PLAYER_LOGIN`, and clears the global so the file wipes on next save.
+Auto-leveled long-bracket escaping handles every Lua edge case (content
+with `]==]`, trailing `]`, multi-line, etc.) — smoke-tested with a real
+Lua interpreter. Old `/coa sync` blob path retained as fallback.
 
-### 2. `/coa sync` EditBox is unusably slow
+### 2. `/coa sync` EditBox is unusably slow — ✅ Built (pre-launch) 2026-05-26 (by #1)
 **Problem:** 471 KB blob freezes WoW for 30-90s on paste; may never settle.
 WoW's EditBox widget has O(n²) repaint cost at this size.
 
-**Workaround in place:** `inject-chronicle.ps1` writes directly to the SV
-file. Works but requires WoW closed + a manual PowerShell step.
-
-**Path forward:** Add a "Download .lua snippet" button to `CompanionExport`
-that produces the complete restoration file. User saves into `WTF\Account\
-<ACCOUNT>\SavedVariables\`, launches WoW, done. Skip the EditBox entirely
-as the supported path.
+**Shipped:** The .lua snippet path (#1 above) bypasses the EditBox entirely.
+User downloads the file, drops it into `WTF\Account\<ACCT>\SavedVariables\`,
+launches WoW — done. `inject-chronicle.ps1` is no longer needed.
 
 ### 3. `/coa clear` orphans enriched paragraphs
 **Problem:** Clearing wipes `db.events` but preserves `db.enriched`. Without
@@ -224,4 +238,4 @@ with spaces. Locking this in any future Lua-snippet generator (web side too).
 
 ## Backlog — small follow-ups
 
-- [ ] **Per-event-type filter in CompanionExport.** ChronicleReader's enrich panel currently runs across every imported addon event. Real SV files contain a long tail of low-signal events (UNIT_QUEST_LOG_CHANGED, PLAYER_REGEN_*, CHAT_MSG_LOOT/MONEY, TIME_PLAYED_MSG) that aren't story-worthy and burn LLM tokens. Add a small checkbox grid keyed by `wowEvent` — sensible defaults checked (QUEST_TURNED_IN, QUEST_ACCEPTED, PLAYER_LEVEL_UP, PLAYER_DEAD, ENCOUNTER_END, BOSS_KILL, ZONE_CHANGED_NEW_AREA), noisy ones unchecked. Persist selection in localStorage so it sticks across sessions. Estimated cost saving on a 580-event file: ~95% (drops to ~30 enriched events). Cheap to build, big lever.
+- [x] **Per-event-type filter in CompanionExport.** *(2026-05-26)* Added `src/lib/eventFilter.ts` + a category-grouped checkbox panel in `ChronicleReader`'s `CompanionExport`. Defaults to the 8 narrative events (matches addon `Templates.IsNarrativeEvent`, which was simultaneously expanded to add `ENCOUNTER_END` + `BOSS_KILL`). Per-event counts from the current SV import are shown next to each checkbox so the user sees where the cost lives. Persists to `localStorage` under `coa.enrichFilter.v1` (global, not per-character). Unknown event types from future addon versions surface in their own "Unknown" group and persist if toggled on. New ENCOUNTER_END / BOSS_KILL template pools + `Preview` cases added to `Lore/Templates.lua`.

@@ -51,7 +51,7 @@ export interface PrologueOptions {
   maxTokens?: number;
 }
 
-const DEFAULT_MODEL = 'gemini-flash';
+const DEFAULT_MODEL = 'openrouter/anthropic/claude-sonnet-4.5';
 const DEFAULT_TEMPERATURE = 0.85;
 const DEFAULT_MAX_TOKENS = 1600;
 

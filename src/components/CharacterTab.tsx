@@ -15,8 +15,8 @@ type Mode = 'manual' | 'auto';
  * Wraps the Character tab so the user can choose between the original
  * manual interview path and the new SavedVariables auto-import path.
  *
- * Provider acquisition (Gemini Flash by default) happens lazily on first
- * auto-import open so users without a Gemini key can still use manual.
+ * Provider acquisition (OpenRouter by default) happens lazily on first
+ * auto-import open so users without a key can still use manual.
  */
 export function CharacterTab() {
   const [mode, setMode] = useState<Mode>('manual');
@@ -93,7 +93,7 @@ export function CharacterTab() {
     setSavedDraft(result);
   }
 
-  const geminiKey = getKeyStatus('gemini').hasKey;
+  const hasKey = getKeyStatus('openrouter').hasKey;
 
   return (
     <div>
@@ -116,7 +116,7 @@ export function CharacterTab() {
           type="button"
           className={`coa-btn ${mode === 'auto' ? 'coa-btn-primary' : 'coa-btn-secondary'}`}
           onClick={() => setMode('auto')}
-          title={geminiKey ? '' : 'Auto-import uses the AI for Inspire Me. Add a Gemini key in ⚙ Keys.'}
+          title={hasKey ? '' : 'Auto-import uses the AI for Inspire Me. Add an OpenRouter key in ⚙ Keys.'}
         >
           ✦ Auto-import (from SavedVariables)
         </button>

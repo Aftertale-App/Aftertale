@@ -11,7 +11,7 @@
 // byte-for-byte. Without that, the /coa sync round-trip silently skips.
 // ============================================================================
 
-import type { AddonEvent, AddonEventKind, WowEventName } from './addonEvents';
+import type { AddonEvent, AddonEventKind, LootItem, WowEventName } from './addonEvents';
 import { parseSavedVariables, type LuaValue, type ParsedSavedVariables } from './luaSavedVariables';
 
 export interface IngestSummary {
@@ -65,6 +65,39 @@ function asStringArray(v: LuaValue | undefined): string[] {
     if (entry === null) return '';
     return '';
   });
+}
+
+// Strip WoW item-link control codes so the LLM sees just the readable name.
+// Example: "|cffffffff|Hitem:2589::::::::1:::::::|h[Linen Cloth]|h|r" -> "Linen Cloth".
+function plainItemName(link: string | undefined, fallback: string | undefined): string | undefined {
+  if (typeof link === 'string') {
+    const m = /\[(.+?)\]/.exec(link);
+    if (m && m[1]) return m[1];
+  }
+  return fallback;
+}
+
+function extractLoot(enrichment: { [k: string]: LuaValue } | undefined): LootItem[] | undefined {
+  if (!enrichment) return undefined;
+  const raw = enrichment.loot;
+  if (!Array.isArray(raw)) return undefined;
+  const out: LootItem[] = [];
+  for (const entry of raw) {
+    if (!isObj(entry)) continue;
+    const name = asString(entry.name);
+    const link = asString(entry.link);
+    const display = plainItemName(link, name);
+    const qty = asNumber(entry.qty);
+    const quality = asNumber(entry.quality);
+    if (!display && quality === undefined && qty === undefined) continue;
+    out.push({
+      name: display,
+      link,
+      qty,
+      quality,
+    });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +169,7 @@ function summarize(wowEvent: string, args: string[], enrichment: { [k: string]: 
   const questTitle = enrichment ? asString(enrichment.questTitle) : undefined;
   const npc = enrichment && isObj(enrichment.npc) ? asString(enrichment.npc.name) : undefined;
   const encounterName = enrichment ? asString(enrichment.encounterName) : undefined;
+  const loot = extractLoot(enrichment);
 
   switch (wowEvent) {
     case 'QUEST_TURNED_IN':
@@ -170,6 +204,14 @@ function summarize(wowEvent: string, args: string[], enrichment: { [k: string]: 
       return encounterName ? `Encounter ended: ${encounterName}.` : `Encounter ended.`;
     case 'BOSS_KILL':
       return encounterName ? `Defeated ${encounterName}.` : `Defeated a boss.`;
+    case 'LOOT_OPENED': {
+      if (!loot || loot.length === 0) return `Opened loot${zone ? ` in ${zone}` : ''}.`;
+      const named = loot.filter((i) => i.name).map((i) => i.name as string);
+      if (named.length === 0) return `Opened loot (${loot.length} items)${zone ? ` in ${zone}` : ''}.`;
+      const preview = named.slice(0, 3).join(', ');
+      const more = named.length > 3 ? ` and ${named.length - 3} more` : '';
+      return `Found: ${preview}${more}${zone ? ` in ${zone}` : ''}.`;
+    }
     default:
       return `${wowEvent}${args.length ? ` (${args.join(', ')})` : ''}`;
   }
@@ -213,6 +255,7 @@ function rowToEvent(
   })();
   const questName = enrichment ? asString(enrichment.questTitle) : undefined;
   const unitName = enrichment ? asString(enrichment.encounterName) : undefined;
+  const loot = extractLoot(enrichment);
 
   return {
     id,
@@ -222,6 +265,8 @@ function rowToEvent(
     timestamp: parsedTs,
     rawTs: ts,
     rawArgs,
+    rawT: asNumber(row.t),
+    rawEnrichment: enrichment,
     zone,
     subZone,
     npcName,
@@ -229,6 +274,7 @@ function rowToEvent(
     questName,
     playerLevel,
     unitName,
+    loot,
     summary: summarize(wowEvent, rawArgs, enrichment),
   };
 }

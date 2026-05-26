@@ -7,11 +7,94 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+> **Note (2026-05-26):** Per current strategic direction, nothing under this
+> heading ships to users until the full multi-tier launch is coordinated
+> (Free/BYOK + Companion + Chronicler + Loremaster). Entries below represent
+> work landed in `main` and ready to be part of that launch — not features
+> currently delivered to anyone.
+
 Phase 0 (Browser POC) exit criteria all met as of May 25, 2026: character
 interview produces distinct bibles, 5-turn NPC conversations stay in-voice
 (Magni is the bar), and the spend bar is backed by ~80 real Flash calls
-(~$0.10) from the May 24 sim session. Next up: Phase 1 (Electron companion
-app) — see [docs/ROADMAP.md](docs/ROADMAP.md).
+(~$0.10) from the May 24 sim session.
+
+**Architecture locked (2026-05-26):** the canonical reference for the
+multi-tier system (Free → Companion → Chronicler → Loremaster), Companion
+daemon, pairing flow, OpenRouter LLM layer, and Supabase backend is
+[`docs/companion-architecture.md`](docs/companion-architecture.md). The
+prior "Phase 1 = standalone Electron app, Phase 2 = WoW addon" framing in
+older docs is superseded by that document.
+
+### Changed
+
+- **Scribe's Desk page** *(2026-05-26)*. Split `ChronicleReader.tsx` into
+  pure-reader + new `/Scribe's Desk` tab. The desk owns the manual workflow:
+  Import SV → Filter events → Enrich → Download `.lua` restore snippet — laid
+  out as a 4-step linear stepper. Reader is now purely about reading
+  (chapters, recaps, insights, session trail) — no import or export controls.
+  Extracted `EventFilterPanel` into its own component file. Added a
+  `featureFlags.ts` module with `getShowScribesDesk()` / `setShowScribesDesk()`
+  for power-user toggling (default visible pre-launch; post-launch it flips
+  to default-hidden for paid tiers where the daemon does this automatically).
+  Settings panel gained an "Advanced" section with the toggle. New tab
+  request `coa:request-tab` accepts `'desk'`. Reader's empty state now
+  routes the user to the desk. `ChronicleReader.tsx` shrank from 1327 to
+  759 lines.
+- **LLM layer is now OpenRouter-only** *(2026-05-26)*. Removed the direct
+  `GeminiProvider` and `AnthropicProvider` and their SDK dependencies
+  (`@google/genai`, `@anthropic-ai/sdk`). Removed all `gemini-*` and
+  `claude-*` pricing entries from `src/pricing.ts`. `ProviderId` narrowed
+  to `'openrouter'`, `Provider` (apiKeys.ts) narrowed to `'openrouter'`,
+  SettingsPanel simplified to a single key field. Default model is now
+  `openrouter/anthropic/claude-sonnet-4.5` (best-in-class for long-form
+  narrative). Bundle dropped from 128 to 92 modules, shipped JS down
+  ~355 KB raw / ~75 KB gzipped (no more SDK weight — OpenRouter is fetch
+  only). One key, every model. See `docs/companion-architecture.md` §8a.
+
+### Added
+
+- **OpenRouter provider** *(2026-05-26)*. New `src/providers/OpenRouterProvider.ts`
+  using OpenRouter's OpenAI-compatible API (plain fetch, no SDK — 2.6 KB
+  shipped). Five curated models wired into the picker:
+  Claude Sonnet 4.5, Claude Opus 4.5, GPT-5, Gemini 2.5 Pro, Gemini 2.5 Flash.
+  Settings panel now lists OpenRouter first as the recommended path —
+  one key, every model. Pricing rows mirror the underlying provider's
+  per-token rate (OpenRouter passes through). Carries the strategic-default
+  decision from `docs/companion-architecture.md` §8a into actual code,
+  unblocking BYOK simplification and per-tier managed-key paths without
+  committing to user-facing UX yet. Direct Gemini + Anthropic providers
+  remain wired and functional for A/B comparison.
+- **`.lua` restore snippet — kills the lossy blob format** *(2026-05-26)*.
+  CompanionExport gains a "⬇ Download .lua restore" button that produces a
+  self-contained `ChroniclesOfAzerothRestore.lua` file. User drops it into
+  `WTF\Account\<ACCT>\SavedVariables\`, relaunches WoW, and the new
+  `addon/ChroniclesOfAzeroth/Companion/Restore.lua` module merges full
+  events + enrichments + bible into `ChroniclesOfAzerothDB` on `PLAYER_LOGIN`.
+  Carries the entire `enrichment` subtable per event (`zoneText`, `questTitle`,
+  `npc.name`, `encounterName`, `loot[]`) so chapter grouping and entry titles
+  render correctly — the COA-CHRONICLE-V1 blob was dropping all of that and
+  leaving the book stuck on "Unknown Lands" / "Accepted: a quest". Also
+  bypasses the 471 KB EditBox bottleneck. Snippet uses auto-leveled Lua
+  long brackets so any LLM-generated content (including `]==]` tokens or
+  trailing `]`) round-trips byte-for-byte; smoke-tested against a real Lua
+  interpreter. Old `/coa sync` blob path retained as fallback.
+- **LOOT_OPENED enrichment with quality gating** *(2026-05-26)*. LOOT events
+  are now narrative when at least one item meets the quality floor (default
+  Uncommon+). New `T.LOOT_OPENED` template pool + `ResolveLoot` /
+  `IsNarrativeEntry` helpers in `Lore/Templates.lua`. Web companion extracts
+  `enrichment.loot[]` into the `AddonEvent`, passes named items + quality
+  labels into the enrichment prompt, and exposes a quality `<select>` in the
+  filter panel (persisted alongside the event toggles).
+- **Per-event-type filter in CompanionExport** *(2026-05-26)*. Category-grouped
+  checkbox panel above the enrich controls, defaulting to the 8 narrative
+  events the parchment book actually renders. Persists globally to
+  `localStorage` (`coa.enrichFilter.v1`). Per-import counts shown beside each
+  event name so cost is visible before kicking off a run. Closes the
+  ~95%-waste finding from the May 25 stress test.
+- **`ENCOUNTER_END` + `BOSS_KILL` are now narrative events.** Added template
+  pools, `Preview` cases, and `ResolveEncounter` helper in
+  `addon/.../Lore/Templates.lua`. The parchment book now renders boss kills
+  instead of dropping them.
 
 ### Changed
 

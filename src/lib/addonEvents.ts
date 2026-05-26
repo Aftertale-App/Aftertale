@@ -1,4 +1,9 @@
 import type { CharacterBible } from '../types';
+import type { LuaValue } from './luaSavedVariables';
+
+// Re-export so downstream tooling (chronicleSnippet) doesn't have to reach
+// into luaSavedVariables for the same structural type.
+export type { LuaValue } from './luaSavedVariables';
 
 export type AddonEventKind =
   | 'session_start'
@@ -90,6 +95,19 @@ export interface QuestTextEnrichment {
   capturedAt: number;
 }
 
+// One item captured from a LOOT_OPENED event (mirrors what `captureLoot`
+// in the Lua addon emits). All fields are optional because Classic and
+// Retail expose slightly different shapes from GetLootSlotInfo.
+export interface LootItem {
+  name?: string;
+  link?: string;
+  qty?: number;
+  // WoW item quality enum: 0 Poor, 1 Common, 2 Uncommon, 3 Rare, 4 Epic,
+  // 5 Legendary, 6 Artifact, 7 Heirloom. The web companion's filter
+  // gates LOOT_OPENED enrichment by this value.
+  quality?: number;
+}
+
 export interface AddonEvent {
   id: string;
   source: AddonEventSource;
@@ -113,6 +131,9 @@ export interface AddonEvent {
   playerXp?: number;
   playerXpMax?: number;
   moneyCopper?: number;
+  // Populated for LOOT_OPENED from `enrichment.loot[]`. The web filter
+  // can gate this event by minimum quality before deciding to enrich.
+  loot?: LootItem[];
   sessionId?: string;
   summary: string;
   storyCard?: QuestStoryCard;
@@ -126,6 +147,19 @@ export interface AddonEvent {
   // and known typed fields.
   rawTs?: string;
   rawArgs?: string[];
+  // Numeric GetTime() value from the original SV row, when we ingested from
+  // SavedVariables. Preserved so the .lua restore snippet can round-trip
+  // the row back to the addon byte-for-byte (it's harmless if approximated;
+  // the addon only reads `ts` for templating, but other consumers may use
+  // `t` for ordering inside the same session).
+  rawT?: number;
+  // Verbatim `enrichment` subtable from the original SV row. This is what
+  // the parchment book's resolvers actually consume (zoneText, questTitle,
+  // npc.name, encounterName, loot[], etc.). Preserved on ingest so the
+  // restore snippet can hand it back to the addon untouched. Simulator
+  // events have no rawEnrichment; the snippet writer synthesises a minimal
+  // one from the typed fields in that case.
+  rawEnrichment?: { [k: string]: LuaValue };
 }
 
 export interface AddonIngestResult {

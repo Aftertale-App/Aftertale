@@ -6,7 +6,9 @@ import { CharacterSelector } from './components/CharacterSelector';
 import { SettingsPanel } from './components/SettingsPanel';
 import { AddonSimulator } from './components/AddonSimulator';
 import { ChronicleReader } from './components/ChronicleReader';
+import { ScribesDesk } from './components/ScribesDesk';
 import { getKeyStatus } from './lib/apiKeys';
+import { getShowScribesDesk } from './lib/featureFlags';
 
 // The Addon Simulator is a developer-only tool: it fires synthetic addon
 // events into the bible/history layer to test narration without playing
@@ -14,12 +16,13 @@ import { getKeyStatus } from './lib/apiKeys';
 // `import.meta.env.DEV` flag (true for `npm run dev`, false for `build`).
 const SHOW_DEV_TOOLS = import.meta.env.DEV;
 
-type Tab = 'character' | 'chronicle' | 'npc' | 'addon';
+type Tab = 'character' | 'chronicle' | 'desk' | 'npc' | 'addon';
 
 export function App() {
   const [tab, setTab] = useState<Tab>('character');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyTick, setKeyTick] = useState(0);
+  const [showDesk, setShowDesk] = useState<boolean>(() => getShowScribesDesk());
 
   useEffect(() => {
     function handler(e: Event) {
@@ -27,6 +30,7 @@ export function App() {
       if (target === 'tavern' || target === 'npc') setTab('npc');
       else if (target === 'character') setTab('character');
       else if (target === 'chronicle') setTab('chronicle');
+      else if (target === 'desk') setTab('desk');
       else if (target === 'addon' && SHOW_DEV_TOOLS) setTab('addon');
     }
     window.addEventListener('coa:request-tab', handler);
@@ -41,19 +45,24 @@ export function App() {
     return () => window.removeEventListener('coa:apikey-updated', bump);
   }, []);
 
-  // First-run nudge: if no keys at all, pop the settings panel automatically.
   useEffect(() => {
-    const gemini = getKeyStatus('gemini');
-    const anthropic = getKeyStatus('anthropic');
-    if (!gemini.hasKey && !anthropic.hasKey) {
+    function onFlags() {
+      setShowDesk(getShowScribesDesk());
+    }
+    window.addEventListener('coa:flags-updated', onFlags);
+    return () => window.removeEventListener('coa:flags-updated', onFlags);
+  }, []);
+
+  // First-run nudge: if no key, pop the settings panel automatically.
+  useEffect(() => {
+    if (!getKeyStatus('openrouter').hasKey) {
       setSettingsOpen(true);
     }
   }, []);
 
-  const geminiStatus = getKeyStatus('gemini');
-  const anthropicStatus = getKeyStatus('anthropic');
+  const openrouterStatus = getKeyStatus('openrouter');
   void keyTick; // re-renders trigger via the bump above
-  const anyKey = geminiStatus.hasKey || anthropicStatus.hasKey;
+  const anyKey = openrouterStatus.hasKey;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -95,6 +104,17 @@ export function App() {
           >
             ◆ Chronicle
           </button>
+          {showDesk && (
+            <button
+              role="tab"
+              aria-selected={tab === 'desk'}
+              className="coa-tab"
+              onClick={() => setTab('desk')}
+              title="Import SavedVariables, enrich events into prose, and download a restore snippet for WoW"
+            >
+              ◆ Scribe's Desk
+            </button>
+          )}
           <button
             role="tab"
             aria-selected={tab === 'npc'}
@@ -119,6 +139,7 @@ export function App() {
         <div style={{ marginTop: '2rem' }}>
           {tab === 'character' && <CharacterTab />}
           {tab === 'chronicle' && <ChronicleReader />}
+          {tab === 'desk' && showDesk && <ScribesDesk />}
           {tab === 'npc' && <NpcChat />}
           {tab === 'addon' && SHOW_DEV_TOOLS && <AddonSimulator />}
         </div>

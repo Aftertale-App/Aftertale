@@ -91,7 +91,7 @@ local function collectRows()
 
   local oldestFirst = {}
   for i, ev in ipairs(db.events) do
-    if NS.Templates.IsNarrativeEvent(ev.event) then
+    if NS.Templates.IsNarrativeEntry(ev) then
       table.insert(oldestFirst, { entry = ev, idx = i })
     end
   end
