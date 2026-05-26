@@ -35,6 +35,8 @@ pwsh scripts/install-addon.ps1 -Unlink
 | --------------------------------- | --------------------- | --------- |
 | `ChroniclesOfAzeroth.toc`         | Retail (Midnight)     | 120005    |
 | `ChroniclesOfAzeroth_Mists.toc`   | MoP Classic           | 50503     |
+| `ChroniclesOfAzeroth_Cata.toc`    | Cataclysm Classic     | 40402     |
+| `ChroniclesOfAzeroth_Wrath.toc`   | Wrath Classic         | 30405     |
 | `ChroniclesOfAzeroth_TBC.toc`     | Anniversary (TBC)     | 20505     |
 | `ChroniclesOfAzeroth_Vanilla.toc` | Classic Era           | 11508     |
 
