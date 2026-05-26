@@ -2124,8 +2124,8 @@ const landingStyles = `
      the flex track would otherwise stretch every panel to match the tallest
      (Backstory). Anything taller gets internal scroll on .at-panel-content. */
   .at-exhibit-page {
-    min-height: 540px;
-    max-height: 600px;
+    min-height: 640px;
+    max-height: 700px;
     padding: 0;
   }
 `;
