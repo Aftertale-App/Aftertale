@@ -130,9 +130,21 @@ local function ensureCompanionDB()
   cdb.schemaVersion = cdb.schemaVersion or 1
   -- generatedChapters: list of { id, forCharacter, basedOnEventIds,
   --                              title, text, generatedAt, readByPlayer }
-  if type(cdb.generatedChapters) ~= "table" then cdb.generatedChapters = {} end
+  if type(cdb.generatedChapters) ~= "table" then
+    if cdb.generatedChapters ~= nil and NS and NS.Logger then
+      NS.Logger:warn("companion.generatedChapters was " .. type(cdb.generatedChapters)
+        .. "; reset to {}", NS.Logger.Categories.companion)
+    end
+    cdb.generatedChapters = {}
+  end
   -- ingestedEventIds: set keyed by event.id -> true
-  if type(cdb.ingestedEventIds) ~= "table" then cdb.ingestedEventIds = {} end
+  if type(cdb.ingestedEventIds) ~= "table" then
+    if cdb.ingestedEventIds ~= nil and NS and NS.Logger then
+      NS.Logger:warn("companion.ingestedEventIds was " .. type(cdb.ingestedEventIds)
+        .. "; reset to {}", NS.Logger.Categories.companion)
+    end
+    cdb.ingestedEventIds = {}
+  end
   return cdb
 end
 
@@ -141,8 +153,13 @@ end
 -- CURRENT_SCHEMA do ... end` and add a per-version migrator branch.
 local function migrate(db)
   if db.schemaVersion == CURRENT_SCHEMA then return end
+  local from = db.schemaVersion
   -- No migrations yet. Future migrators land here, one branch per bump.
   db.schemaVersion = CURRENT_SCHEMA
+  if NS and NS.Logger then
+    NS.Logger:info(string.format("schema migrated %s -> %s",
+      tostring(from), tostring(CURRENT_SCHEMA)), NS.Logger.Categories.capture)
+  end
 end
 
 ------------------------------------------------------------------------
@@ -661,6 +678,12 @@ local function finalizeCharacterDetection(db, totalTimeSec, levelTimeSec)
   record.firstSeen.timePlayedSec = totalTimeSec
   record.firstSeen.levelTimeSec = levelTimeSec
   record.classification, record.classificationReason = classify(totalTimeSec, record.firstSeen.level)
+  if NS and NS.Logger then
+    NS.Logger:info(string.format("character %s-%s classified as '%s' (%s)",
+      tostring(record.identity.name), tostring(record.identity.realm),
+      tostring(record.classification), tostring(record.classificationReason)),
+      NS.Logger.Categories.character)
+  end
   if not record.announced then
     announceNewCharacter(record)
     record.announced = true
@@ -675,16 +698,28 @@ end
 local frame = CreateFrame("Frame", "ChroniclesOfAzerothFrame")
 
 local function registerEvents(db)
+  local refused = 0
   for _, ev in ipairs(EVENTS) do
-    local ok = pcall(function() frame:RegisterEvent(ev) end)
+    local ok, err = pcall(function() frame:RegisterEvent(ev) end)
     if not ok then
       db.missingEvents[ev] = "RegisterEvent threw"
+      refused = refused + 1
+      if NS and NS.Logger then
+        NS.Logger:warn(string.format("RegisterEvent refused '%s': %s",
+          ev, tostring(err)), NS.Logger.Categories.events)
+      end
     end
   end
   -- Mark statically-known-forbidden events too so /coa missing tells the
   -- full story even when we deliberately skipped them.
   for ev, reason in pairs(KNOWN_FORBIDDEN) do
     db.missingEvents[ev] = reason
+  end
+  if NS and NS.Logger then
+    NS.Logger:info(string.format("registered %d events (%d refused, %d known-forbidden)",
+      #EVENTS - refused, refused, (function()
+        local n = 0; for _ in pairs(KNOWN_FORBIDDEN) do n = n + 1 end; return n
+      end)()), NS.Logger.Categories.events)
   end
 end
 
@@ -836,8 +871,13 @@ function NS.Emit(event, ...)
   for _, h in ipairs(list) do
     local ok, err = pcall(h, ...)
     if not ok then
-      -- swallow UI errors; never let cosmetic UX break the capture path
-      if DEFAULT_CHAT_FRAME then
+      -- Swallow UI errors so cosmetic UX never breaks the capture pipeline.
+      -- Route through the logger; ERROR level always mirrors to chat so we
+      -- still see it even when the user hasn't enabled debug output.
+      if NS.Logger then
+        NS.Logger:error("UI handler error in '" .. tostring(event) .. "': " .. tostring(err),
+          NS.Logger.Categories.ui)
+      elseif DEFAULT_CHAT_FRAME then
         DEFAULT_CHAT_FRAME:AddMessage(CHAT_TAG .. " UI handler error: " .. tostring(err))
       end
     end
@@ -868,6 +908,94 @@ local function cmdHelp()
   print("  /coa characters        -- list characters Chronicles has seen")
   print("  /coa character reset <guid>  -- force re-onboarding for a character")
   print("  /coa enrichment [on|off]  -- toggle per-event enrichment (zone/quest title/NPC/loot)")
+  print("  /coa log               -- diagnostics logger (see /coa log for sub-commands)")
+end
+
+-- Diagnostics logger control. Routes to NS.Logger. Sub-commands:
+--   /coa log                          -- show current state
+--   /coa log show [N]                 -- print last N entries (default 20)
+--   /coa log clear                    -- wipe the in-memory ring buffer
+--   /coa log chat on|off              -- mirror accepted log lines to chat
+--   /coa log level <debug|info|warn|error>
+--   /coa log <category> on|off        -- enable/silence a category
+local function cmdLog(arg)
+  if not (NS and NS.Logger) then
+    print(CHAT_TAG .. " logger not loaded (Utils/Logger.lua missing from .toc?).")
+    return
+  end
+  arg = arg or ""
+  local sub, rest = arg:match("^(%S*)%s*(.-)$")
+  sub = (sub or ""):lower()
+  rest = rest or ""
+
+  if sub == "" then
+    NS.Logger:DescribeState()
+    return
+  end
+
+  if sub == "show" then
+    local n = tonumber(rest) or 20
+    NS.Logger:Show(n)
+    return
+  end
+
+  if sub == "clear" then
+    NS.Logger:Clear()
+    print(CHAT_TAG .. " logger ring buffer cleared.")
+    return
+  end
+
+  if sub == "chat" then
+    local v = rest:lower()
+    if v == "on" or v == "true" or v == "1" then
+      NS.Logger:SetMirrorToChat(true)
+    elseif v == "off" or v == "false" or v == "0" then
+      NS.Logger:SetMirrorToChat(false)
+    end
+    print(string.format("%s log chat mirroring is %s.",
+      CHAT_TAG, NS.Logger:IsMirroringToChat() and "ON" or "OFF"))
+    return
+  end
+
+  if sub == "level" then
+    if rest == "" then
+      local lvl = NS.Logger:GetLevel()
+      local names = { [1] = "debug", [2] = "info", [3] = "warn", [4] = "error" }
+      print(string.format("%s log level is %s.", CHAT_TAG, names[lvl] or "?"))
+      return
+    end
+    local resolved = NS.Logger:SetLevel(rest)
+    if not resolved then
+      print(CHAT_TAG .. " unknown level '" .. rest .. "'. use debug|info|warn|error.")
+    else
+      local names = { [1] = "DEBUG", [2] = "INFO", [3] = "WARN", [4] = "ERROR" }
+      print(string.format("%s log level set to %s.", CHAT_TAG, names[resolved]))
+    end
+    return
+  end
+
+  -- Otherwise treat sub as a category name and rest as on|off.
+  if not NS.Logger.Categories[sub] then
+    print(string.format("%s unknown log category '%s'. known: %s",
+      CHAT_TAG, sub, (function()
+        local ks = {}
+        for k in pairs(NS.Logger.Categories) do ks[#ks + 1] = k end
+        table.sort(ks)
+        return table.concat(ks, ", ")
+      end)()))
+    return
+  end
+  local v = rest:lower()
+  if v == "on" or v == "true" or v == "1" then
+    NS.Logger:SetCategory(sub, true)
+  elseif v == "off" or v == "false" or v == "0" then
+    NS.Logger:SetCategory(sub, false)
+  elseif v ~= "" then
+    print(CHAT_TAG .. " usage: /coa log " .. sub .. " on|off")
+    return
+  end
+  print(string.format("%s log category '%s' is %s.",
+    CHAT_TAG, sub, NS.Logger:IsCategoryEnabled(sub) and "ON" or "OFF"))
 end
 
 local function cmdEnrichment(arg)
@@ -1113,6 +1241,7 @@ SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
   elseif cmd == "characters" then cmdCharacters()
   elseif cmd == "character" then cmdCharacterReset(arg)
   elseif cmd == "enrichment" then cmdEnrichment(arg)
+  elseif cmd == "log" or cmd == "logs" then cmdLog(arg)
   elseif cmd == "config" or cmd == "settings" or cmd == "options" then
     if NS and NS.OpenSettings then NS.OpenSettings()
     else print(CHAT_TAG .. " settings UI not loaded yet -- /reload and retry.") end
