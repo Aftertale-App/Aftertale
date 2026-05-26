@@ -4,7 +4,7 @@
 ## Author: snoblitz
 ## Version: 0.5.2
 ## X-License: MIT
-## SavedVariables: ChroniclesOfAzerothDB
+## SavedVariables: ChroniclesOfAzerothDB, ChroniclesOfAzerothCompanion
 ## DefaultState: enabled
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 
