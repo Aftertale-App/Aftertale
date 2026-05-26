@@ -109,6 +109,10 @@ local function ensureDB()
   if c.storyCardDuration  == nil then c.storyCardDuration  = 5.0 end
   if c.minimapAngle       == nil then c.minimapAngle       = 215  end
   c.webAppUrl = c.webAppUrl or "https://snoblitz.github.io/Chronicles-of-Azeroth/"
+  -- Phase 2: ring buffer cap. FIFO trim oldest events when the buffer
+  -- overflows. Bounds SavedVariables file size on long sessions. Tune
+  -- with /coa max <N>; minimum 100, no hard upper limit.
+  if c.maxEvents == nil then c.maxEvents = 5000 end
   -- Phase 1.7: Tier-C enrichment. Paragraphs imported via /coa sync land
   -- here keyed by Templates.EntryID; ChronicleBook reads this first,
   -- falls back to procedural templates per entry.
@@ -408,6 +412,13 @@ local function recordEvent(db, event, ...)
     rec.enrichment = buildEnrichment(event, args)
   end
   table.insert(db.events, rec)
+
+  -- Ring buffer: FIFO trim oldest entries once we exceed the configured
+  -- cap. Loop in case a future bulk-import path pushes multiple at once.
+  local cap = (db.config and db.config.maxEvents) or 5000
+  while #db.events > cap do
+    table.remove(db.events, 1)
+  end
 
   -- Mirror compact form via SendAddonMessageLogged so we can also verify
   -- that the chat-log transport carries our events end-to-end.
@@ -779,6 +790,7 @@ local function cmdHelp()
   print("  /coa tail [N]          -- print the last N events (default 10)")
   print("  /coa clear             -- wipe the capture log")
   print("  /coa sample N          -- set combat-log sample rate (default 50)")
+  print("  /coa max [N]           -- show/set ring buffer cap (default 5000, min 100)")
   print("  /coa missing           -- list events RegisterEvent refused on this flavor")
   print("  /coa version           -- show addon + client version info")
   print("  /coa characters        -- list characters Chronicles has seen")
@@ -842,6 +854,27 @@ local function cmdSample(nStr)
   end
   db.combatLogSampleRate = n
   print(string.format("%s combat-log sample rate set to %d (1-in-N).", CHAT_TAG, n))
+end
+
+local function cmdMax(nStr)
+  local db = ensureDB()
+  if nStr == nil or nStr == "" then
+    print(string.format("%s ring buffer cap is %d events (%d currently held).",
+      CHAT_TAG, db.config.maxEvents or 5000, #db.events))
+    return
+  end
+  local n = tonumber(nStr)
+  if not n or n < 100 then
+    print(CHAT_TAG .. " max must be an integer >= 100.")
+    return
+  end
+  db.config.maxEvents = n
+  -- Apply immediately in case the new cap is below current size.
+  while #db.events > n do
+    table.remove(db.events, 1)
+  end
+  print(string.format("%s ring buffer cap set to %d (%d currently held).",
+    CHAT_TAG, n, #db.events))
 end
 
 local function cmdMissing()
@@ -932,6 +965,7 @@ SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
   elseif cmd == "tail" then cmdTail(arg)
   elseif cmd == "clear" then cmdClear()
   elseif cmd == "sample" then cmdSample(arg)
+  elseif cmd == "max" then cmdMax(arg)
   elseif cmd == "missing" then cmdMissing()
   elseif cmd == "version" then cmdVersion()
   elseif cmd == "characters" then cmdCharacters()
