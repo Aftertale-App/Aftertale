@@ -127,12 +127,70 @@ function T.EntryID(entry)
   return kind .. ":" .. ts .. ":" .. key
 end
 
+-- Resolvers walk a fallback chain so we always show real names:
+--   1. enrichment.* captured live at event time (best)
+--   2. live client APIs (C_QuestLog / GetAchievementInfo / C_Map)
+--   3. baked DB2 lookups under NS.DB2 (always present, even offline)
+--   4. a graceful placeholder
+--
+-- All resolvers are safe to call on any flavor: missing globals just
+-- skip that tier.
+local function resolveQuestTitle(enr, args)
+  if enr.questTitle and enr.questTitle ~= "" then return enr.questTitle end
+  local qid = args[2]
+  if qid then
+    if C_QuestLog and C_QuestLog.GetTitleForQuestID then
+      local ok, title = pcall(C_QuestLog.GetTitleForQuestID, qid)
+      if ok and title and title ~= "" then return title end
+    end
+    if QuestUtils_GetQuestName then -- retail fallback
+      local ok, title = pcall(QuestUtils_GetQuestName, qid)
+      if ok and title and title ~= "" then return title end
+    end
+    return "Quest #" .. tostring(qid)
+  end
+  return nil
+end
+
+local function resolveAchievementName(enr, args)
+  if enr.achievementName and enr.achievementName ~= "" then
+    return enr.achievementName
+  end
+  local aid = args[1]
+  if aid then
+    if GetAchievementInfo then
+      local ok, _, name = pcall(GetAchievementInfo, aid)
+      if ok and name and name ~= "" then return name end
+    end
+    local baked = NS.DB2 and NS.DB2.Achievement and NS.DB2.Achievement[aid]
+    if baked then return baked end
+    return "Achievement #" .. tostring(aid)
+  end
+  return nil
+end
+
+local function resolveZone(enr)
+  if enr.zoneText and enr.zoneText ~= "" then return enr.zoneText end
+  local mid = enr.mapID or enr.uiMapID
+  if mid then
+    if C_Map and C_Map.GetMapInfo then
+      local ok, info = pcall(C_Map.GetMapInfo, mid)
+      if ok and info and info.name and info.name ~= "" then return info.name end
+    end
+    local baked = NS.DB2 and NS.DB2.UiMap and NS.DB2.UiMap[mid]
+    if baked then return baked end
+  end
+  return nil
+end
+
+T.ResolveQuestTitle      = resolveQuestTitle
+T.ResolveAchievementName = resolveAchievementName
+T.ResolveZone            = resolveZone
+
 function T.Narrate(entry, charName)
   local pool = T[entry.event]
   local enr  = entry.enrichment or {}
   local args = entry.args or {}
-  -- Best-effort fallbacks when an event was captured before enrichment
-  -- existed (or with enrichment disabled): pull what we can from args.
   local lvlFallback = enr.level
   if not lvlFallback and entry.event == "PLAYER_LEVEL_UP" then
     lvlFallback = args[1]
@@ -140,17 +198,15 @@ function T.Narrate(entry, charName)
   local vars = {
     name        = charName or "the traveler",
     npc         = (enr.npc and enr.npc.name) or "an old face",
-    quest       = enr.questTitle or (args[2] and ("Quest #" .. tostring(args[2]))) or "the matter at hand",
-    zone        = enr.zoneText or "the road",
+    quest       = resolveQuestTitle(enr, args) or "the matter at hand",
+    zone        = resolveZone(enr) or "the road",
     level       = tostring(lvlFallback or "?"),
-    achievement = enr.achievementName or "a quiet honor",
+    achievement = resolveAchievementName(enr, args) or "a quiet honor",
   }
   if not pool then
     return string.format("%s in %s. (%s)", vars.name, vars.zone, entry.event)
   end
   local line = sub(pick(pool, hashEntry(entry)), vars)
-  -- Capitalize the first letter, and the first letter after ". " so
-  -- substituted lowercase names don't break sentence flow.
   line = line:gsub("^%l", string.upper)
   line = line:gsub("(%.%s+)(%l)", function(sep, ch) return sep .. ch:upper() end)
   return line
@@ -163,17 +219,17 @@ function T.Preview(entry, charName)
   local args = entry.args or {}
   local e = entry.event or ""
   if e == "QUEST_ACCEPTED" then
-    return "Accepted: " .. (enr.questTitle or (args[2] and ("Quest #" .. tostring(args[2]))) or "a quest")
+    return "Accepted: " .. (resolveQuestTitle(enr, args) or "a quest")
   elseif e == "QUEST_TURNED_IN" then
-    return "Finished: " .. (enr.questTitle or (args[2] and ("Quest #" .. tostring(args[2]))) or "a quest")
+    return "Finished: " .. (resolveQuestTitle(enr, args) or "a quest")
   elseif e == "PLAYER_LEVEL_UP" then
     return "Reached level " .. tostring(enr.level or args[1] or "?")
   elseif e == "ZONE_CHANGED_NEW_AREA" then
-    return "Entered " .. (enr.zoneText or "new ground")
+    return "Entered " .. (resolveZone(enr) or "new ground")
   elseif e == "PLAYER_DEAD" then
-    return "Fell in " .. (enr.zoneText or "battle")
+    return "Fell in " .. (resolveZone(enr) or "battle")
   elseif e == "ACHIEVEMENT_EARNED" then
-    return "Earned: " .. (enr.achievementName or "an achievement")
+    return "Earned: " .. (resolveAchievementName(enr, args) or "an achievement")
   end
   return e
 end

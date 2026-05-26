@@ -69,6 +69,11 @@ end
 ------------------------------------------------------------------------
 
 local function zoneOf(ev)
+  local resolver = NS.Templates and NS.Templates.ResolveZone
+  if resolver and ev.enrichment then
+    local name = resolver(ev.enrichment)
+    if name then return name end
+  end
   return (ev.enrichment and ev.enrichment.zoneText) or "Unknown Lands"
 end
 
