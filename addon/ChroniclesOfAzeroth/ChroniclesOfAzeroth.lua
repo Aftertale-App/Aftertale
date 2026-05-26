@@ -120,6 +120,22 @@ local function ensureDB()
   return db
 end
 
+-- Companion writeback channel. The Electron companion writes generated
+-- chapters into ChroniclesOfAzerothCompanion; the addon only reads from
+-- it. Defensive load: if the SV is absent (companion never ran) or
+-- malformed, return an empty stub so /coa chapters and stats work.
+local function ensureCompanionDB()
+  ChroniclesOfAzerothCompanion = ChroniclesOfAzerothCompanion or {}
+  local cdb = ChroniclesOfAzerothCompanion
+  cdb.schemaVersion = cdb.schemaVersion or 1
+  -- generatedChapters: list of { id, forCharacter, basedOnEventIds,
+  --                              title, text, generatedAt, readByPlayer }
+  if type(cdb.generatedChapters) ~= "table" then cdb.generatedChapters = {} end
+  -- ingestedEventIds: set keyed by event.id -> true
+  if type(cdb.ingestedEventIds) ~= "table" then cdb.ingestedEventIds = {} end
+  return cdb
+end
+
 -- Schema migration. Stub for now; called once on ADDON_LOADED. When the
 -- next schema lands, replace the no-op with `while db.schemaVersion <
 -- CURRENT_SCHEMA do ... end` and add a per-version migrator branch.
@@ -680,6 +696,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
 
     local db = ensureDB()
     migrate(db)
+    ensureCompanionDB()
     -- Seed RNG once for uuid(). time() + GetTime() gives sub-second jitter
     -- so two near-simultaneous /reload cycles don't collide.
     math.randomseed(time() + math.floor((GetTime() or 0) * 1000))
@@ -841,6 +858,7 @@ local function cmdHelp()
   print("  /coa max [N]           -- show/set ring buffer cap (default 5000, min 100)")
   print("  /coa missing           -- list events RegisterEvent refused on this flavor")
   print("  /coa version           -- show addon + client version info")
+  print("  /coa chapters          -- list companion-generated chapters for this character")
   print("  /coa characters        -- list characters Chronicles has seen")
   print("  /coa character reset <guid>  -- force re-onboarding for a character")
   print("  /coa enrichment [on|off]  -- toggle per-event enrichment (zone/quest title/NPC/loot)")
@@ -1004,6 +1022,35 @@ local function cmdVersion()
   ))
 end
 
+local function cmdChapters()
+  local cdb = ensureCompanionDB()
+  local me = (UnitName("player") or "?") .. "-" .. (GetRealmName() or "?")
+  local mine = {}
+  for _, ch in ipairs(cdb.generatedChapters) do
+    if ch and ch.forCharacter == me then
+      table.insert(mine, ch)
+    end
+  end
+
+  if #mine == 0 then
+    print(string.format("%s no chapters yet for %s.", CHAT_TAG, me))
+    print("  Generated chapters land in ChroniclesOfAzerothCompanion.lua")
+    print("  once the Electron companion app processes captured events.")
+    return
+  end
+
+  print(string.format("%s %d chapter(s) for %s:", CHAT_TAG, #mine, me))
+  table.sort(mine, function(a, b)
+    return (a.generatedAt or 0) < (b.generatedAt or 0)
+  end)
+  for i, ch in ipairs(mine) do
+    local marker = ch.readByPlayer and " " or "*"
+    print(string.format("  %s[%d] %s", marker, i, ch.title or "(untitled)"))
+  end
+  print("  (* = unread)  Full chapter text lives in the companion SV;")
+  print("  the in-game reader will be wired into /coa book in a follow-up.")
+end
+
 SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
   msg = msg or ""
   local cmd, arg = msg:match("^(%S*)%s*(.-)$")
@@ -1016,6 +1063,7 @@ SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
   elseif cmd == "max" then cmdMax(arg)
   elseif cmd == "missing" then cmdMissing()
   elseif cmd == "version" then cmdVersion()
+  elseif cmd == "chapters" then cmdChapters()
   elseif cmd == "characters" then cmdCharacters()
   elseif cmd == "character" then cmdCharacterReset(arg)
   elseif cmd == "enrichment" then cmdEnrichment(arg)
