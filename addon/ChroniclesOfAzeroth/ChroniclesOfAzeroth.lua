@@ -181,6 +181,13 @@ local EVENTS = {
   -- Phase 0.75-C: character detection async return channel.
   -- RequestTimePlayed() schedules TIME_PLAYED_MSG(totalSec, levelSec).
   "TIME_PLAYED_MSG",
+
+  -- Phase 2: instance bookends. Both fire on raid/dungeon boss defeats;
+  -- ENCOUNTER_END is the modern (5.4+) cross-flavor canonical, BOSS_KILL
+  -- is Retail-only and slightly more reliable for world bosses. We
+  -- register both; missing-on-this-flavor handled by registerEvents.
+  "ENCOUNTER_END",
+  "BOSS_KILL",
 }
 
 -- Events known to be refused by RegisterEvent on certain flavors.
@@ -386,6 +393,33 @@ local function buildEnrichment(event, args)
       local rest = safeCall(GetXPExhaustion)
       if rest then enr.restedXP = rest end
     end
+
+  elseif event == "ENCOUNTER_END" then
+    -- args: encounterID, encounterName, difficultyID, groupSize, success
+    local encounterID = args and tonumber(args[1])
+    local encounterName = args and args[2]
+    local difficultyID = args and tonumber(args[3])
+    local groupSize = args and tonumber(args[4])
+    local success = args and (args[5] == "1" or args[5] == "true")
+    if encounterID then enr.encounterID = encounterID end
+    if encounterName and encounterName ~= "" then enr.encounterName = encounterName end
+    if difficultyID then
+      enr.difficulty = difficultyID
+      if GetDifficultyInfo then
+        local diffName = safeCall(GetDifficultyInfo, difficultyID)
+        if diffName and diffName ~= "" then enr.difficultyName = diffName end
+      end
+    end
+    if groupSize then enr.groupSize = groupSize end
+    enr.success = success and true or false
+
+  elseif event == "BOSS_KILL" then
+    -- args: encounterID, encounterName (Retail). On Classic flavors that
+    -- still ship BOSS_KILL the payload shape is the same.
+    local encounterID = args and tonumber(args[1])
+    local encounterName = args and args[2]
+    if encounterID then enr.encounterID = encounterID end
+    if encounterName and encounterName ~= "" then enr.encounterName = encounterName end
   end
 
   return enr
