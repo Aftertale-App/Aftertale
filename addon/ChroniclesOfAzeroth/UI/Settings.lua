@@ -121,11 +121,11 @@ local function buildPanel()
   title:SetShadowOffset(1, -1)
 
   local sub = panel:CreateFontString(nil, "OVERLAY")
-  local subFont = GameFontNormalSmall:GetFont()
+  local subFont = GameFontNormalLarge:GetFont()
   sub:SetFont(subFont, 12, "")
-  sub:SetPoint("TOP", title, "BOTTOM", 0, -6)
-  sub:SetText("-- settings --")
-  sub:SetTextColor(0.45, 0.30, 0.16, 1)
+  sub:SetPoint("TOP", title, "BOTTOM", 0, -4)
+  sub:SetText("S E T T I N G S")
+  sub:SetTextColor(0.30, 0.18, 0.08, 1)
 
   -- Divider
   local div = panel:CreateTexture(nil, "OVERLAY")

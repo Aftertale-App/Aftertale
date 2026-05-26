@@ -103,12 +103,15 @@ local function buildCard()
     pcall(bg.SetTextureSliceMode, bg, Enum.UITextureSliceMode.Tiled)
   end
 
-  -- Header label -- dark brown ink on parchment, not gold (gold reads
-  -- invisible against the parchment color).
-  local header = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  -- Header label -- a small all-caps "kicker" set tight to the divider,
+  -- like the chapter heading in a printed book. Dark brown ink, letter-
+  -- spaced via spaces, brighter than the old red-brown sub-label.
+  local header = card:CreateFontString(nil, "OVERLAY")
+  local headerFont = GameFontNormalLarge:GetFont()
+  header:SetFont(headerFont, 13, "")
   header:SetPoint("TOP", card, "TOP", 0, -INSET_TOP)
-  header:SetTextColor(0.45, 0.30, 0.16, 1)
-  header:SetText("-- a chapter in the chronicle --")
+  header:SetTextColor(0.30, 0.18, 0.08, 1)
+  header:SetText("A  C H A P T E R   I N   T H E   C H R O N I C L E")
   card.header = header
 
   -- Divider line under header (subtle, sized to safe interior)
@@ -165,8 +168,27 @@ local function buildCard()
     end
   end)
 
+  -- Convert a kicker like "a new errand" or coloured "-- a new chapter --"
+  -- into the letter-spaced small-caps heading style. Idempotent.
+  local function formatKicker(s)
+    if not s or s == "" then return "" end
+    -- Strip Blizzard colour codes and surrounding dashes the older callers used.
+    s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    s = s:gsub("^%s*%-+%s*", ""):gsub("%s*%-+%s*$", "")
+    s = s:gsub("^%s+", ""):gsub("%s+$", "")
+    s = s:upper()
+    -- Letter-space: insert a space between each character; double-space between words.
+    local out = {}
+    for word in s:gmatch("%S+") do
+      local letters = {}
+      for ch in word:gmatch(".") do table.insert(letters, ch) end
+      table.insert(out, table.concat(letters, " "))
+    end
+    return table.concat(out, "   ")
+  end
+
   function card:Present(headerText, bodyText, holdFor)
-    self.header:SetText(headerText)
+    self.header:SetText(formatKicker(headerText))
     self.body:SetText(bodyText)
     self.holdFor = holdFor or 5.0
     self.state = "fadein"

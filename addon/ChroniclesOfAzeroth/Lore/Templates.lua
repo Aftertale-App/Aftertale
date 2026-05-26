@@ -130,31 +130,44 @@ end
 function T.Narrate(entry, charName)
   local pool = T[entry.event]
   local enr  = entry.enrichment or {}
+  local args = entry.args or {}
+  -- Best-effort fallbacks when an event was captured before enrichment
+  -- existed (or with enrichment disabled): pull what we can from args.
+  local lvlFallback = enr.level
+  if not lvlFallback and entry.event == "PLAYER_LEVEL_UP" then
+    lvlFallback = args[1]
+  end
   local vars = {
     name        = charName or "the traveler",
     npc         = (enr.npc and enr.npc.name) or "an old face",
-    quest       = enr.questTitle or "the matter at hand",
+    quest       = enr.questTitle or (args[2] and ("Quest #" .. tostring(args[2]))) or "the matter at hand",
     zone        = enr.zoneText or "the road",
-    level       = tostring(enr.level or "?"),
+    level       = tostring(lvlFallback or "?"),
     achievement = enr.achievementName or "a quiet honor",
   }
   if not pool then
     return string.format("%s in %s. (%s)", vars.name, vars.zone, entry.event)
   end
-  return sub(pick(pool, hashEntry(entry)), vars)
+  local line = sub(pick(pool, hashEntry(entry)), vars)
+  -- Capitalize the first letter, and the first letter after ". " so
+  -- substituted lowercase names don't break sentence flow.
+  line = line:gsub("^%l", string.upper)
+  line = line:gsub("(%.%s+)(%l)", function(sep, ch) return sep .. ch:upper() end)
+  return line
 end
 
 -- Brief one-line preview for the left-page entry list. Keeps the list
 -- scannable without overwhelming each row.
 function T.Preview(entry, charName)
-  local enr = entry.enrichment or {}
+  local enr  = entry.enrichment or {}
+  local args = entry.args or {}
   local e = entry.event or ""
   if e == "QUEST_ACCEPTED" then
-    return "Accepted: " .. (enr.questTitle or "a quest")
+    return "Accepted: " .. (enr.questTitle or (args[2] and ("Quest #" .. tostring(args[2]))) or "a quest")
   elseif e == "QUEST_TURNED_IN" then
-    return "Finished: " .. (enr.questTitle or "a quest")
+    return "Finished: " .. (enr.questTitle or (args[2] and ("Quest #" .. tostring(args[2]))) or "a quest")
   elseif e == "PLAYER_LEVEL_UP" then
-    return "Reached level " .. tostring(enr.level or "?")
+    return "Reached level " .. tostring(enr.level or args[1] or "?")
   elseif e == "ZONE_CHANGED_NEW_AREA" then
     return "Entered " .. (enr.zoneText or "new ground")
   elseif e == "PLAYER_DEAD" then
