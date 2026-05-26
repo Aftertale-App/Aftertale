@@ -97,7 +97,12 @@ is no backend, no telemetry, no account.
 
 ## License
 
-TBD (currently unlicensed — internal personal project).
+MIT — see [`LICENSE`](./LICENSE).
+
+The Lua addon under `addon/ChroniclesOfAzeroth/` is also MIT, and ships with
+its own `LICENSE` file inside the bundle so it rides along when zipped for
+CurseForge / Wago. Keeping the addon free + open is a hard constraint of
+the project (see [`docs/plan.md`](./docs/plan.md) §1).
 
 ---
 

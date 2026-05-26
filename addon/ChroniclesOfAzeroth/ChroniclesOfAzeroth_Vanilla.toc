@@ -3,6 +3,7 @@
 ## Notes: Turn your play into a chronicle -- captures events + a parchment-style story UI.
 ## Author: snoblitz
 ## Version: 0.5.2
+## X-License: MIT
 ## SavedVariables: ChroniclesOfAzerothDB
 ## DefaultState: enabled
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
