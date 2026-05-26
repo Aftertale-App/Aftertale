@@ -698,8 +698,13 @@ frame:SetScript("OnEvent", function(self, event, ...)
     migrate(db)
     ensureCompanionDB()
     -- Seed RNG once for uuid(). time() + GetTime() gives sub-second jitter
-    -- so two near-simultaneous /reload cycles don't collide.
-    math.randomseed(time() + math.floor((GetTime() or 0) * 1000))
+    -- so two near-simultaneous /reload cycles don't collide. math.randomseed
+    -- is nil in Retail Midnight's restricted Lua sandbox -- guard it. When
+    -- absent, math.random uses Lua's default seed, which is fine for our
+    -- non-crypto local-only identifier use case.
+    if math.randomseed then
+      pcall(math.randomseed, time() + math.floor((GetTime() or 0) * 1000))
+    end
     db.meta.version = getMeta("Version") or "?"
     db.meta.project = projectName()
     db.meta.build = select(4, GetBuildInfo()) or "?"
