@@ -198,7 +198,7 @@ An AI-generated chronicle featuring Magni Bronzebeard set in Azeroth is a litera
 | Element | Risk contribution |
 |---|---|
 | Name "Aftertale" | Trademark on "Azeroth" |
-| Domain `snoblitz.github.io/Chronicles-of-Azeroth` | Same trademark + public URL |
+| Domain `snoblitz.github.io/Aftertale` | Same trademark + public URL |
 | Shipped prompts for Magni Bronzebeard, Muradin | Copyright on characters |
 | Planned premium tier | Commercial exploitation, the Legal FAQ "No" |
 | Repo openly markets as WoW companion | Induced infringement risk via marketing |

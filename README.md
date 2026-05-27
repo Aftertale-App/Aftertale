@@ -12,7 +12,7 @@ backstory, beliefs, scars and all.
 
 ## 🌐 Live demo
 
-**👉 [snoblitz.github.io/Chronicles-of-Azeroth](https://snoblitz.github.io/Chronicles-of-Azeroth/)**
+**👉 [snoblitz.github.io/Aftertale](https://snoblitz.github.io/Aftertale/)**
 
 The Pages build ships **with no API keys baked in** — when you open it for
 the first time you'll be prompted to paste your own OpenRouter key. The key
@@ -48,8 +48,8 @@ Grab one here: <https://openrouter.ai/keys>
 ## Quick start (local dev)
 
 ```powershell
-git clone https://github.com/snoblitz/Chronicles-of-Azeroth.git
-cd Chronicles-of-Azeroth
+git clone https://github.com/snoblitz/Aftertale.git
+cd Aftertale
 npm install
 Copy-Item .env.example .env.local
 # Edit .env.local, paste your OpenRouter API key — or skip this and use the

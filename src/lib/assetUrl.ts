@@ -4,7 +4,7 @@
 //
 // Usage:
 //   const src = assetUrl('npcs/magni.png')  ->  '/npcs/magni.png' in dev,
-//                                              '/Chronicles-of-Azeroth/npcs/magni.png' on Pages.
+//                                              '/Aftertale/npcs/magni.png' on Pages.
 //
 // Accepts paths with or without a leading slash so existing strings like
 // '/npcs/magni-bronzebeard.png' continue to work.

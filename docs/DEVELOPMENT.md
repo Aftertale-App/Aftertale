@@ -11,7 +11,7 @@
 
 ```powershell
 git clone <repo-url>
-cd chronicles-of-azeroth
+cd Aftertale
 npm install
 Copy-Item .env.example .env.local
 # Edit .env.local and paste your API keys
@@ -64,7 +64,7 @@ when adding new vars.
 ## Project layout
 
 ```
-chronicles-of-azeroth/
+Aftertale/
 ├── .github/workflows/        deploy.yml → Pages on push to main
 ├── docs/                     ← you are here
 ├── public/
@@ -180,7 +180,7 @@ push to `main`.
 **How the build differs from local dev:**
 
 - Vite's `base` is read from `COA_BASE`. Local dev leaves it at `/`. CI sets
-  `COA_BASE=/Chronicles-of-Azeroth/` so all asset URLs in `index.html`
+  `COA_BASE=/Aftertale/` so all asset URLs in `index.html`
   are correctly prefixed for the project-page subpath.
 - `dist/index.html` is copied to `dist/404.html` so Pages serves the SPA
   shell for unknown paths (deep-link friendly).
@@ -202,11 +202,11 @@ in `localStorage` only. The `apiKeys.ts` helper falls back to
 **Build it like CI does (for testing):**
 
 ```powershell
-$env:COA_BASE = '/Chronicles-of-Azeroth/'
+$env:COA_BASE = '/Aftertale/'
 npm run build
-# Preview at http://localhost:4173/Chronicles-of-Azeroth/
+# Preview at http://localhost:4173/Aftertale/
 npm run preview -- --port 4173
 ```
 
-**Live URL:** <https://snoblitz.github.io/Chronicles-of-Azeroth/>
+**Live URL:** <https://snoblitz.github.io/Aftertale/>
 

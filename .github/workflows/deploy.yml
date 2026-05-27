@@ -31,7 +31,7 @@ jobs:
       - name: Build
         env:
           # Project Pages serve from /<repo-name>/, so Vite needs to know about it.
-          COA_BASE: /Chronicles-of-Azeroth/
+          COA_BASE: /Aftertale/
         run: npm run build
 
       - name: Add SPA 404 fallback

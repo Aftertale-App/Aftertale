@@ -52,7 +52,7 @@ When the Cloud Billing dashboard updates the 2026-05-26 line for the SKU **Gener
 ## How to re-run
 
 ```powershell
-cd C:\Users\snobl\Source\Chronicles-of-Azeroth
+cd C:\Users\snobl\Source\Aftertale
 npm run cost:probe                      # 25 calls, $0.0003-ish
 npm run cost:probe -- --calls 500       # ~$0.006, measurable on billing dashboard
 ```

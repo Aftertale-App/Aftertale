@@ -151,10 +151,10 @@ older docs is superseded by that document.
   automatically on first run when no keys are present.
 - **GitHub Pages deployment** via `.github/workflows/deploy.yml`. Vite
   `base` is read from `COA_BASE` env so local dev stays at `/` and CI
-  builds to `/Chronicles-of-Azeroth/`. Workflow copies `dist/index.html`
+  builds to `/Aftertale/`. Workflow copies `dist/index.html`
   to `dist/404.html` so deep-links survive Pages' SPA-less routing.
 - **`assetUrl()` helper** so portrait paths in `public/` resolve correctly
-  under both local dev (`/`) and project Pages (`/Chronicles-of-Azeroth/`).
+  under both local dev (`/`) and project Pages (`/Aftertale/`).
 - **`src/vite-env.d.ts`** with `/// <reference types="vite/client" />`
   so `import.meta.env` and CSS imports type-check under `tsc -b`.
 - **Magnus seed backfill.** One-time migration patches the hand-written
@@ -232,8 +232,8 @@ older docs is superseded by that document.
 ### Project meta
 
 - Renamed from "Azeroth Chronicle" to **Aftertale**.
-- Repo: <https://github.com/snoblitz/Chronicles-of-Azeroth>.
-- Live demo: <https://snoblitz.github.io/Chronicles-of-Azeroth/>.
+- Repo: <https://github.com/snoblitz/Aftertale>.
+- Live demo: <https://snoblitz.github.io/Aftertale/>.
 
 ---
 
@@ -272,7 +272,7 @@ have to rediscover.
     message to a file in `.git/COMMIT_MSG_*.txt` then
     `git commit -F <file>`.
 13. **GitHub Pages on project sites serve from `/<repo-name>/`.** Vite's
-    `base` must match, or the bundle 404s. Set `COA_BASE=/Chronicles-of-Azeroth/`
+    `base` must match, or the bundle 404s. Set `COA_BASE=/Aftertale/`
     only in CI so local dev stays at `/`.
 14. **`public/` assets ignore `base` at write time.** Anything stored as
     a hardcoded `/path` string in JS/JSON (like NPC portrait URLs) must
