@@ -240,6 +240,15 @@ export function LandingPage() {
               Most players can reach their first chapter in one normal play session.
             </p>
           </Reveal>
+          <Reveal variant="up" delay={480}>
+            <p className="at-onboard-games">
+              <span className="at-onboard-games-live">Live today for World of Warcraft</span>
+              <span className="at-onboard-games-versions">
+                Retail, Classic Era, Hardcore, Season of Discovery, Cataclysm Classic, and Mists of Pandaria Classic
+              </span>
+              <span className="at-onboard-games-future">More games as each capture path is built right.</span>
+            </p>
+          </Reveal>
         </div>
       </section>
 
@@ -355,6 +364,13 @@ export function LandingPage() {
         <div className="at-container at-footer-legal">
           <span>© 2026 Aftertale. All rights reserved.</span>
           <span><a href="#">Privacy</a> · <a href="#">Terms</a> · <a href="#">Cookies</a></span>
+        </div>
+        <div className="at-container at-footer-trademark">
+          <p>
+            World of Warcraft is a trademark of Blizzard Entertainment, Inc. Aftertale is
+            not affiliated with, endorsed, sponsored, or specifically approved by
+            Blizzard Entertainment.
+          </p>
         </div>
       </footer>
     </div>
@@ -965,7 +981,7 @@ function ChapterPanel() {
 }
 
 const FAQS = [
-  { q: 'Which games does Aftertale support?', a: "Aftertale is built as a game-agnostic storytelling layer. Early access currently supports one game through an addon-style capture path, and we'll expand carefully as each integration is ready. We avoid promising support for specific future titles until the capture, privacy, and writing experience meet the standard." },
+  { q: 'Which games does Aftertale support?', a: "Aftertale is live today for World of Warcraft, with full capture support across Retail, Classic Era (including Hardcore and Season of Discovery), Cataclysm Classic, and Mists of Pandaria Classic. Aftertale is built as a game-agnostic storytelling layer, so additional games are on the roadmap. We avoid promising support for specific future titles until the capture, privacy, and writing experience meet the standard." },
   { q: 'Is my data private?', a: 'Your chronicle is treated as personal creative data. Aftertale is designed around your heroes, sessions, chapters, and account, not public feeds by default. Public hero pages are only part of the Loremaster identity tier, and publishing is an intentional choice, not a surprise.' },
   { q: 'What does BYOK mean?', a: 'BYOK means "bring your own key." On the Free tier, you provide your own AI API key and run the artisan path manually. It keeps the forever-free plan sustainable while giving you control over model usage, cost, and experimentation.' },
   { q: 'What is the difference between Free and Companion?', a: 'Free is for the hands-on player: one hero, manual flow, and your own AI key. Companion is the magic moment tier at $12/month: auto-capture, cloud processing, push notifications, and up to three heroes, so your chapter can arrive after play without extra ritual.' },
@@ -1333,6 +1349,46 @@ const landingStyles = `
     color: var(--at-text-soft);
     letter-spacing: 0.01em;
   }
+  .at-onboard-games {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: center;
+    margin: 1.4rem auto 0;
+    max-width: 720px;
+    text-align: center;
+  }
+  .at-onboard-games-live {
+    font-family: var(--at-font-display);
+    font-size: 15px;
+    color: var(--at-text);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .at-onboard-games-live::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #6fdc9c;
+    box-shadow: 0 0 8px rgba(111, 220, 156, 0.55);
+    margin-right: 0.6rem;
+    vertical-align: middle;
+  }
+  .at-onboard-games-versions {
+    font-size: 13.5px;
+    color: var(--at-text-soft);
+    line-height: 1.5;
+    max-width: 580px;
+  }
+  .at-onboard-games-future {
+    font-size: 12.5px;
+    color: var(--at-text-soft);
+    opacity: 0.72;
+    letter-spacing: 0.02em;
+    margin-top: 0.15rem;
+  }
 
   /* ---- Features grid ---- */
   .at-features-grid {
@@ -1460,6 +1516,19 @@ const landingStyles = `
   }
   .at-footer-legal a { color: var(--at-text-soft); text-decoration: none; }
   .at-footer-legal a:hover { color: var(--at-text); }
+  .at-footer-trademark {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--at-border);
+    color: var(--at-text-soft);
+    opacity: 0.65;
+  }
+  .at-footer-trademark p {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.55;
+    max-width: 820px;
+  }
 
   /* ---- Reveal animations ---- */
   .at-reveal {
