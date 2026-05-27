@@ -157,10 +157,10 @@ export function LandingPage() {
         <div className="at-container">
           <Reveal variant="up">
             <p className="at-kicker at-kicker-center">✦ Meet a hero</p>
-            <h2 className="at-section-h2 at-section-h2-center">This is Magnus. This is his Aftertale.</h2>
+            <h2 className="at-section-h2 at-section-h2-center">This is Magnus Brunn.<br />This is his Aftertale.</h2>
             <p className="at-section-sub-center">
-              Scroll through five pages: who he is, how he speaks, where he came from — then the
-              chapter Aftertale wrote from one quiet hour of his story.
+              Scroll through five pages: who he is, how he speaks, what shaped him, and the
+              chapter Aftertale wrote from one quiet hour of play.
             </p>
           </Reveal>
           <Reveal variant="scale" delay={150}>
@@ -355,7 +355,7 @@ function FeatureTile({ title, body }: { title: string; body: string }) {
 // Native scroll-snap on touch + prev/next buttons + dot nav for desktop.
 // ----------------------------------------------------------------------------
 
-const EXHIBIT_PAGES = ['identity', 'quote', 'voice', 'backstory', 'chapter'] as const;
+const EXHIBIT_PAGES = ['hero', 'truth', 'voice', 'backstory', 'chapter'] as const;
 
 function HeroExhibit() {
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -420,8 +420,8 @@ function HeroExhibit() {
       </button>
 
       <div className="at-exhibit-track" ref={trackRef}>
-        <ExhibitPage type="identity" />
-        <ExhibitPage type="quote" />
+        <ExhibitPage type="hero" />
+        <ExhibitPage type="truth" />
         <ExhibitPage type="voice" />
         <ExhibitPage type="backstory" />
         <ExhibitPage type="chapter" />
@@ -449,8 +449,8 @@ function HeroExhibit() {
 function ExhibitPage({ type }: { type: typeof EXHIBIT_PAGES[number] }) {
   return (
     <div className={`at-exhibit-page at-exhibit-page-${type}`}>
-      {type === 'identity' && <IdentityPanel />}
-      {type === 'quote' && <QuotePanel />}
+      {type === 'hero' && <IdentityPanel />}
+      {type === 'truth' && <QuotePanel />}
       {type === 'voice' && <VoicePanel />}
       {type === 'backstory' && <BackstoryPanel />}
       {type === 'chapter' && <ChapterPanel />}
@@ -633,19 +633,19 @@ function IdentityPanel() {
           <div className="at-identity-stats-stacked">
             <div className="at-stat-row">
               <span className="at-stat-label">From</span>
-              <span className="at-stat-value">The mountain kingdom, deep veins</span>
+              <span className="at-stat-value">The deep mountain kingdoms, where iron remembers every hand that shaped it.</span>
             </div>
             <div className="at-stat-row">
               <span className="at-stat-label">Carries</span>
-              <span className="at-stat-value">His brother Calder's hammer</span>
+              <span className="at-stat-value">His brother Calder's hammer, worn smooth at the grip and heavy with old silence.</span>
             </div>
             <div className="at-stat-row">
               <span className="at-stat-label">Vow</span>
-              <span className="at-stat-value">Hold the line. Name the cowards.</span>
+              <span className="at-stat-value">Hold the line. Name the cowards. Leave no road unmended.</span>
             </div>
             <div className="at-stat-row">
               <span className="at-stat-label">Chapter</span>
-              <span className="at-stat-value">Thirty-five · the road from Mirewatch</span>
+              <span className="at-stat-value">Thirty-five · The Road from Mirewatch</span>
             </div>
           </div>
         </div>
@@ -658,6 +658,7 @@ function QuotePanel() {
   return (
     <PanelFrame variant="quote">
       <div className="at-quote-layout">
+        <p className="at-panel-kicker at-panel-kicker-center">The hero's truth</p>
         <div className="at-quote-flourish at-quote-flourish-top" aria-hidden>
           <svg viewBox="0 0 240 20" width="180" height="14">
             <path d="M 0 10 L 100 10 M 120 4 Q 122 10 120 16 M 140 10 L 240 10" stroke="#c79bf0" strokeWidth="1" fill="none" opacity="0.7" />
@@ -667,7 +668,7 @@ function QuotePanel() {
         <blockquote className="at-quote-text">
           <span className="at-drop-quote">&ldquo;</span>The forge does not lie.<span className="at-drop-quote at-drop-quote-close">&rdquo;</span>
         </blockquote>
-        <p className="at-quote-attrib">— Magnus Brunn · core sentence</p>
+        <p className="at-quote-attrib">— Magnus Brunn</p>
         <div className="at-quote-flourish at-quote-flourish-bottom" aria-hidden>
           <svg viewBox="0 0 240 20" width="180" height="14">
             <path d="M 0 10 L 100 10 M 120 4 Q 122 10 120 16 M 140 10 L 240 10" stroke="#c79bf0" strokeWidth="1" fill="none" opacity="0.7" />
@@ -675,9 +676,14 @@ function QuotePanel() {
           </svg>
         </div>
         <p className="at-quote-context">
-          Every hero in Aftertale carries a single sentence that anchors them. Every
-          chapter you read tries to be worthy of it.
+          Every hero in Aftertale carries a truth at their center. Not a slogan. Not a
+          stat block. Something the story can return to when the road gets dark.
         </p>
+        <p className="at-quote-context">
+          For Magnus, it is this: fire reveals what metal is. Pressure reveals what men
+          are. The forge does not flatter, excuse, or forgive.
+        </p>
+        <p className="at-quote-context at-quote-context-coda">It only shows what holds.</p>
       </div>
     </PanelFrame>
   );
@@ -695,8 +701,9 @@ function VoicePanel() {
             <span>Dry when warranted.</span>
           </h3>
           <p className="at-voice-body">
-            Magnus doesn't waste words. He speaks like a man who has lifted things
-            heavier than sentences, and respects the silence between them.
+            Magnus does not waste words. He speaks like a man who has learned that silence
+            can carry weight, and that most promises sound better before anyone has to keep
+            them.
           </p>
         </div>
         <div className="at-voice-transcript">
@@ -716,12 +723,21 @@ function VoicePanel() {
             </div>
             <div className="at-voice-line at-voice-line-hero">
               <span className="at-voice-speaker">Magnus</span>
-              <p>"Stone's not afraid. Stone holds."</p>
+              <p>"Course I was."</p>
+            </div>
+            <div className="at-voice-line at-voice-line-other">
+              <span className="at-voice-speaker">Reeve</span>
+              <p>"But you went anyway?"</p>
+            </div>
+            <div className="at-voice-line at-voice-line-hero">
+              <span className="at-voice-speaker">Magnus</span>
+              <p>"That's the part people keep giving prettier names."</p>
             </div>
           </div>
           <p className="at-voice-footnote">
-            Aftertale carries this voice into every chapter. NPCs respond to it.
-            Narration sounds like it.
+            Aftertale carries this voice forward. NPCs respond to it. Narration bends
+            around it. Each chapter sounds less like a generic fantasy summary and more
+            like the person who lived it.
           </p>
         </div>
       </div>
@@ -737,35 +753,35 @@ function BackstoryPanel() {
           <p className="at-panel-kicker">The backstory</p>
           <h3 className="at-backstory-headline">Before the road, before the hammer.</h3>
           <p className="at-backstory-sub">
-            Four beats from the bible. Aftertale folds them into every chapter so the
-            past keeps showing up where it matters.
+            Four memories from Magnus's hero bible. Aftertale folds them into future
+            chapters so the past keeps returning where it matters.
           </p>
         </div>
         <div className="at-backstory-timeline">
           <div className="at-timeline-spine" aria-hidden />
           <BackstoryBeat
             roman="I"
-            year="The early years"
-            title="Born in the deep veins"
-            body="A dwarf of the deep mines, raised where the dark was honest and the only light came from forges. He learned the smell of hot iron before he learned letters."
+            year="The Early Years"
+            title="Born Beneath the Mountain"
+            body="Magnus was raised where the dark was honest and the only light came from forgefire. He knew the smell of hot iron before he knew his letters, and learned early that useful things were often made by being struck."
           />
           <BackstoryBeat
             roman="II"
-            year="A cold year"
-            title="The mine collapsed"
-            body="His brother Calder went into the lower shafts and never came out. Stone swallowed seven good miners and the last easy laughter in the house."
+            year="A Cold Year"
+            title="The Lower Shaft Fell In"
+            body="His brother Calder went below with seven other miners and did not come back. For three days, the mountain answered every pick and prayer with silence. After that, laughter in the Brunn house became a thing people remembered carefully."
           />
           <BackstoryBeat
             roman="III"
-            year="The calling"
-            title="The Forgelight answered"
-            body="He took up Calder's hammer and the calling that came with it: hold the line, name the cowards, mend the roads no one else will. The light has not let him down since."
+            year="The Calling"
+            title="The Forgelight Answered"
+            body="Magnus took up Calder's hammer first because no one else could bear to touch it. The calling came later, not as a song or vision, but as heat in the bones and a simple command: hold."
           />
           <BackstoryBeat
             roman="IV"
             year="Today"
-            title="Skeptical of nobles"
-            body="Quiet. Slow to anger. Quicker to grunt than to argue. Trusts what a forge will tell him over what a duke will promise."
+            title="Skeptical of Clean Boots"
+            body="He has little patience for nobles, commanders, or men who speak of sacrifice from dry rooms. Still, when the road breaks, Magnus mends it. When the weak are cornered, he stands in the gap."
           />
         </div>
       </div>
@@ -798,56 +814,85 @@ function ChapterPanel() {
           <div className="at-chapter-rule" aria-hidden>
             <span /><span className="at-chapter-rule-dot">✦</span><span />
           </div>
-          <p className="at-chapter-meta">Generated from one logged session · 380 words</p>
+          <p className="at-chapter-meta">Generated from one logged session · 540 words</p>
         </header>
         <div className="at-chapter-prose">
           <p>
-            <span className="at-dropcap">B</span>y sundown, the road smelled of wet straw,
-            horse sweat, and smoke from supper fires.
+            <span className="at-dropcap">B</span>y sundown, the road to Mirewatch had turned the
+            color of old tea. Rainwater sat in the cart ruts. Smoke from supper fires drifted low
+            across the fields, carrying the smell of wet straw, onions, and horse sweat.
           </p>
           <p>
-            Magnus Brunn came back to the village with mud to his knees and blood drying black along
-            the rim of his shield. The farmers watched from their doorways as he passed. None
-            cheered. Sensible folk, Magnus thought. Cheering was for nobles and fools, and often the
-            same man wore both hats.
+            Magnus Brunn came back with mud to his knees and blood drying black along the rim of
+            his shield.
           </p>
           <p>
-            The Brand had made camp in the alder hollow north of the mill, where the ground sank
-            soft underfoot and the trees held the day's rain like grudges. They had laughed when
-            they saw him: one dwarf, one old hammer, one battered sunburst on his breastplate.
-          </p>
-          <p>They had stopped laughing shortly after.</p>
-          <p>
-            In the thick of it, when three came at him through the fern and one knife found the gap
-            beneath his arm, Magnus had felt something inside him settle. Not rage. Not fear. A
-            truer thing. Like iron taking shape beneath the hammer. The Forgelight rose through his
-            bones, warm and stern, and for one breath he was not a dwarf growing older on a muddy
-            road, but a door no darkness could open.
-          </p>
-          <p>His brother's hammer had answered in his hand.</p>
-          <p>
-            Now it hung at his belt, heavier than any weapon ought to be. Calder had carried it into
-            the lower shafts years ago and never carried it out. Stone had swallowed him, along
-            with seven good miners and the last easy laughter in Magnus's house. Since then, Magnus
-            had trusted rock, iron, fire, and very little said by men in clean boots.
+            The farmers watched from their doorways. No one cheered. That suited him. Cheering was
+            what people did before they understood the bill.
           </p>
           <p>
-            At the village hall, the reeve waited with two guards and a purse that looked ashamed
-            of itself.
+            The Brand had made camp in the alder hollow north of the mill, where the ground went
+            soft underfoot and the trees held the day's rain in their leaves. There had been nine
+            of them. Maybe ten. Men were hard to count once they started running.
           </p>
-          <p>"You've done us a great service," the man said.</p>
-          <p>Magnus took the purse, weighed it once, and gave a small grunt. "A service, aye."</p>
+          <p>They had laughed when they saw him.</p>
+          <p>
+            One dwarf. One dented shield. One old hammer with a cracked leather grip. One battered
+            sunburst stamped into a breastplate that had seen better wars.
+          </p>
+          <p>Magnus had let them laugh. Laughter told you where a man kept his fear.</p>
+          <p>
+            The first came in proud and died surprised. The second tried to circle behind him and
+            found the shield instead. After that, the hollow lost its shape. Ferns tore under boots.
+            Someone screamed for a brother. Someone begged in a language Magnus did not know well
+            enough to answer.
+          </p>
+          <p>Then three came at him together, and a knife found the gap beneath his arm.</p>
+          <p>For one hard breath, the world narrowed to the warmth spreading under his mail.</p>
+          <p>Not rage. Not panic.</p>
+          <p>Recognition.</p>
+          <p>
+            The same feeling he had known as a boy, standing beside the forge while his father
+            turned glowing iron with tongs. The metal never became what it wished to be. It became
+            what it could endure.
+          </p>
+          <p>Calder's hammer answered in his hand.</p>
+          <p>
+            The Forgelight rose through him, stern and bright, and Magnus was no longer an old
+            dwarf bleeding in a wet hollow. He was a door braced shut. He was a nail driven true.
+            He was the last honest thing between frightened people and the dark.
+          </p>
+          <p>When it was finished, the rain began again.</p>
+          <p>
+            Now the hammer hung at his belt, heavier than any weapon had a right to be. Calder had
+            carried it into the lower shaft years ago and never carried it out. Stone had swallowed
+            him, along with seven good miners and the last easy laughter in Magnus's house.
+          </p>
+          <p>
+            Since then, Magnus had trusted iron, fire, stone, and very little said by men in clean
+            boots.
+          </p>
+          <p>
+            At the village hall, the reeve waited with two guards and a purse that looked too light
+            for the occasion.
+          </p>
+          <p>"You've done us a great service," the reeve said.</p>
+          <p>Magnus took the purse, weighed it once, and gave a small grunt.</p>
+          <p>"A service, aye."</p>
           <p>"There were many of them?"</p>
           <p>"Enough."</p>
-          <p>The reeve glanced at the hammer. "And you were alone?"</p>
+          <p>The reeve looked past him toward the road.</p>
+          <p>"And you were alone?"</p>
           <p>
-            Magnus looked west, where the sun bled red behind the fields and turned every scarecrow
-            into a hanging man. Somewhere beyond those hills, more roads needed mending. More
-            cowards needed names.
+            Magnus thought of the hammer at his belt. Of Calder's hand worn into the grip before
+            his own. Of every dead man who had taught him the cost of standing somewhere useful.
           </p>
-          <p>"The forge does not lie," he said.</p>
-          <p>The reeve opened his mouth, then thought better of it.</p>
-          <p>Magnus stepped into the cooling dusk, and behind him, very softly, someone barred the hall door.</p>
+          <p>"No," he said at last. "Not alone."</p>
+          <p>The reeve's eyes dropped to the hammer, then quickly away.</p>
+          <p>
+            Magnus stepped back into the cooling dusk. Behind him, someone barred the hall door
+            softly, as if afraid the dark might hear.
+          </p>
         </div>
       </div>
     </PanelFrame>
@@ -1549,8 +1594,17 @@ const landingStyles = `
     color: var(--at-text-soft);
     max-width: 480px;
     line-height: 1.6;
-    margin: 0;
+    margin: 0 0 0.9rem;
   }
+  .at-quote-context:last-child { margin-bottom: 0; }
+  .at-quote-context-coda {
+    font-family: var(--at-font-display);
+    font-style: italic;
+    color: var(--at-text);
+    font-size: 17px;
+    margin-top: 0.4rem;
+  }
+  .at-panel-kicker-center { text-align: center; }
 
   /* Voice panel */
   .at-voice-example {
