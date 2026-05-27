@@ -46,3 +46,6 @@ tools/cost-probe-reports/
 # Private / internal — never push (monetization dashboards, draft pricing docs,
 # Tony session-handoff context, etc.)
 private/
+
+# Supabase CLI scratch
+supabase/.temp/
