@@ -18,8 +18,8 @@ pwsh scripts/install-addon.ps1
 ```
 
 This creates directory junctions from each detected WoW client's
-`Interface\AddOns\ChroniclesOfAzeroth` back to this folder, so editing
-`ChroniclesOfAzeroth.lua` here and `/reload`-ing in-game picks up the
+`Interface\AddOns\Aftertale` back to this folder, so editing
+`Aftertale.lua` here and `/reload`-ing in-game picks up the
 change. Detected clients: `_retail_`, `_classic_`, `_classic_era_`,
 `_anniversary_`, `_beta_`.
 
@@ -33,40 +33,40 @@ pwsh scripts/install-addon.ps1 -Unlink
 
 | File                              | Flavor                | Interface |
 | --------------------------------- | --------------------- | --------- |
-| `ChroniclesOfAzeroth.toc`         | Retail (Midnight)     | 120005    |
-| `ChroniclesOfAzeroth_Mists.toc`   | MoP Classic           | 50503     |
-| `ChroniclesOfAzeroth_Cata.toc`    | Cataclysm Classic     | 40402     |
-| `ChroniclesOfAzeroth_Wrath.toc`   | Wrath Classic         | 30405     |
-| `ChroniclesOfAzeroth_TBC.toc`     | Anniversary (TBC)     | 20505     |
-| `ChroniclesOfAzeroth_Vanilla.toc` | Classic Era           | 11508     |
+| `Aftertale.toc`         | Retail (Midnight)     | 120005    |
+| `Aftertale_Mists.toc`   | MoP Classic           | 50503     |
+| `Aftertale_Cata.toc`    | Cataclysm Classic     | 40402     |
+| `Aftertale_Wrath.toc`   | Wrath Classic         | 30405     |
+| `Aftertale_TBC.toc`     | Anniversary (TBC)     | 20505     |
+| `Aftertale_Vanilla.toc` | Classic Era           | 11508     |
 
-Bump these as Blizzard ships new builds. Use `/coa version` in-game to
+Bump these as Blizzard ships new builds. Use `/aftertale version` in-game to
 confirm the live build number.
 
 ## In-game commands
 
 | Command           | What it does                                             |
 | ----------------- | -------------------------------------------------------- |
-| `/coa`                          | Show help                                                |
-| `/coa count`                    | Total + per-event capture counts                         |
-| `/coa tail [N]`                 | Print the last N events to chat (default 10)             |
-| `/coa clear`                    | Wipe the capture log (preserves meta + characters)       |
-| `/coa sample N`                 | Set combat-log sample rate (1-in-N, default 50)          |
-| `/coa missing`                  | List events `RegisterEvent` refused on this game flavor  |
-| `/coa version`                  | Addon + client version info                              |
-| `/coa characters`               | List characters Chronicles has detected (Phase 0.75-C)   |
-| `/coa character reset <guid>`   | Force re-onboarding for a character (dev tool)           |
+| `/aftertale` (or `/at`)         | Show help                                                |
+| `/aftertale count`                    | Total + per-event capture counts                         |
+| `/aftertale tail [N]`                 | Print the last N events to chat (default 10)             |
+| `/aftertale clear`                    | Wipe the capture log (preserves meta + characters)       |
+| `/aftertale sample N`                 | Set combat-log sample rate (1-in-N, default 50)          |
+| `/aftertale missing`                  | List events `RegisterEvent` refused on this game flavor  |
+| `/aftertale version`                  | Addon + client version info                              |
+| `/aftertale characters`               | List characters Chronicles has detected (Phase 0.75-C)   |
+| `/aftertale character reset <guid>`   | Force re-onboarding for a character (dev tool)           |
 
 ## Capture workflow
 
-1. `/coa clear` at the start of a session so the log is fresh.
+1. `/aftertale clear` at the start of a session so the log is fresh.
 2. Play normally for ~30-60 minutes. Run quests, change zones, fight stuff,
    talk to NPCs, level up, die, whatever.
-3. `/coa count` to spot-check what landed.
+3. `/aftertale count` to spot-check what landed.
 4. **Log out** (or `/reload`) -- WoW only flushes `SavedVariables` to disk
    on logout or reload. Just closing the client will lose the capture.
 5. Grab the file from
-   `<WoWRoot>\<flavor>\WTF\Account\<ACCOUNT>\SavedVariables\ChroniclesOfAzeroth.lua`
+   `<WoWRoot>\<flavor>\WTF\Account\<ACCOUNT>\SavedVariables\Aftertale.lua`
 6. Diff against the simulator's `WowEventName` union in
    `src/lib/addonEvents.ts` and note any mismatches in
    `docs/EVENT-CONTRACT.md`.
@@ -97,13 +97,13 @@ Phase 1's chat-log tailing and Phase 2's addon bridge will rely on.
 
 `COMBAT_LOG_EVENT_UNFILTERED` fires *hundreds of times per second* during
 real combat. The addon counts every fire but only captures 1-in-50 to
-`SavedVariables` by default. Bump or lower with `/coa sample N`.
+`SavedVariables` by default. Bump or lower with `/aftertale sample N`.
 
 ## Character detection (Phase 0.75-C, v0.2.0+)
 
 On every `PLAYER_ENTERING_WORLD`, the addon checks `UnitGUID("player")`
 against a registry of known characters in
-`ChroniclesOfAzerothDB.characters`. If the GUID is new, it snapshots:
+`AftertaleDB.characters`. If the GUID is new, it snapshots:
 
 - **Identity** -- name, realm, class, race, sex, faction, GUID
 - **First seen** -- timestamp, level, map ID, zone, subzone, coords, build
@@ -122,8 +122,8 @@ Coldridge Valley) -- brand-new. Open the Chronicles app to begin her story.
 ```
 
 The structured record is what the Chronicles app reads on next launch to
-pre-fill the onboarding wizard. Use `/coa characters` to inspect the
-registry, `/coa character reset <guid>` to force re-onboarding for a
+pre-fill the onboarding wizard. Use `/aftertale characters` to inspect the
+registry, `/aftertale character reset <guid>` to force re-onboarding for a
 character (dev tool).
 
 **GUID stability note:** `UnitGUID` survives name change, race change, and

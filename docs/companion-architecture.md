@@ -28,7 +28,7 @@ on every screen you own.
 `<character>-<realm>` pair. Slots are reassignable (delete an old alt → free the slot).
 
 **Design rule:** every tier produces and consumes the **same file format**
-(`ChroniclesOfAzerothRestore.lua`) and the **same cloud schema**. The Companion
+(`AftertaleRestore.lua`) and the **same cloud schema**. The Companion
 daemon is a different *agent* doing what the Free user does by hand — never a
 different *product*.
 
@@ -38,7 +38,7 @@ different *product*.
 1. Installs WoW addon, plays, gets SV file with events.
 2. Visits aftertale.gg → Scribe's Desk → drops SV file.
 3. Filters, hits "Enrich" (BYOK key entered locally), gets chapters.
-4. Downloads `ChroniclesOfAzerothRestore.lua` → drops in `WTF\SavedVariables\`.
+4. Downloads `AftertaleRestore.lua` → drops in `WTF\SavedVariables\`.
 5. Next WoW login, addon merges chapters back into the in-game chronicle.
 
 ### 3.2 Free + account (the gentle nudge)
@@ -128,7 +128,7 @@ Disney+, and gh CLI use.
 | API key (BYOK) | localStorage only | localStorage only | n/a (managed) |
 
 **Rule:** the user can always export their entire chronicle as JSON +
-`ChroniclesOfAzerothRestore.lua`. No lock-in. Cancellation doesn't delete data.
+`AftertaleRestore.lua`. No lock-in. Cancellation doesn't delete data.
 
 **Free + account on mobile is read-only.** The BYOK key only lives in desktop
 browser localStorage — phones can't enrich. The PWA shows existing chapters and
@@ -278,7 +278,7 @@ pennies of storage.
 - `src/lib/chronicleSnippet.ts` — the snippet emitter is the universal handoff format.
 - `src/lib/savedVariablesIngest.ts` — same parser feeds both Scribe's Desk and the daemon.
 - `src/lib/addonEvents.ts` — event shape is stable.
-- `addon/ChroniclesOfAzeroth/Companion/Restore.lua` — daemon will write the same file.
+- `addon/Aftertale/Companion/Restore.lua` — daemon will write the same file.
 
 **Needs refactoring (Scribe's Desk phase):**
 - `src/components/ChronicleReader.tsx` — split. Reader becomes pure read. Import +
@@ -329,7 +329,7 @@ All of these are interesting. None of them are V1. Get the core loop right first
 
 - **Scribe's Desk:** the manual Free-tier workflow page (`/desk`). Linear stepper:
   Import → Filter → Enrich → Export.
-- **Restore snippet:** `ChroniclesOfAzerothRestore.lua` — the file format that
+- **Restore snippet:** `AftertaleRestore.lua` — the file format that
   carries enriched chapters back to the addon.
 - **Companion daemon:** the Electron app that watches SV files and syncs to cloud.
 - **Magic moment:** desktop notification + same chapter instantly on phone, seconds

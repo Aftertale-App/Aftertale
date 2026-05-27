@@ -10,7 +10,7 @@
 //
 // This module is the source of truth for the filter on the web side.
 // Categorization mirrors the `EVENTS` registry in
-// addon/ChroniclesOfAzeroth/ChroniclesOfAzeroth.lua so the UI is
+// addon/Aftertale/Aftertale.lua so the UI is
 // scannable.
 
 export interface EventCategory {

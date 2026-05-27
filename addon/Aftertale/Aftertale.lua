@@ -1,8 +1,8 @@
--- Chronicles of Azeroth -- event spike addon
+-- Aftertale -- event spike addon
 --
 -- Purpose: validate the event contract that AddonSimulator.tsx promises.
 -- Registers every WoW event the simulator emits, captures real payloads to
--- SavedVariables (ChroniclesOfAzerothDB), and mirrors a compact form via
+-- SavedVariables (AftertaleDB), and mirrors a compact form via
 -- SendAddonMessageLogged so we can also validate that transport for the
 -- chat-log-based bridge that Phase 1 / Phase 2 depend on.
 --
@@ -11,9 +11,9 @@
 local ADDON_NAME, NS = ...
 
 local PREFIX = "COA"
-local CHAT_TAG = "|cFFFFD700[CoA]|r"
+local CHAT_TAG = "|cFFFFD700[Aftertale]|r"
 
--- Schema version for ChroniclesOfAzerothDB. Bump when shape changes in a
+-- Schema version for AftertaleDB. Bump when shape changes in a
 -- way old saves can't be loaded by new code. migrate() runs once per load
 -- and walks db.schemaVersion forward to CURRENT_SCHEMA.
 local CURRENT_SCHEMA = 1
@@ -56,7 +56,7 @@ end
 ------------------------------------------------------------------------
 -- Saved data
 --
--- ChroniclesOfAzerothDB = {
+-- AftertaleDB = {
 --   meta = { version, project, build, characterName, realm, startedAt,
 --            chatLogEnabled, combatLogEnabled },
 --   events = { { t, ts, event, args = {...} }, ... },
@@ -83,8 +83,8 @@ end
 ------------------------------------------------------------------------
 
 local function ensureDB()
-  ChroniclesOfAzerothDB = ChroniclesOfAzerothDB or {}
-  local db = ChroniclesOfAzerothDB
+  AftertaleDB = AftertaleDB or {}
+  local db = AftertaleDB
   db.schemaVersion = db.schemaVersion or CURRENT_SCHEMA
   db.meta = db.meta or {}
   db.events = db.events or {}
@@ -92,12 +92,12 @@ local function ensureDB()
   db.missingEvents = db.missingEvents or {}
   db.combatLogSampleRate = db.combatLogSampleRate or 50
   -- Phase 0.75-B: per-event enrichment toggle (zone snapshot, quest titles,
-  -- NPC names, loot items, etc.). Default ON; flip off via /coa enrichment.
+  -- NPC names, loot items, etc.). Default ON; flip off via /aftertale enrichment.
   if db.enrichmentEnabled == nil then db.enrichmentEnabled = true end
   -- Phase 0.75-C: character registry keyed by UnitGUID("player").
   db.characters = db.characters or {}
   -- Phase 1.6: user-facing UX toggles. Each defaults ON; users can opt out
-  -- via /coa config. Session counters live alongside so the recap pulls
+  -- via /aftertale config. Session counters live alongside so the recap pulls
   -- from persisted state.
   db.config = db.config or {}
   local c = db.config
@@ -111,9 +111,9 @@ local function ensureDB()
   c.webAppUrl = c.webAppUrl or "https://snoblitz.github.io/Chronicles-of-Azeroth/"
   -- Phase 2: ring buffer cap. FIFO trim oldest events when the buffer
   -- overflows. Bounds SavedVariables file size on long sessions. Tune
-  -- with /coa max <N>; minimum 100, no hard upper limit.
+  -- with /aftertale max <N>; minimum 100, no hard upper limit.
   if c.maxEvents == nil then c.maxEvents = 5000 end
-  -- Phase 1.7: Tier-C enrichment. Paragraphs imported via /coa sync land
+  -- Phase 1.7: Tier-C enrichment. Paragraphs imported via /aftertale sync land
   -- here keyed by Templates.EntryID; ChronicleBook reads this first,
   -- falls back to procedural templates per entry.
   db.enriched = db.enriched or {}
@@ -121,12 +121,12 @@ local function ensureDB()
 end
 
 -- Companion writeback channel. The Electron companion writes generated
--- chapters into ChroniclesOfAzerothCompanion; the addon only reads from
+-- chapters into AftertaleCompanion; the addon only reads from
 -- it. Defensive load: if the SV is absent (companion never ran) or
--- malformed, return an empty stub so /coa chapters and stats work.
+-- malformed, return an empty stub so /aftertale chapters and stats work.
 local function ensureCompanionDB()
-  ChroniclesOfAzerothCompanion = ChroniclesOfAzerothCompanion or {}
-  local cdb = ChroniclesOfAzerothCompanion
+  AftertaleCompanion = AftertaleCompanion or {}
+  local cdb = AftertaleCompanion
   cdb.schemaVersion = cdb.schemaVersion or 1
   -- generatedChapters: list of { id, forCharacter, basedOnEventIds,
   --                              title, text, generatedAt, readByPlayer }
@@ -224,7 +224,7 @@ local EVENTS = {
 }
 
 -- Events known to be refused by RegisterEvent on certain flavors.
--- Tracked here so /coa missing reflects intent, not just runtime failures.
+-- Tracked here so /aftertale missing reflects intent, not just runtime failures.
 local KNOWN_FORBIDDEN = {
   COMBAT_LOG_EVENT_UNFILTERED = "Retail Midnight refuses RegisterEvent for unsigned addons; see Phase 1 plan.",
 }
@@ -695,7 +695,7 @@ end
 -- Frame + registration
 ------------------------------------------------------------------------
 
-local frame = CreateFrame("Frame", "ChroniclesOfAzerothFrame")
+local frame = CreateFrame("Frame", "AftertaleFrame")
 
 local function registerEvents(db)
   local refused = 0
@@ -710,7 +710,7 @@ local function registerEvents(db)
       end
     end
   end
-  -- Mark statically-known-forbidden events too so /coa missing tells the
+  -- Mark statically-known-forbidden events too so /aftertale missing tells the
   -- full story even when we deliberately skipped them.
   for ev, reason in pairs(KNOWN_FORBIDDEN) do
     db.missingEvents[ev] = reason
@@ -767,7 +767,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
     registerEvents(db)
 
     print(string.format(
-      "%s loaded v%s on %s (build %s). %d events armed. Type /coa for help.",
+      "%s loaded v%s on %s (build %s). %d events armed. Type /aftertale for help.",
       CHAT_TAG, db.meta.version, db.meta.project, db.meta.build, #EVENTS
     ))
     return
@@ -888,36 +888,37 @@ end
 -- Slash commands
 ------------------------------------------------------------------------
 
-SLASH_CHRONICLESOFAZEROTH1 = "/coa"
+SLASH_Aftertale1 = "/aftertale"
+SLASH_Aftertale2 = "/at"
 
 local function cmdHelp()
   print(CHAT_TAG .. " commands:")
-  print("  /coa book              -- open the Chronicle (your in-game adventure album)")
-  print("  /coa sync              -- import enriched paragraphs from the web companion")
-  print("  /coa config            -- open the settings panel (UX toggles)")
-  print("  /coa preview           -- preview the story card")
-  print("  /coa count             -- show captured event totals")
-  print("  /coa tail [N]          -- print the last N events (default 10)")
-  print("  /coa clear             -- wipe the capture log")
-  print("  /coa sample N          -- set combat-log sample rate (default 50)")
-  print("  /coa max [N]           -- show/set ring buffer cap (default 5000, min 100)")
-  print("  /coa missing           -- list events RegisterEvent refused on this flavor")
-  print("  /coa version           -- show addon + client version info")
-  print("  /coa chapters          -- list companion-generated chapters for this character")
-  print("  /coa stats             -- captured/chronicled/pending counts for this character")
-  print("  /coa characters        -- list characters Chronicles has seen")
-  print("  /coa character reset <guid>  -- force re-onboarding for a character")
-  print("  /coa enrichment [on|off]  -- toggle per-event enrichment (zone/quest title/NPC/loot)")
-  print("  /coa log               -- diagnostics logger (see /coa log for sub-commands)")
+  print("  /aftertale book              -- open the Chronicle (your in-game adventure album)")
+  print("  /aftertale sync              -- import enriched paragraphs from the web companion")
+  print("  /aftertale config            -- open the settings panel (UX toggles)")
+  print("  /aftertale preview           -- preview the story card")
+  print("  /aftertale count             -- show captured event totals")
+  print("  /aftertale tail [N]          -- print the last N events (default 10)")
+  print("  /aftertale clear             -- wipe the capture log")
+  print("  /aftertale sample N          -- set combat-log sample rate (default 50)")
+  print("  /aftertale max [N]           -- show/set ring buffer cap (default 5000, min 100)")
+  print("  /aftertale missing           -- list events RegisterEvent refused on this flavor")
+  print("  /aftertale version           -- show addon + client version info")
+  print("  /aftertale chapters          -- list companion-generated chapters for this character")
+  print("  /aftertale stats             -- captured/chronicled/pending counts for this character")
+  print("  /aftertale characters        -- list characters Chronicles has seen")
+  print("  /aftertale character reset <guid>  -- force re-onboarding for a character")
+  print("  /aftertale enrichment [on|off]  -- toggle per-event enrichment (zone/quest title/NPC/loot)")
+  print("  /aftertale log               -- diagnostics logger (see /aftertale log for sub-commands)")
 end
 
 -- Diagnostics logger control. Routes to NS.Logger. Sub-commands:
---   /coa log                          -- show current state
---   /coa log show [N]                 -- print last N entries (default 20)
---   /coa log clear                    -- wipe the in-memory ring buffer
---   /coa log chat on|off              -- mirror accepted log lines to chat
---   /coa log level <debug|info|warn|error>
---   /coa log <category> on|off        -- enable/silence a category
+--   /aftertale log                          -- show current state
+--   /aftertale log show [N]                 -- print last N entries (default 20)
+--   /aftertale log clear                    -- wipe the in-memory ring buffer
+--   /aftertale log chat on|off              -- mirror accepted log lines to chat
+--   /aftertale log level <debug|info|warn|error>
+--   /aftertale log <category> on|off        -- enable/silence a category
 local function cmdLog(arg)
   if not (NS and NS.Logger) then
     print(CHAT_TAG .. " logger not loaded (Utils/Logger.lua missing from .toc?).")
@@ -991,7 +992,7 @@ local function cmdLog(arg)
   elseif v == "off" or v == "false" or v == "0" then
     NS.Logger:SetCategory(sub, false)
   elseif v ~= "" then
-    print(CHAT_TAG .. " usage: /coa log " .. sub .. " on|off")
+    print(CHAT_TAG .. " usage: /aftertale log " .. sub .. " on|off")
     return
   end
   print(string.format("%s log category '%s' is %s.",
@@ -1131,7 +1132,7 @@ local function cmdCharacterReset(arg)
   local db = ensureDB()
   local guid = arg and arg:match("^reset%s+(.+)$") or nil
   if not guid or guid == "" then
-    print(CHAT_TAG .. " usage: /coa character reset <guid>")
+    print(CHAT_TAG .. " usage: /aftertale character reset <guid>")
     return
   end
   local r = db.characters[guid]
@@ -1207,7 +1208,7 @@ local function cmdChapters()
 
   if #mine == 0 then
     print(string.format("%s no chapters yet for %s.", CHAT_TAG, me))
-    print("  Generated chapters land in ChroniclesOfAzerothCompanion.lua")
+    print("  Generated chapters land in AftertaleCompanion.lua")
     print("  once the Electron companion app processes captured events.")
     return
   end
@@ -1221,10 +1222,10 @@ local function cmdChapters()
     print(string.format("  %s[%d] %s", marker, i, ch.title or "(untitled)"))
   end
   print("  (* = unread)  Full chapter text lives in the companion SV;")
-  print("  the in-game reader will be wired into /coa book in a follow-up.")
+  print("  the in-game reader will be wired into /aftertale book in a follow-up.")
 end
 
-SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
+SlashCmdList.Aftertale = function(msg)
   msg = msg or ""
   local cmd, arg = msg:match("^(%S*)%s*(.-)$")
   cmd = (cmd or ""):lower()
@@ -1255,6 +1256,6 @@ SlashCmdList.CHRONICLESOFAZEROTH = function(msg)
     if NS and NS.OpenSync then NS.OpenSync()
     else print(CHAT_TAG .. " sync dialog not loaded yet -- /reload and retry.") end
   else
-    print(CHAT_TAG .. " unknown command '" .. cmd .. "'. try /coa help.")
+    print(CHAT_TAG .. " unknown command '" .. cmd .. "'. try /aftertale help.")
   end
 end

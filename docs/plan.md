@@ -23,7 +23,7 @@
 
 > **Status (2026-05-26):** Round-trip **fixed pre-launch**. Replaced the
 > lossy `at-CHRONICLE-V1` blob (C3 below) with a structured
-> `ChroniclesOfAzerothRestore.lua` snippet — see
+> `AftertaleRestore.lua` snippet — see
 > [`companion-architecture.md`](./companion-architecture.md) §12 and the
 > `2026-05-26` entries in [`CHANGELOG.md`](../CHANGELOG.md). The blob
 > contract documented below is retained as fallback / historical reference.
@@ -37,39 +37,39 @@ The system has many files but only **three contracts** must stay in sync. Everyt
   │  addon (Lua, in WoW)   │ ──────────────────────▶ │ web companion (React)   │
   │                        │                         │                         │
   │  captures events       │                         │  imports SV ⇒ enriches  │
-  │  → ChroniclesOfAzeroth │                         │  via LLM ⇒ builds blob  │
+  │  → Aftertale │                         │  via LLM ⇒ builds blob  │
   │    DB.events[*]        │                         │                         │
   └────────────────────────┘                         └─────────────────────────┘
               ▲                                                   │
               │                at-CHRONICLE-V1 blob              │
               └───────────────────────────────────────────────────┘
-                  (clipboard or .txt, pasted into /coa sync)
+                  (clipboard or .txt, pasted into /aftertale sync)
 ```
 
 ### The three contracts (do not break without bumping versions on both sides)
 
 | # | What | Pinned in addon | Pinned in companion |
 |---|---|---|---|
-| C1 | **SV table shape** — `events[i] = { t, ts, event, args, enrichment, id }` plus top-level `schemaVersion`, `counts`, `bible`, `enriched`, `characters`, etc. | `addon/ChroniclesOfAzeroth/ChroniclesOfAzeroth.lua` (recordEvent, snapshot, buildEnrichment) | `src/lib/luaSavedVariables.ts` (parser) + `src/lib/savedVariablesIngest.ts` (mapper) |
-| C2 | **EntryID format** — `${event}:${ts}:${tostring(args[1]) or ""}` | `addon/ChroniclesOfAzeroth/Lore/Templates.lua` (`T.EntryID`) | `src/lib/chronicleExport.ts` (`entryId`) |
-| C3 | **COA-CHRONICLE-V1 blob grammar** — header line, optional `BIBLE\|...`, `<entryId>\|<paragraph>` rows with `\\n` / `\\t` / `\\\|` escapes OR `b64:` prefix, terminated by `END`. | `addon/ChroniclesOfAzeroth/UI/SyncDialog.lua` (parseBlob, lines 73–192) | `src/lib/chronicleExport.ts` (`buildChronicleBlob`, `encodeValue`) |
+| C1 | **SV table shape** — `events[i] = { t, ts, event, args, enrichment, id }` plus top-level `schemaVersion`, `counts`, `bible`, `enriched`, `characters`, etc. | `addon/Aftertale/Aftertale.lua` (recordEvent, snapshot, buildEnrichment) | `src/lib/luaSavedVariables.ts` (parser) + `src/lib/savedVariablesIngest.ts` (mapper) |
+| C2 | **EntryID format** — `${event}:${ts}:${tostring(args[1]) or ""}` | `addon/Aftertale/Lore/Templates.lua` (`T.EntryID`) | `src/lib/chronicleExport.ts` (`entryId`) |
+| C3 | **COA-CHRONICLE-V1 blob grammar** — header line, optional `BIBLE\|...`, `<entryId>\|<paragraph>` rows with `\\n` / `\\t` / `\\\|` escapes OR `b64:` prefix, terminated by `END`. | `addon/Aftertale/UI/SyncDialog.lua` (parseBlob, lines 73–192) | `src/lib/chronicleExport.ts` (`buildChronicleBlob`, `encodeValue`) |
 
 ### Companion-writeback SV (future-proofing for Electron)
 
-The addon also reads `ChroniclesOfAzerothCompanion = { schemaVersion, ingestedEventIds, generatedChapters }`. The web companion does **not** write to this file (no FS access in the browser). When the desktop companion lands, it owns this SV. Until then it's inert and that's intentional.
+The addon also reads `AftertaleCompanion = { schemaVersion, ingestedEventIds, generatedChapters }`. The web companion does **not** write to this file (no FS access in the browser). When the desktop companion lands, it owns this SV. Until then it's inert and that's intentional.
 
 ### Round-trip dataflow
 
-1. **Player plays WoW.** Addon writes `ChroniclesOfAzeroth.lua` on `/reload` or logout (each new event has a UUID v4 `id`).
+1. **Player plays WoW.** Addon writes `Aftertale.lua` on `/reload` or logout (each new event has a UUID v4 `id`).
 2. **User drops the SV file** into the web Chronicle tab → `savedVariablesIngest.ts` produces `AddonEvent[]` with `rawTs` + `rawArgs` preserved.
 3. **User clicks "Enrich"** → per-event LLM call (80–150 word paragraph), stored in component state keyed by `entryId(event)`.
 4. **User clicks "Copy chronicle blob"** → `buildChronicleBlob({ bible, enrichments })` produces a `at-CHRONICLE-V1` text blob.
-5. **User pastes into `/coa sync`** inside WoW → addon's `parseBlob` populates `ChroniclesOfAzerothDB.enriched[entryId] = paragraph`.
-6. **User runs `/coa chronicle`** → `UI/ChronicleBook.lua` renders the parchment book; for each event it looks up `db.enriched[id]` and prints the prose if present, otherwise falls back to the templated narration.
+5. **User pastes into `/aftertale sync`** inside WoW → addon's `parseBlob` populates `AftertaleDB.enriched[entryId] = paragraph`.
+6. **User runs `/aftertale chronicle`** → `UI/ChronicleBook.lua` renders the parchment book; for each event it looks up `db.enriched[id]` and prints the prose if present, otherwise falls back to the templated narration.
 
 ### Round-trip prerequisites (gotchas worth remembering)
 
-- **EntryIDs only match for events the addon captured *after* the Phase 2 refit** (commit `5d5850d` and later). Pre-refit events have no `id`; the SV ingest gives them synthetic `sv_<i>_<ts>` IDs which `/coa sync` will count as `skipped`. That's correct behavior.
+- **EntryIDs only match for events the addon captured *after* the Phase 2 refit** (commit `5d5850d` and later). Pre-refit events have no `id`; the SV ingest gives them synthetic `sv_<i>_<ts>` IDs which `/aftertale sync` will count as `skipped`. That's correct behavior.
 - **Local timezone matters.** `entryId()` reconstructs `ts` from `event.timestamp` using local time when `rawTs` is absent (simulator path). For SV-imported events `rawTs` is always populated, so round-trip is timezone-independent.
 - **The blob is line-based; values that contain `|`, newlines, or non-ASCII auto-promote to `b64:`** so the addon parser never has to guess.
 
@@ -126,9 +126,9 @@ The Zygor pattern, but using the WeakAuras Companion stack:
 
 ```
 [WoW Game Client]
-  Lua addon (ChroniclesOfAzeroth, MIT, open source on CurseForge + Wago)
-  - Writes events to SavedVariables/ChroniclesOfAzerothDB.lua on /reload or logout
-  - Reads ChroniclesOfAzerothCompanion.lua from SV folder on /reload
+  Lua addon (Aftertale, MIT, open source on CurseForge + Wago)
+  - Writes events to SavedVariables/AftertaleDB.lua on /reload or logout
+  - Reads AftertaleCompanion.lua from SV folder on /reload
   - Displays UI, journal, static lore DB — fully functional standalone
   - ZERO auth code, ZERO network calls
        ↓ (mtime polling every 2000ms via fs.statSync — NOT chokidar)
@@ -142,7 +142,7 @@ The Zygor pattern, but using the WeakAuras Companion stack:
   - LLM orchestration:
       - Free tier / BYOK: user provides Gemini/OpenAI/Anthropic key, all local
       - Paid tier: companion calls our backend, which proxies to LLM provider
-  - Writes ChroniclesOfAzerothCompanion.lua into addon SV folder
+  - Writes AftertaleCompanion.lua into addon SV folder
        ↓
 [Our Backend Service] (Stripe + Postgres + LLM proxy)
   - Stripe webhooks → entitlement table

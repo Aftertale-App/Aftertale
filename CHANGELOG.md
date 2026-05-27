@@ -66,10 +66,10 @@ older docs is superseded by that document.
   remain wired and functional for A/B comparison.
 - **`.lua` restore snippet — kills the lossy blob format** *(2026-05-26)*.
   CompanionExport gains a "⬇ Download .lua restore" button that produces a
-  self-contained `ChroniclesOfAzerothRestore.lua` file. User drops it into
+  self-contained `AftertaleRestore.lua` file. User drops it into
   `WTF\Account\<ACCT>\SavedVariables\`, relaunches WoW, and the new
-  `addon/ChroniclesOfAzeroth/Companion/Restore.lua` module merges full
-  events + enrichments + bible into `ChroniclesOfAzerothDB` on `PLAYER_LOGIN`.
+  `addon/Aftertale/Companion/Restore.lua` module merges full
+  events + enrichments + bible into `AftertaleDB` on `PLAYER_LOGIN`.
   Carries the entire `enrichment` subtable per event (`zoneText`, `questTitle`,
   `npc.name`, `encounterName`, `loot[]`) so chapter grouping and entry titles
   render correctly — the at-CHRONICLE-V1 blob was dropping all of that and
@@ -77,7 +77,7 @@ older docs is superseded by that document.
   bypasses the 471 KB EditBox bottleneck. Snippet uses auto-leveled Lua
   long brackets so any LLM-generated content (including `]==]` tokens or
   trailing `]`) round-trips byte-for-byte; smoke-tested against a real Lua
-  interpreter. Old `/coa sync` blob path retained as fallback.
+  interpreter. Old `/aftertale sync` blob path retained as fallback.
 - **LOOT_OPENED enrichment with quality gating** *(2026-05-26)*. LOOT events
   are now narrative when at least one item meets the quality floor (default
   Uncommon+). New `T.LOOT_OPENED` template pool + `ResolveLoot` /

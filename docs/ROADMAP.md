@@ -64,7 +64,7 @@ Simulator promises**, with the payload shapes the simulator assumes,
 across both Retail and Classic. De-risks Phase 1 (chat-log tailing) and
 Phase 2 (Lua addon) before either commits to an architecture.
 
-- [x] Pure event-capture addon at `addon/ChroniclesOfAzeroth/` (no AI, no
+- [x] Pure event-capture addon at `addon/Aftertale/` (no AI, no
   UI) — listens for every event in `WowEventName`, plus adjacent events
   worth grafting in, and dumps payloads to `SavedVariables`
 - [x] Multi-flavor TOC (Retail 120005, Mists 50503, TBC 20505, Vanilla 11508)
@@ -72,10 +72,10 @@ Phase 2 (Lua addon) before either commits to an architecture.
   detected WoW client so edits are one-and-done
 - [x] `SendAddonMessageLogged` mirror so we also validate the chat-log
   transport that Phase 1 and Phase 2 rely on
-- [x] Combat-log sampling (`/coa sample N`) so `COMBAT_LOG_EVENT_UNFILTERED`
+- [x] Combat-log sampling (`/aftertale sample N`) so `COMBAT_LOG_EVENT_UNFILTERED`
   doesn't drown the capture
 - [x] **Capture 01** (Coldridge Valley, ~8 min) — proved chat log file
-  doesn't exist by default and `/coa clear` bug wiped meta. Both fixed.
+  doesn't exist by default and `/aftertale clear` bug wiped meta. Both fixed.
 - [x] **Capture 02** (~29 min, Garygidney, Coldridge -> New Tinkertown
   with death + res + multi-option NPCs) — 240 events, closed most ❓ rows
 - [x] `docs/EVENT-CONTRACT.md` — living spec with three major findings:
@@ -87,7 +87,7 @@ Phase 2 (Lua addon) before either commits to an architecture.
 - [x] **Phase 0.75-C**: character detection (v0.2.0) — every new
   `UnitGUID` triggers a classification (`brand-new` / `boosted` /
   `pre-existing`) + chat-frame ping, with full identity + location +
-  time-played snapshot in `ChroniclesOfAzerothDB.characters` for the
+  time-played snapshot in `AftertaleDB.characters` for the
   app's onboarding wizard to read
 - [ ] Diff actual events against the simulator's `WowEventName` and
   payload assumptions; update `src/lib/addonEvents.ts` + simulator
@@ -133,7 +133,7 @@ Tier-agnostic infrastructure first, user-facing UX last:
   current `ChronicleReader` import/export surface
 - [ ] Pairing endpoint + UI (`/pair`, 6-digit TV-login pattern)
 - [ ] Companion Electron app (separate repo, watches SV folder, writes
-  the same `ChroniclesOfAzerothRestore.lua` format)
+  the same `AftertaleRestore.lua` format)
 - [ ] Web push service worker + VAPID setup (PWA notifications)
 - [ ] Subscription / billing (Stripe Checkout → Supabase webhooks)
 - [ ] Privacy page (what the LLM provider chain is, what we send)
@@ -186,16 +186,16 @@ export time:
 - `ZONE_CHANGED` args are empty in the blob (WoW event has no payload; addon queries `GetMinimapZoneText()` separately and stores on the event, not in args)
 
 **Shipped:** Took option (b). `src/lib/chronicleSnippet.ts` produces a
-`ChroniclesOfAzerothRestore.lua` file carrying full event rows (incl. the
+`AftertaleRestore.lua` file carrying full event rows (incl. the
 verbatim `enrichment` subtable, preserved through ingest via new
 `AddonEvent.rawEnrichment`) plus enriched paragraphs + bible. Addon's new
 `Companion/Restore.lua` registers a dedicated SV channel, merges on
 `PLAYER_LOGIN`, and clears the global so the file wipes on next save.
 Auto-leveled long-bracket escaping handles every Lua edge case (content
 with `]==]`, trailing `]`, multi-line, etc.) — smoke-tested with a real
-Lua interpreter. Old `/coa sync` blob path retained as fallback.
+Lua interpreter. Old `/aftertale sync` blob path retained as fallback.
 
-### 2. `/coa sync` EditBox is unusably slow — ✅ Built (pre-launch) 2026-05-26 (by #1)
+### 2. `/aftertale sync` EditBox is unusably slow — ✅ Built (pre-launch) 2026-05-26 (by #1)
 **Problem:** 471 KB blob freezes WoW for 30-90s on paste; may never settle.
 WoW's EditBox widget has O(n²) repaint cost at this size.
 
@@ -203,12 +203,12 @@ WoW's EditBox widget has O(n²) repaint cost at this size.
 User downloads the file, drops it into `WTF\Account\<ACCT>\SavedVariables\`,
 launches WoW — done. `inject-chronicle.ps1` is no longer needed.
 
-### 3. `/coa clear` orphans enriched paragraphs
+### 3. `/aftertale clear` orphans enriched paragraphs
 **Problem:** Clearing wipes `db.events` but preserves `db.enriched`. Without
 events to iterate, the book is empty even though paragraphs are loaded.
 
 **Path forward:** Document the order-of-ops (clear *before* import, not after).
-Optional: make `/coa sync` synthesize events when import keys don't have
+Optional: make `/aftertale sync` synthesize events when import keys don't have
 matching `db.events` entries (companion-led restore vs. addon-led capture).
 
 ### 4. Companion enriches noise events (~95% waste)

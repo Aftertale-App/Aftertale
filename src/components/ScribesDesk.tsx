@@ -894,7 +894,7 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
                 className="at-btn at-btn-secondary"
                 onClick={copyBlob}
                 disabled={busy || enrichedCount === 0}
-                title="Copy the at-CHRONICLE-V1 blob to your clipboard for /coa sync"
+                title="Copy the at-CHRONICLE-V1 blob to your clipboard for /aftertale sync"
               >
                 {copyState === 'copied'
                   ? '✓ Copied'

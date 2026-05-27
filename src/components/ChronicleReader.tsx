@@ -170,7 +170,7 @@ export function ChronicleReader() {
           <h3>No story entries yet</h3>
           <p className="muted">
             Visit the <strong>Scribe's Desk</strong> tab to import your{' '}
-            <code>ChroniclesOfAzeroth.lua</code> and enrich it into prose, or run the Addon
+            <code>Aftertale.lua</code> and enrich it into prose, or run the Addon
             Sim, or add manual deeds from the character sheet.
           </p>
           <div className="at-chronicle-empty-actions" style={{ marginTop: '1rem' }}>

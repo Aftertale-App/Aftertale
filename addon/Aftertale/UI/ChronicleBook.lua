@@ -8,7 +8,7 @@
 --
 -- Narration source priority:
 --   1. db.enriched[EntryID] -- paragraphs from the web companion,
---      imported via /coa sync.
+--      imported via /aftertale sync.
 --   2. NS.Templates.Narrate(entry) -- the always-works fallback.
 --
 -- Visual aesthetic: black leather album, polaroid cards w/ pushpins.
@@ -86,7 +86,7 @@ end
 -- has the highest Roman numeral. Re-entries to a zone get their own
 -- chapter ("Return to Westfall" idea, even if we don't render that yet).
 local function collectRows()
-  local db = NS.GetDB and NS.GetDB() or ChroniclesOfAzerothDB
+  local db = NS.GetDB and NS.GetDB() or AftertaleDB
   if not db or not db.events then return {} end
 
   local oldestFirst = {}
@@ -140,7 +140,7 @@ local function collectRows()
 end
 
 local function getNarrationFor(entry)
-  local db = NS.GetDB and NS.GetDB() or ChroniclesOfAzerothDB
+  local db = NS.GetDB and NS.GetDB() or AftertaleDB
   local enriched = db and db.enriched
   local id = NS.Templates.EntryID(entry)
   if enriched and enriched[id] then return enriched[id], true end
@@ -250,7 +250,7 @@ local function renderEntry(page, row)
   page.empty:Hide()
 
   if row.kind == "bible" then
-    local db = NS.GetDB and NS.GetDB() or ChroniclesOfAzerothDB
+    local db = NS.GetDB and NS.GetDB() or AftertaleDB
     local char = NS.GetCurrentCharacter and select(1, NS.GetCurrentCharacter()) or nil
     local name = (char and char.identity and char.identity.name) or "the traveler"
     local raceCls
@@ -264,7 +264,7 @@ local function renderEntry(page, row)
     page.title:SetText("The Chronicle of " .. name)
     local body = db.bible or ""
     if body == "" then
-      body = "No bible yet. Roll your hero in the web companion and use /coa sync to fill this page."
+      body = "No bible yet. Roll your hero in the web companion and use /aftertale sync to fill this page."
     end
     page.body:SetText(body)
     page.footer:SetText(raceCls and raceCls ~= "" and raceCls or "")

@@ -1,9 +1,9 @@
 /**
  * Character ingest -- pull normalized character records out of a parsed
- * ChroniclesOfAzeroth SavedVariables file.
+ * Aftertale SavedVariables file.
  *
  * The addon writes a `characters` table keyed by GUID, with the shape
- * documented at the top of ChroniclesOfAzeroth.lua. This module gives
+ * documented at the top of Aftertale.lua. This module gives
  * the wizard a clean, typed view over that table without forcing every
  * caller to do their own walk-and-coerce.
  */
@@ -79,9 +79,9 @@ function asNumber(v: LuaValue | undefined, fallback = 0): number {
 export function ingestCharactersFromParsed(parsed: Record<string, LuaValue>): IngestResult {
   const result: IngestResult = { characters: [], warnings: [] };
 
-  const db = asObject(parsed.ChroniclesOfAzerothDB);
+  const db = asObject(parsed.AftertaleDB);
   if (!db) {
-    result.warnings.push('ChroniclesOfAzerothDB variable not found in file.');
+    result.warnings.push('AftertaleDB variable not found in file.');
     return result;
   }
 

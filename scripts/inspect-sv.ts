@@ -19,7 +19,7 @@ for (const c of characters) {
 }
 
 // Also show what enrichment looks like in the event log
-const db: any = (parsed as any).ChroniclesOfAzerothDB;
+const db: any = (parsed as any).AftertaleDB;
 if (db?.events) {
   console.log('\n===== EVENT LOG SUMMARY =====');
   console.log('total events:', db.events.length);

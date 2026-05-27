@@ -1,14 +1,14 @@
 // ============================================================================
 // Chronicle restore snippet — produces a Lua file that the addon ingests as a
-// dedicated SavedVariables channel (ChroniclesOfAzerothRestore). Replaces the
+// dedicated SavedVariables channel (AftertaleRestore). Replaces the
 // lossy at-CHRONICLE-V1 blob.
 //
 // User flow:
 //   1. Companion generates the snippet, browser downloads it.
 //   2. User quits WoW, drops the file into
-//        WTF\Account\<ACCOUNT>\SavedVariables\ChroniclesOfAzerothRestore.lua
+//        WTF\Account\<ACCOUNT>\SavedVariables\AftertaleRestore.lua
 //   3. User relaunches WoW. addon/Companion/Restore.lua merges events +
-//      enriched paragraphs + bible into ChroniclesOfAzerothDB, then clears
+//      enriched paragraphs + bible into AftertaleDB, then clears
 //      the global so the next save wipes the file.
 //
 // Why a snippet and not a blob:
@@ -206,11 +206,11 @@ function formatHeader(input: BuildChronicleSnippetInput, generatedAt: Date): str
     `-- HOW TO USE:`,
     `--   1. Quit WoW completely (full client exit, not just /reload).`,
     `--   2. Copy this file to:`,
-    `--        WTF\\Account\\<YOUR_ACCOUNT>\\SavedVariables\\ChroniclesOfAzerothRestore.lua`,
+    `--        WTF\\Account\\<YOUR_ACCOUNT>\\SavedVariables\\AftertaleRestore.lua`,
     `--      OVERWRITING any existing file with that name.`,
     `--   3. Launch WoW. On load, the Chronicles addon detects the restore`,
     `--      payload, merges events + enriched paragraphs + bible into`,
-    `--      ChroniclesOfAzerothDB, then clears the restore global so it`,
+    `--      AftertaleDB, then clears the restore global so it`,
     `--      cannot re-apply. A one-line confirmation prints to chat.`,
     `--`,
     `-- Safe to re-download: re-running the merge with the same payload is a`,
@@ -249,7 +249,7 @@ export function buildChronicleSnippet(input: BuildChronicleSnippetInput): string
   if (Object.keys(enriched).length > 0) restore.enriched = enriched;
 
   const header = formatHeader(input, generatedAt);
-  const body = `ChroniclesOfAzerothRestore = ${luaValue(restore)}\n`;
+  const body = `AftertaleRestore = ${luaValue(restore)}\n`;
   return header + body;
 }
 
@@ -258,4 +258,4 @@ export function buildChronicleSnippet(input: BuildChronicleSnippetInput): string
  * SavedVariables registration so the user can drop it in place without
  * renaming.
  */
-export const SNIPPET_FILENAME = 'ChroniclesOfAzerothRestore.lua';
+export const SNIPPET_FILENAME = 'AftertaleRestore.lua';

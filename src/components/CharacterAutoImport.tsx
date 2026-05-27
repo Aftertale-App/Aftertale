@@ -76,7 +76,7 @@ const SEED_QUESTION_BY_CLASSIFICATION: Record<Classification, string> = {
 
 /**
  * Auto-import wizard. Three-or-four-step flow:
- *   1. Ingest -- file drop / paste of ChroniclesOfAzeroth.lua
+ *   1. Ingest -- file drop / paste of Aftertale.lua
  *   2. Pick a character from the parsed list
  *   3. Pick personality traits (5 buckets)
  *   4. Answer one seeded question (with Inspire Me available)
@@ -125,12 +125,12 @@ export function CharacterAutoImport({
         <div className="at-trait-wizard-header">
           <h2>Auto-import a character</h2>
           <p className="muted">
-            Drop your <code>ChroniclesOfAzeroth.lua</code> SavedVariables file. We will read who
+            Drop your <code>Aftertale.lua</code> SavedVariables file. We will read who
             you have played and let you onboard them in seconds.
           </p>
           <p className="faint" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
             C:\Program Files (x86)\World of Warcraft\_retail_\WTF\Account\&lt;ACCOUNT&gt;
-            \SavedVariables\ChroniclesOfAzeroth.lua
+            \SavedVariables\Aftertale.lua
           </p>
         </div>
 
@@ -141,7 +141,7 @@ export function CharacterAutoImport({
           <textarea
             className="at-input"
             rows={6}
-            placeholder="ChroniclesOfAzerothDB = { ... }"
+            placeholder="AftertaleDB = { ... }"
             value={pasteValue}
             onChange={(e) => setPasteValue(e.target.value)}
             style={{ width: '100%', marginTop: '0.5rem', fontFamily: 'var(--font-mono)' }}
@@ -299,7 +299,7 @@ function FileDrop({ onFile }: FileDropProps) {
       }}
     >
       <span style={{ fontSize: '1.6rem' }}>📜</span>
-      <strong style={{ color: 'var(--gold-bright)' }}>Drop ChroniclesOfAzeroth.lua here</strong>
+      <strong style={{ color: 'var(--gold-bright)' }}>Drop Aftertale.lua here</strong>
       <span className="muted" style={{ fontSize: '0.9rem' }}>or click to pick a file</span>
       <input
         type="file"

@@ -1,15 +1,15 @@
-## Interface: 40402
-## Title: Chronicles of Azeroth
+## Interface: 50503
+## Title: Aftertale
 ## Notes: Turn your play into a chronicle -- captures events + a parchment-style story UI.
 ## Author: snoblitz
 ## Version: 0.5.2
 ## X-License: MIT
-## SavedVariables: ChroniclesOfAzerothDB, ChroniclesOfAzerothCompanion, ChroniclesOfAzerothRestore
+## SavedVariables: AftertaleDB, AftertaleCompanion, AftertaleRestore
 ## DefaultState: enabled
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 
 Utils\Logger.lua
-ChroniclesOfAzeroth.lua
+Aftertale.lua
 Data\DB2_UiMap.lua
 Data\DB2_Achievement.lua
 Lore\Templates.lua

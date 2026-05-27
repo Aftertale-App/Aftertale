@@ -1,4 +1,4 @@
--- Chronicles of Azeroth -- categorized logger
+-- Aftertale -- categorized logger
 --
 -- Why this exists: as Phase 1+ adds sync, companion polling, chronicle book,
 -- and more event-driven UI, we need diagnostic output that doesn't spam chat
@@ -8,12 +8,12 @@
 -- Design rules:
 --   * User-facing chat output (slash command responses, character announcements,
 --     load banner) stays as plain print(). The Logger is for *diagnostics* the
---     dev or a curious user would explicitly opt into via `/coa log`.
+--     dev or a curious user would explicitly opt into via `/aftertale log`.
 --   * Categories are an enum; new categories must be added to NS.Logger.Categories
 --     so typos like "captuer" fail loudly during code review.
 --   * The ring buffer is in-memory only -- not persisted. It's for "what just
 --     happened" debugging, not long-term audit (that's what db.events is for).
---   * Toggle state IS persisted to ChroniclesOfAzerothDB.config.logs so the
+--   * Toggle state IS persisted to AftertaleDB.config.logs so the
 --     user's preferences survive /reload.
 
 local ADDON_NAME, NS = ...
@@ -27,7 +27,7 @@ NS.Logger = Logger
 Logger.Categories = {
   capture    = "capture",     -- event capture pipeline (recordEvent, enrichment)
   sync       = "sync",        -- web-app <-> addon paragraph sync
-  companion  = "companion",   -- ChroniclesOfAzerothCompanion.lua interactions
+  companion  = "companion",   -- AftertaleCompanion.lua interactions
   ui         = "ui",          -- UI module diagnostics (book, recap, dialogs)
   events     = "events",      -- raw WoW event registration / dispatch
   character  = "character",   -- character detection & onboarding
@@ -35,7 +35,7 @@ Logger.Categories = {
   misc       = "misc",        -- catch-all; prefer a real category
 }
 
--- Levels. Lower = chattier. Set via `/coa log level <name>` or programmatically.
+-- Levels. Lower = chattier. Set via `/aftertale log level <name>` or programmatically.
 Logger.Levels = {
   DEBUG = 1,
   INFO  = 2,
@@ -62,7 +62,7 @@ Logger._count = 0         -- total entries written (for ring math + display)
 
 -- Default config; merged into db.config.logs on first run. Keep diagnostics
 -- OFF by default in chat -- players shouldn't see them. They're available
--- via `/coa log show` and `/coa log <cat> on` if curious.
+-- via `/aftertale log show` and `/aftertale log <cat> on` if curious.
 local DEFAULT_CONFIG = {
   minLevel = 2,              -- INFO and above
   mirrorToChat = false,      -- when true, every accepted log also prints to chat
@@ -76,9 +76,9 @@ local DEFAULT_CONFIG = {
 -- case we hand back DEFAULT_CONFIG so a stray early log line still routes
 -- to the ring buffer with sane defaults.
 local function getConfig()
-  if type(ChroniclesOfAzerothDB) ~= "table" then return DEFAULT_CONFIG end
-  ChroniclesOfAzerothDB.config = ChroniclesOfAzerothDB.config or {}
-  local cfg = ChroniclesOfAzerothDB.config
+  if type(AftertaleDB) ~= "table" then return DEFAULT_CONFIG end
+  AftertaleDB.config = AftertaleDB.config or {}
+  local cfg = AftertaleDB.config
   if type(cfg.logs) ~= "table" then
     cfg.logs = {
       minLevel = DEFAULT_CONFIG.minLevel,
@@ -127,7 +127,7 @@ function Logger:_log(level, category, msg)
   -- a silent error is a bug we'll never find.
   if cfg.mirrorToChat or level == Logger.Levels.ERROR then
     local color = LevelColors[level] or "|cFFFFFFFF"
-    local tag = NS.CHAT_TAG or "[CoA]"
+    local tag = NS.CHAT_TAG or "[Aftertale]"
     if DEFAULT_CHAT_FRAME then
       DEFAULT_CHAT_FRAME:AddMessage(string.format(
         "%s %s%s|r [%s] %s",
@@ -159,10 +159,10 @@ local function iterHistory(self, n)
   return out
 end
 
--- Print the last N entries to chat. Used by `/coa log show`.
+-- Print the last N entries to chat. Used by `/aftertale log show`.
 function Logger:Show(n)
   local entries = iterHistory(self, n or 20)
-  local tag = NS.CHAT_TAG or "[CoA]"
+  local tag = NS.CHAT_TAG or "[Aftertale]"
   if #entries == 0 then
     print(tag .. " no log entries yet.")
     return
@@ -221,10 +221,10 @@ function Logger:Clear()
   self._count = 0
 end
 
--- Summary for `/coa log` with no args.
+-- Summary for `/aftertale log` with no args.
 function Logger:DescribeState()
   local cfg = getConfig()
-  local tag = NS.CHAT_TAG or "[CoA]"
+  local tag = NS.CHAT_TAG or "[Aftertale]"
   print(string.format("%s logger: level=%s mirrorToChat=%s buffered=%d/%d",
     tag, LevelNames[cfg.minLevel] or "?",
     tostring(cfg.mirrorToChat), math.min(self._count, RING_CAP), RING_CAP))
@@ -238,6 +238,6 @@ function Logger:DescribeState()
   else
     print("  all categories enabled.")
   end
-  print("  use: /coa log <category> on|off  |  /coa log level <debug|info|warn|error>")
-  print("       /coa log chat on|off  |  /coa log show [N]  |  /coa log clear")
+  print("  use: /aftertale log <category> on|off  |  /aftertale log level <debug|info|warn|error>")
+  print("       /aftertale log chat on|off  |  /aftertale log show [N]  |  /aftertale log clear")
 end

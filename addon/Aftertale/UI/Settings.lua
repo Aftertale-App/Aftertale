@@ -1,4 +1,4 @@
--- Settings.lua -- the /coa config panel.
+-- Settings.lua -- the /aftertale config panel.
 --
 -- Parchment-letter aesthetic matching StoryCard. Checkboxes toggle the
 -- user-facing features; users who want the addon silent can turn
@@ -115,7 +115,7 @@ local function buildPanel()
   local titleFont = GameFontNormalLarge:GetFont()
   title:SetFont(titleFont, 20, "")
   title:SetPoint("TOP", panel, "TOP", 0, -INSET_TOP)
-  title:SetText("Chronicles of Azeroth")
+  title:SetText("Aftertale")
   title:SetTextColor(0.22, 0.13, 0.06, 1)
   title:SetShadowColor(0, 0, 0, 0.4)
   title:SetShadowOffset(1, -1)

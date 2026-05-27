@@ -58,7 +58,7 @@ for (const [varName, value] of Object.entries(result)) {
 }
 
 // Spot-check on the events array
-const db = result.ChroniclesOfAzerothDB;
+const db = result.AftertaleDB;
 if (db && typeof db === 'object' && !Array.isArray(db)) {
   const events = (db as Record<string, LuaValue>).events;
   if (Array.isArray(events)) {

@@ -46,7 +46,7 @@ local function buildButton()
   btn:SetScript("OnEnter", function(self)
     icon:SetVertexColor(1.15, 1.0, 0.8, 1)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:SetText("|cFFFFD700Chronicles of Azeroth|r", 1, 1, 1)
+    GameTooltip:SetText("|cFFFFD700Aftertale|r", 1, 1, 1)
     local rec, _guid = NS.GetCurrentCharacter()
     if rec and rec.identity then
       GameTooltip:AddLine(rec.identity.name .. " of " .. (rec.identity.realm or "?"), 0.9, 0.9, 0.9)
@@ -67,7 +67,7 @@ local function buildButton()
     GameTooltip:AddLine("|cFFFFD700Left-click|r  Open the Chronicle", 0.9, 0.9, 0.9)
     GameTooltip:AddLine("|cFFFFD700Right-click|r  Settings", 0.9, 0.9, 0.9)
     GameTooltip:AddLine("|cFFFFD700Shift + Right-click|r  Web companion URL", 0.7, 0.7, 0.7)
-    GameTooltip:AddLine("|cFFFFD700Ctrl + Right-click|r  Import enrichment (/coa sync)", 0.7, 0.7, 0.7)
+    GameTooltip:AddLine("|cFFFFD700Ctrl + Right-click|r  Import enrichment (/aftertale sync)", 0.7, 0.7, 0.7)
     GameTooltip:AddLine("|cFFFFD700Drag|r  Reposition on minimap", 0.6, 0.6, 0.6)
     GameTooltip:Show()
   end)
@@ -120,7 +120,7 @@ end
       end
     elseif button == "RightButton" then
       -- Right-click cycles through the secondary surfaces. Hold SHIFT for
-      -- the web URL popup, hold CTRL for /coa sync, plain right-click for
+      -- the web URL popup, hold CTRL for /aftertale sync, plain right-click for
       -- the Settings panel.
       if IsShiftKeyDown and IsShiftKeyDown() then
         local url = NS.GetConfig().webAppUrl

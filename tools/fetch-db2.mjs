@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Fetches selected DB2 CSV dumps from wago.tools and emits Lua lookup
-// tables under addon/ChroniclesOfAzeroth/Data/. Re-run when a new patch
+// tables under addon/Aftertale/Data/. Re-run when a new patch
 // drops to refresh names: `npm run db2:bake`.
 //
 // Why this exists: in-game enrichment can miss data (older captures,
@@ -18,7 +18,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR  = resolve(__dirname, "..", "addon", "ChroniclesOfAzeroth", "Data");
+const DATA_DIR  = resolve(__dirname, "..", "addon", "Aftertale", "Data");
 
 // table => { idCol, nameCol, varName, header }
 const TABLES = {

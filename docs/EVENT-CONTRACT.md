@@ -198,7 +198,7 @@ chronicle entries that say "you entered Dun Morogh", filter on
 
 ## Bugs the captures surfaced in our own addon
 
-- ✅ ~~`/coa clear` wipes `meta`~~ — fixed in capture 02 prep. Capture 02's
+- ✅ ~~`/aftertale clear` wipes `meta`~~ — fixed in capture 02 prep. Capture 02's
   `meta` table is fully populated (`characterName`, `realm`, build,
   `chatLogEnabled`, `combatLogEnabled`, etc.).
 - ✅ ~~No `LoggingChat`/`LoggingCombat` toggling~~ — fixed in capture 02

@@ -5,7 +5,7 @@
 -- {name}, {npc}, {quest}, {zone}, {level} substitution.
 --
 -- TIER A fallback. When the player has run the web companion and
--- pasted enriched paragraphs via /coa sync, those override these
+-- pasted enriched paragraphs via /aftertale sync, those override these
 -- templates per-entry (matched by stable EntryID).
 
 local ADDON_NAME, NS = ...

@@ -41,7 +41,7 @@ export const INSPIRE_ME_PROMPT_VERSION = 1;
 
 /**
  * Stable identity + first-seen snapshot, mirrors the addon's
- * ChroniclesOfAzerothDB.characters[guid] record. Only the fields we
+ * AftertaleDB.characters[guid] record. Only the fields we
  * actually splice into the prompt are required here -- the wizard
  * passes a subset, the addon writes a superset.
  */

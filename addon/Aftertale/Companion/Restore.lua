@@ -1,29 +1,29 @@
--- Chronicles of Azeroth -- restore-snippet ingester
+-- Aftertale -- restore-snippet ingester
 --
 -- The web companion produces a `.lua` file that the user drops into:
---   WTF\Account\<ACCOUNT>\SavedVariables\ChroniclesOfAzerothRestore.lua
--- That file sets `_G.ChroniclesOfAzerothRestore` to a payload of
+--   WTF\Account\<ACCOUNT>\SavedVariables\AftertaleRestore.lua
+-- That file sets `_G.AftertaleRestore` to a payload of
 --   { schemaVersion, forCharacter?, generatedAt, bible?, events?, enriched? }
 -- This module detects that global on load, merges it into
--- ChroniclesOfAzerothDB, and clears it so the next SV save wipes the file
+-- AftertaleDB, and clears it so the next SV save wipes the file
 -- (preventing accidental re-application on subsequent /reloads).
 --
--- This replaces the lossy COA-CHRONICLE-V1 blob pasted via /coa sync. The
+-- This replaces the lossy COA-CHRONICLE-V1 blob pasted via /aftertale sync. The
 -- old EditBox path still works as a fallback, but the snippet carries the
 -- full enrichment subtable per event (zoneText, questTitle, npc.name,
 -- encounterName, loot[]) so the parchment book renders chapters and entry
--- titles correctly after a /coa clear + reimport.
+-- titles correctly after a /aftertale clear + reimport.
 --
 -- Design notes:
 --   * Self-contained: we register our own ADDON_LOADED handler rather than
---     hooking into ChroniclesOfAzeroth.lua's main loader. Keeps merge logic
+--     hooking into Aftertale.lua's main loader. Keeps merge logic
 --     isolated and lets us defer to PLAYER_LOGIN if the main DB isn't
 --     ready yet (in practice it always is, but cheap insurance).
 --   * Idempotent: events dedupe by `id` (we never overwrite existing rows);
 --     enriched paragraphs DO overwrite by EntryID (companion is source of
 --     truth for enrichment); bible is only set if currently empty.
 --   * Honest reporting: we surface counts via print() (user-facing) and via
---     NS.Logger:info(... , "companion") (diagnostic) so /coa log replay
+--     NS.Logger:info(... , "companion") (diagnostic) so /aftertale log replay
 --     can reconstruct what happened.
 
 local ADDON_NAME, NS = ...
@@ -105,7 +105,7 @@ end
 -- The actual ingest. Safe to call multiple times; clears the global at
 -- the end so subsequent calls are no-ops.
 function Restore:Apply()
-  local payload = _G.ChroniclesOfAzerothRestore
+  local payload = _G.AftertaleRestore
   if type(payload) ~= "table" then return end
 
   local schema = tonumber(payload.schemaVersion) or 0
@@ -113,13 +113,13 @@ function Restore:Apply()
     logWarn(("Skipped restore payload: unsupported schemaVersion %s (expected %d)."):format(
       tostring(payload.schemaVersion), SUPPORTED_SCHEMA))
     print(CHRONICLES_TAG .. " Restore skipped -- unsupported schema version.")
-    _G.ChroniclesOfAzerothRestore = nil
+    _G.AftertaleRestore = nil
     return
   end
 
-  local db = _G.ChroniclesOfAzerothDB
+  local db = _G.AftertaleDB
   if type(db) ~= "table" then
-    logWarn("Skipped restore payload: ChroniclesOfAzerothDB not initialized.")
+    logWarn("Skipped restore payload: AftertaleDB not initialized.")
     return  -- leave payload in place; try again later
   end
 
@@ -135,7 +135,7 @@ function Restore:Apply()
       if current ~= target then
         logWarn(("Restore payload was generated for %s but current character is %s. Applying anyway."):format(target, current))
         print(CHRONICLES_TAG .. " Warning: restore payload was generated for " ..
-          target .. " (you are " .. current .. "). Applying anyway -- /coa stats to verify.")
+          target .. " (you are " .. current .. "). Applying anyway -- /aftertale stats to verify.")
       end
     end
   end
@@ -154,7 +154,7 @@ function Restore:Apply()
   -- Clear the global so the next SavedVariables save zeroes out the file.
   -- If we left the payload in place, every /reload would re-apply it
   -- (idempotent but noisy) and the file would persist forever.
-  _G.ChroniclesOfAzerothRestore = nil
+  _G.AftertaleRestore = nil
 end
 
 -- Hook ADDON_LOADED for ourselves; defer the actual merge to PLAYER_LOGIN

@@ -1,6 +1,6 @@
 -- UI/SyncDialog.lua -- the Tier-C enrichment paste pipeline.
 --
--- Triggered by /coa sync. Opens a parchment dialog with a multi-line
+-- Triggered by /aftertale sync. Opens a parchment dialog with a multi-line
 -- edit box. The web companion produces a chronicle blob in plain-text
 -- format that the player pastes in here; on import, enriched paragraphs
 -- land in db.enriched (keyed by EntryID) and replace template fallbacks
@@ -138,7 +138,7 @@ local function parseBlob(blob)
   end
   i = i + 1
 
-  local db = NS.GetDB and NS.GetDB() or ChroniclesOfAzerothDB
+  local db = NS.GetDB and NS.GetDB() or AftertaleDB
   db.enriched = db.enriched or {}
 
   local added, updated, skipped, malformed = 0, 0, 0, 0

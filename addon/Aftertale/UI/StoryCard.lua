@@ -279,7 +279,7 @@ NS.On("PLAYER_LEVEL_UP", function(newLevel)
   )
 end)
 
--- Debug entry point so users can preview the card via /coa preview
+-- Debug entry point so users can preview the card via /aftertale preview
 NS.PreviewStoryCard = function()
   local ctx = buildContext({ quest = "a sample errand", npc = "the storyteller" })
   buildCard():Present(

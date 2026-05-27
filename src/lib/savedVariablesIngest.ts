@@ -1,5 +1,5 @@
 // ============================================================================
-// SavedVariables ingest — converts the addon's ChroniclesOfAzerothDB into
+// SavedVariables ingest — converts the addon's AftertaleDB into
 // the AddonEvent[] shape the web companion already understands.
 //
 // Pipeline:
@@ -8,7 +8,7 @@
 //
 // Critical invariant: every produced AddonEvent carries `rawTs` and `rawArgs`
 // so chronicleExport.entryId() reconstructs the addon's exact EntryID
-// byte-for-byte. Without that, the /coa sync round-trip silently skips.
+// byte-for-byte. Without that, the /aftertale sync round-trip silently skips.
 // ============================================================================
 
 import type { AddonEvent, AddonEventKind, LootItem, WowEventName } from './addonEvents';
@@ -281,11 +281,13 @@ function rowToEvent(
 
 /**
  * Convert a parsed SV blob into AddonEvents. Looks for the standard
- * ChroniclesOfAzerothDB.events array. Any other top-level vars are ignored.
+ * AftertaleDB.events array. Any other top-level vars are ignored.
  */
 export function ingestChroniclesSavedVariables(parsed: ParsedSavedVariables): IngestResult {
   const warnings: string[] = [];
-  const db = parsed.ChroniclesOfAzerothDB;
+  // Prefer the new (post-rebrand) global; fall back to the legacy name so
+  // pre-rebrand SV captures still load. Remove the fallback after launch.
+  const db = parsed.AftertaleDB ?? (parsed as Record<string, unknown>).ChroniclesOfAzerothDB as typeof parsed.AftertaleDB | undefined;
   if (!isObj(db)) {
     return {
       events: [],
@@ -293,7 +295,7 @@ export function ingestChroniclesSavedVariables(parsed: ParsedSavedVariables): In
         found: 0,
         converted: 0,
         skipped: 0,
-        warnings: ['No ChroniclesOfAzerothDB variable found in the file.'],
+        warnings: ['No AftertaleDB variable found in the file.'],
         schemaVersion: null,
         totalCount: null,
       },
@@ -307,7 +309,7 @@ export function ingestChroniclesSavedVariables(parsed: ParsedSavedVariables): In
         found: 0,
         converted: 0,
         skipped: 0,
-        warnings: ['ChroniclesOfAzerothDB.events is missing or not an array.'],
+        warnings: ['AftertaleDB.events is missing or not an array.'],
         schemaVersion: asNumber(db.schemaVersion) ?? null,
         totalCount: null,
       },

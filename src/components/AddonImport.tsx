@@ -1,5 +1,5 @@
 // ============================================================================
-// AddonImport — drag/drop or click-to-select a ChroniclesOfAzeroth.lua file
+// AddonImport — drag/drop or click-to-select a Aftertale.lua file
 // from WoW's WTF\Account\<acct>\SavedVariables\ folder. Parses it, hydrates
 // the addonEventStore with `source: 'wow-addon'` events that preserve the
 // addon's raw ts + args so the chronicle export round-trip works.
@@ -116,14 +116,14 @@ export function AddonImport() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
         <div style={{ flex: '1 1 280px', minWidth: 0 }}>
           <p className="at-kicker">Import from WoW</p>
-          <h3 style={{ margin: '0.1rem 0 0.35rem' }}>Drop your ChroniclesOfAzeroth.lua here</h3>
+          <h3 style={{ margin: '0.1rem 0 0.35rem' }}>Drop your Aftertale.lua here</h3>
           <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
             Find it under{' '}
             <code style={{ wordBreak: 'break-all' }}>
-              WoW\WTF\Account\&lt;you&gt;\SavedVariables\ChroniclesOfAzeroth.lua
+              WoW\WTF\Account\&lt;you&gt;\SavedVariables\Aftertale.lua
             </code>
             . The addon writes this on <code>/reload</code> or logout. Importing here keeps your{' '}
-            raw <code>ts</code> + <code>args</code> intact so the <code>/coa sync</code>{' '}
+            raw <code>ts</code> + <code>args</code> intact so the <code>/aftertale sync</code>{' '}
             round-trip lands.
           </p>
         </div>

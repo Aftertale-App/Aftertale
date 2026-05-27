@@ -1,8 +1,8 @@
 // ============================================================================
 // Chronicle export — produces a at-CHRONICLE-V1 blob that the Lua addon's
-// /coa sync dialog can ingest, populating db.enriched[entryId] = paragraph.
+// /aftertale sync dialog can ingest, populating db.enriched[entryId] = paragraph.
 //
-// Blob format (matches addon/ChroniclesOfAzeroth/UI/SyncDialog.lua):
+// Blob format (matches addon/Aftertale/UI/SyncDialog.lua):
 //
 //   at-CHRONICLE-V1
 //   # comments and blank lines OK
@@ -79,7 +79,7 @@ function argKey(event: AddonEvent): string {
 
 /**
  * Canonical EntryID — must match `T.EntryID(entry)` in
- * addon/ChroniclesOfAzeroth/Lore/Templates.lua exactly.
+ * addon/Aftertale/Lore/Templates.lua exactly.
  */
 export function entryId(event: AddonEvent): string {
   const kind = event.wowEvent || 'EVENT';

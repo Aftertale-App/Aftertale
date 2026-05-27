@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Installs the ChroniclesOfAzeroth addon into every detected WoW client by
+  Installs the Aftertale addon into every detected WoW client by
   creating a directory junction back to the repo source.
 
 .DESCRIPTION
@@ -31,7 +31,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot   = Split-Path -Parent $PSScriptRoot
-$addonName  = 'ChroniclesOfAzeroth'
+$addonName  = 'Aftertale'
 $addonSrc   = Join-Path $repoRoot "addon\$addonName"
 
 if (-not (Test-Path $addonSrc)) {

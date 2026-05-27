@@ -1,7 +1,7 @@
 # Phase 2 Gap Audit — Existing addon vs. Companion-Bridge Spec
 
-> Audit of `addon/ChroniclesOfAzeroth/` (v0.5.2) against the Phase 2 SavedVariables
-> capture spec. Existing folder name, SavedVariable name (`ChroniclesOfAzerothDB`),
+> Audit of `addon/Aftertale/` (v0.5.2) against the Phase 2 SavedVariables
+> capture spec. Existing folder name, SavedVariable name (`AftertaleDB`),
 > event schema (`{ t, ts, event, args, enrichment }`), and TOC layout are treated
 > as **canonical** — gaps below are additive, not refactors.
 >
@@ -18,18 +18,18 @@
 
 ## Gap 1 — Companion writeback channel ❌ missing
 
-**State today:** Addon owns one SV (`ChroniclesOfAzerothDB`). There is no
+**State today:** Addon owns one SV (`AftertaleDB`). There is no
 channel for the Electron companion to write generated chapters back into.
 
 **Action:**
 
-- Add a second SavedVariable: `ChroniclesOfAzerothCompanion`.
-- Declare it in every TOC: `## SavedVariables: ChroniclesOfAzerothDB, ChroniclesOfAzerothCompanion`.
+- Add a second SavedVariable: `AftertaleCompanion`.
+- Declare it in every TOC: `## SavedVariables: AftertaleDB, AftertaleCompanion`.
 - Addon treats it as **read-only** (writes nothing except `ingestedEventIds` ack flips on the addon's side, optional — TBD).
 - Shape (companion-owned):
 
   ```lua
-  ChroniclesOfAzerothCompanion = {
+  AftertaleCompanion = {
     schemaVersion = 1,
     generatedChapters = {
       { id, forCharacter, basedOnEventIds = {...}, title, text,
@@ -48,7 +48,7 @@ channel for the Electron companion to write generated chapters back into.
 ## Gap 2 — Ring buffer trim ❌ missing
 
 **State today:** `table.insert(db.events, rec)` is unbounded. A long session
-will balloon SavedVariables and `/coa tail` becomes useless.
+will balloon SavedVariables and `/aftertale tail` becomes useless.
 
 **Action:**
 
@@ -57,7 +57,7 @@ will balloon SavedVariables and `/coa tail` becomes useless.
   uses; I'll fold it into `db.config.maxEvents` to avoid a third namespace).
 - On every append, if `#db.events > maxEvents`, `table.remove(db.events, 1)`
   in a loop until at threshold. FIFO. Oldest evicted first.
-- Expose `/coa max <N>` slash subcommand to tune at runtime.
+- Expose `/aftertale max <N>` slash subcommand to tune at runtime.
 
 ---
 
@@ -86,7 +86,7 @@ will balloon SavedVariables and `/coa tail` becomes useless.
 
 ---
 
-## Gap 4 — `/coa chapters` subcommand ❌ missing
+## Gap 4 — `/aftertale chapters` subcommand ❌ missing
 
 **State today:** Slash router covers `book / sync / config / preview / count /
 tail / clear / sample / missing / version / characters / character /
@@ -95,10 +95,10 @@ enrichment / help`. No `chapters`.
 **Action:**
 
 - Add `cmdChapters()` that:
-  - Loads `ChroniclesOfAzerothCompanion.generatedChapters` (defensive).
+  - Loads `AftertaleCompanion.generatedChapters` (defensive).
   - Filters by current character's `name-realm`.
   - Opens an existing UI frame if one is loaded, else prints chapter titles +
-    a hint that the full reader is in `/coa book`.
+    a hint that the full reader is in `/aftertale book`.
 - Existing `UI/ChronicleBook.lua` already opens a chronicle frame — wire
   `cmdChapters()` to call into it with a "companion-generated only" filter
   rather than building a parallel viewer. Confirm filter hook exists during
@@ -118,9 +118,9 @@ enrichment / help`. No `chapters`.
 - **Addon never mutates events with `ingested = true`.** Companion owns
   ingestion state; addon owns capture state. Pending counts are computed
   on the fly by intersecting `db.events[i].id` against
-  `ChroniclesOfAzerothCompanion.ingestedEventIds` at stats-print time.
+  `AftertaleCompanion.ingestedEventIds` at stats-print time.
   Lets us nuke the companion SV to reset ingestion without touching events.
-- Stats: add `/coa stats` that prints
+- Stats: add `/aftertale stats` that prints
   `<name-realm>: <total> captured, <ingested> chronicled, <pending> pending`.
 - UUID generator (v4 shape, non-crypto, collision-safe for our scale):
 
@@ -145,9 +145,9 @@ enrichment / help`. No `chapters`.
 
 **Action:**
 
-- Add `ChroniclesOfAzeroth_Wrath.toc` (Interface `30405` — WotLK Classic
+- Add `Aftertale_Wrath.toc` (Interface `30405` — WotLK Classic
   patch 3.4.5, current latest phase).
-- Add `ChroniclesOfAzeroth_Cata.toc` (Interface `40402` — Cata Classic
+- Add `Aftertale_Cata.toc` (Interface `40402` — Cata Classic
   launch baseline; may need bump if Blizzard has shipped Cata Phase 5+
   by ship date).
 - File list identical to other TOCs; only `## Interface:` line changes.
@@ -156,7 +156,7 @@ enrichment / help`. No `chapters`.
 > Interface version numbers above are best-known-as-of-writing. Verified
 > against current live builds before committing TOCs (checked against
 > popular per-flavor addons — Questie / WeakAuras publish current numbers).
-> README already tells users to run `/coa version` in-game and bump these
+> README already tells users to run `/aftertale version` in-game and bump these
 > as Blizzard ships patches — that workflow stays intact. Wrong interface
 > number is a UI "out of date" warning, not a crash.
 
@@ -172,7 +172,7 @@ enrichment / help`. No `chapters`.
 - Add `LICENSE` at repo root with **standard MIT text**, `Copyright (c) 2025
   Jeff Knecht`.
 - Update top-level `README.md` "License" section: "MIT — see `LICENSE`."
-- Add `addon/ChroniclesOfAzeroth/LICENSE` (copy or a short pointer) so when
+- Add `addon/Aftertale/LICENSE` (copy or a short pointer) so when
   the addon is zipped for CurseForge/Wago the license rides along inside
   the bundle.
 - Note in TOC `## X-License: MIT` for parity with community convention
@@ -186,7 +186,7 @@ gaps.
 
 ## Gap 8 — Schema version + migrate stub ❌ missing
 
-**State today:** No `schemaVersion` on `ChroniclesOfAzerothDB`. Migrations
+**State today:** No `schemaVersion` on `AftertaleDB`. Migrations
 will be ugly the moment the first one is needed.
 
 **Action:**
@@ -205,7 +205,7 @@ will be ugly the moment the first one is needed.
 
 - Call `migrate(db)` immediately after `ensureDB()` in the ADDON_LOADED
   branch.
-- Same treatment for `ChroniclesOfAzerothCompanion` (companion-owned, but
+- Same treatment for `AftertaleCompanion` (companion-owned, but
   the addon reads it — must be defensive if companion writes a newer
   schema; either skip with a warning or drop into a "read-only legacy"
   mode).
@@ -214,12 +214,12 @@ will be ugly the moment the first one is needed.
 
 ## Out of scope for this audit (deliberately not gaps)
 
-- ❌ Rename `ChroniclesOfAzerothDB` → `ChroniclesDB` *(no — Jeff said don't
+- ❌ Rename `AftertaleDB` → `ChroniclesDB` *(no — Jeff said don't
   rename working code).*
 - ❌ Rebuild on Ace3 *(no — current code uses raw frame + slash handlers;
   switching frameworks would be a full rewrite for no functional gain).*
 - ❌ Split into `core/`, `ui/`, `libs/` per the spec layout *(no — existing
-  layout is `ChroniclesOfAzeroth.lua` + `UI/` + `Lore/` + `Data/` and it
+  layout is `Aftertale.lua` + `UI/` + `Lore/` + `Data/` and it
   works).*
 - ❌ Introduce a separate `ChroniclesCharDB` per-character SV *(no — the
   existing `db.characters[guid]` map already serves the "remember per
@@ -236,8 +236,8 @@ One gap per commit, smallest-blast-radius first:
 3. `feat(addon): ring buffer trim with configurable max` *(gap 2)*
 4. `feat(addon): per-event UUID for companion ack` *(gap 5 part 1)*
 5. `feat(addon): capture ENCOUNTER_END and BOSS_KILL` *(gap 3)*
-6. `feat(addon): companion writeback SV + /coa chapters` *(gaps 1 + 4)*
-7. `feat(addon): ingestion bookkeeping + /coa stats` *(gap 5 part 2)*
+6. `feat(addon): companion writeback SV + /aftertale chapters` *(gaps 1 + 4)*
+7. `feat(addon): ingestion bookkeeping + /aftertale stats` *(gap 5 part 2)*
 8. `chore(addon): add Wrath + Cata TOC files` *(gap 6)*
 
 Each commit lands a working addon. Order chosen so that gap 1 (companion
