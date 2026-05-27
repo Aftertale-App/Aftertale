@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { saveChronicle, signIn } from '../lib/auth';
 
 export type AuthModalMode = 'save' | 'signin';
@@ -80,7 +81,7 @@ export function SaveChronicleModal({ open, mode, onClose, onSwitchMode }: Props)
     setSentTo(value);
   }
 
-  return (
+  return createPortal(
     <div className="at-modal-backdrop" onClick={onClose} role="presentation">
       <div
         className="at-modal"
@@ -165,6 +166,7 @@ export function SaveChronicleModal({ open, mode, onClose, onSwitchMode }: Props)
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

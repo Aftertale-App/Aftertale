@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   clearApiKey,
   getKeyStatus,
@@ -57,7 +58,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
   const provider: Provider = 'openrouter';
 
-  return (
+  return createPortal(
     <div className="at-modal-backdrop" onClick={onClose} role="presentation">
       <div
         className="at-modal"
@@ -198,7 +199,8 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 
   // (provider variable retained so future multi-key UIs can re-introduce a loop)
