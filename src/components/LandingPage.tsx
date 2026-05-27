@@ -129,12 +129,12 @@ export function LandingPage() {
         <div className="at-container at-hero-inner">
           <p className="at-kicker at-hero-anim" style={{ animationDelay: '60ms' }}>✦ Your game, remembered</p>
           <h1 className="at-hero-headline at-hero-anim" style={{ animationDelay: '160ms' }}>
-            Become the legend you played.
+            Every hero deserves an Aftertale.
           </h1>
           <p className="at-hero-sub at-hero-anim" style={{ animationDelay: '320ms' }}>
             Aftertale turns your gameplay into a personalized AI-narrated novel
             where you are the protagonist. Every quest, victory, strange detour,
-            and stubborn little errand can become part of your hero's living
+            and stubborn little errand becomes part of your hero's living
             chronicle.
           </p>
           <div className="at-hero-cta-row at-hero-anim" style={{ animationDelay: '480ms' }}>
