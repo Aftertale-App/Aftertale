@@ -1,0 +1,73 @@
+# =============================================================================
+# Aftertale — gitleaks config
+#
+# Extends the default ruleset so we get every standard detector (OpenRouter,
+# OpenAI, Anthropic, Supabase service-role JWTs, AWS, GitHub PATs, etc.) and
+# then layers project-specific allowlists on top.
+#
+# Run manually:    gitleaks detect --no-banner
+# Pre-commit hook: .githooks/pre-commit runs `gitleaks protect --staged`
+# =============================================================================
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Aftertale-specific safe paths and known-non-secrets"
+
+paths = [
+  # Build output — re-generated; if a secret ever lands here we want CI/build
+  # gates catching it, not the commit hook (dist/ is gitignored anyway).
+  '''^dist/''',
+  # Node deps — gitignored, but defensive.
+  '''^node_modules/''',
+  # Documentation explicitly demonstrates env var names + the masked-key UI
+  # pattern; these are not real credentials.
+  '''^docs/''',
+  # The env template is supposed to contain placeholder env var names.
+  '''^\.env\.example$''',
+  # WoW addon DB2 dumps are big tables of game data with no secrets, but
+  # large enough that scanning them on every commit slows the hook.
+  '''^addon/Aftertale/Data/DB2_''',
+  # The Supabase project ref is public-by-design (lives in the built bundle
+  # via VITE_SUPABASE_URL when configured); the anon key is publishable too.
+  '''^supabase/migrations/''',
+  # Tony's local-only session handoff doc — gitignored, but defensive.
+  '''^private/''',
+  # Pure constants / model catalogs / localStorage namespace strings —
+  # high-entropy identifiers that trip the generic-api-key rule. Manually
+  # audited 2026-05-27; no real credentials live in these files. Re-audit
+  # if their purpose ever changes.
+  '''^src/lib/bibleStore\.ts$''',
+  '''^src/lib/modelChoices\.ts$''',
+  '''^src/components/SmokeTest\.tsx$''',
+  # Same justification for the gitleaks config itself — it documents
+  # example/redacted patterns.
+  '''^\.gitleaks\.toml$''',
+]
+
+regexes = [
+  # The Supabase project ref appears in tooling docs / README examples. It is
+  # not a secret — public by design (it's the subdomain of the project URL).
+  '''zukzghfbldvzbigqdirx''',
+  # OpenRouter docs reference example/placeholder slugs that look key-ish.
+  '''sk-or-v1-EXAMPLE''',
+  # localStorage namespace keys — naming convention `at.<scope>.<name>` for
+  # everything Aftertale persists in the browser. Not credentials.
+  '''^at\.[a-z0-9._-]+$''',
+  # OpenRouter model slugs use the `<provider>/<author>/<model>` shape and
+  # show up as `pricingKey: 'openrouter/.../...'` in the model catalog.
+  '''^openrouter/[a-z0-9._-]+/[a-z0-9._-]+$''',
+  # SUPABASE_PROJECT_REF / SUPABASE_ACCESS_TOKEN are environment variable
+  # *names* referenced in docs; the values are always pulled from env.
+  '''SUPABASE_(ACCESS_TOKEN|PROJECT_REF)''',
+]
+
+# Stop noisy regex generic matches that have <5 chars of entropy on identifier-
+# looking strings (UUIDs, asset hashes, etc.).
+stopwords = [
+  "EXAMPLE",
+  "PLACEHOLDER",
+  "your-key-here",
+  "your_key_here",
+]

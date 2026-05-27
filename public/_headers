@@ -1,0 +1,75 @@
+# =============================================================================
+# Cloudflare Pages headers — Aftertale (aftertale.gg)
+#
+# Pages serves this file from the build output root; rules apply top-down with
+# the most-specific path winning. Keep this file in `public/` so Vite copies
+# it verbatim into `dist/`.
+#
+# Security model:
+#   - We're a BYOK SPA. The browser talks to OpenRouter directly and (once
+#     Companion+ ships) Supabase. Nothing else.
+#   - No third-party analytics, no ads, no embedded video. CSP can be tight.
+#   - HSTS is on at the Cloudflare zone level too; the explicit header here is
+#     belt-and-suspenders so it survives a CF dashboard mistake.
+# =============================================================================
+
+/*
+  # --- Transport ---
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+  # --- Anti-clickjacking ---
+  # frame-ancestors in CSP is the modern way; X-Frame-Options is legacy back-compat.
+  X-Frame-Options: DENY
+
+  # --- MIME sniffing ---
+  X-Content-Type-Options: nosniff
+
+  # --- Referrer ---
+  # Send origin on cross-origin (so OpenRouter / Supabase see we're aftertale.gg)
+  # but never leak the full path of an in-app route.
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # --- Browser features ---
+  # Disable everything we don't use. Add to this as features get adopted.
+  Permissions-Policy: accelerometer=(), autoplay=(), camera=(), clipboard-read=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(self), xr-spatial-tracking=(), interest-cohort=()
+
+  # --- Cross-origin isolation ---
+  # SAMEORIGIN keeps OpenRouter responses (CORS) working while preventing
+  # other origins from embedding/probing our window.
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+
+  # --- Content Security Policy ---
+  # script-src: 'self' only. No inline scripts, no eval. (Vite's prod build
+  #   outputs hashed module scripts only — fine without 'unsafe-inline'.)
+  # style-src: 'self' + Google Fonts CSS + 'unsafe-inline' because React /
+  #   our CSS-in-JS sprinkle inline `style=` attributes. Removing the inline
+  #   relaxation would require nonces or a refactor.
+  # font-src: 'self' + Google Fonts CDN + data: for any embedded icon fonts.
+  # img-src: 'self' + data: (inline icons) + blob: (any in-app generated
+  #   image previews). https: would loosen this if we ever embed third-party
+  #   art — keep tight until then.
+  # connect-src: 'self' + OpenRouter + Supabase (REST + Realtime websocket).
+  # frame-ancestors 'none' replaces X-Frame-Options for modern browsers.
+  # base-uri / form-action 'self' shut down common XSS pivots.
+  # object-src 'none' kills Flash/Java relics.
+  # upgrade-insecure-requests covers anything that slips through with http://.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://openrouter.ai https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+
+# --- Hashed assets: cache hard, they're content-addressed ---
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# --- Favicons & static art: cache for a day ---
+/favicon*
+  Cache-Control: public, max-age=86400
+/apple-touch-icon.png
+  Cache-Control: public, max-age=86400
+/aftertale-logo.png
+  Cache-Control: public, max-age=86400
+
+# --- HTML shell: never cache (so SPA updates reach users immediately) ---
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate

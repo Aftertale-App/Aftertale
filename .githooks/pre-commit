@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Aftertale pre-commit hook — secret scan via gitleaks.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+# Install gitleaks:
+#   - winget install gitleaks.gitleaks   (Windows)
+#   - brew install gitleaks              (macOS)
+#   - https://github.com/gitleaks/gitleaks/releases
+#
+# Bypass in an emergency (don't make a habit of it):
+#   git commit --no-verify
+# =============================================================================
+
+set -e
+
+# Resolve gitleaks. Try multiple lookup strategies — Git Bash on Windows can
+# end up with different env-var coverage depending on launcher (Git Bash,
+# WSL, MSYS, etc.).
+GITLEAKS_BIN="$(command -v gitleaks || true)"
+
+# Fallback 1: Windows PATH via where.exe (works from any Windows bash flavor).
+if [ -z "$GITLEAKS_BIN" ] && command -v where.exe >/dev/null 2>&1; then
+  CANDIDATE="$(where.exe gitleaks.exe 2>/dev/null | head -1 | tr -d '\r')"
+  if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+    GITLEAKS_BIN="$CANDIDATE"
+  fi
+fi
+
+# Fallback 2: probe the WinGet Packages directory directly. WinGet doesn't
+# always register a shim in Links/, especially older installer revisions.
+if [ -z "$GITLEAKS_BIN" ]; then
+  WG_ROOT=""
+  if [ -n "$LOCALAPPDATA" ]; then
+    WG_ROOT="$LOCALAPPDATA/Microsoft/WinGet/Packages"
+  elif command -v cygpath >/dev/null 2>&1; then
+    WG_ROOT="$(cygpath -u "$(cmd.exe /c 'echo %LOCALAPPDATA%' 2>/dev/null | tr -d '\r')")/Microsoft/WinGet/Packages"
+  fi
+  if [ -n "$WG_ROOT" ] && [ -d "$WG_ROOT" ]; then
+    CANDIDATE="$(find "$WG_ROOT" -maxdepth 4 -iname 'gitleaks.exe' 2>/dev/null | head -1)"
+    if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+      GITLEAKS_BIN="$CANDIDATE"
+    fi
+  fi
+fi
+
+if [ -z "$GITLEAKS_BIN" ]; then
+  echo "⚠  gitleaks not found on PATH — skipping secret scan."
+  echo "   Install: https://github.com/gitleaks/gitleaks#installing"
+  echo "   (Set AFTERTALE_REQUIRE_GITLEAKS=1 to make this a hard failure.)"
+  if [ "$AFTERTALE_REQUIRE_GITLEAKS" = "1" ]; then
+    exit 1
+  fi
+  exit 0
+fi
+
+echo "🔐 Running gitleaks on staged changes..."
+"$GITLEAKS_BIN" protect --staged --no-banner --redact --config .gitleaks.toml
+echo "✅ No secrets found in staged changes."

@@ -1,0 +1,18 @@
+# Aftertale — vulnerability disclosure
+#
+# If you've found a security issue in Aftertale (aftertale.gg, the
+# OpenRouter integration, the WoW addon, anything we ship), we want to
+# hear about it. Thank you in advance.
+
+Contact: mailto:snoblitz@gmail.com
+Expires: 2027-05-27T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://aftertale.gg/.well-known/security.txt
+Policy: https://github.com/jeffkn-microsoft/Aftertale/blob/main/SECURITY.md
+
+# Notes:
+# - Please give us a reasonable window (≥ 30 days) before public disclosure.
+# - Aftertale is BYOK — your own OpenRouter key never leaves your browser.
+#   If a finding involves key handling, please attach repro steps.
+# - We don't run a paid bug bounty yet, but every valid report gets a
+#   credit in CHANGELOG.md (with your permission).

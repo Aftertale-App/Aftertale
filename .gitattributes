@@ -1,2 +1,7 @@
 addon/Aftertale/Data/DB2_*.lua linguist-generated=true
 addon/Aftertale/Data/DB2_*.lua -diff
+
+# Shell scripts must stay LF — Windows checkouts otherwise get CRLF which
+# breaks bash hooks.
+.githooks/* text eol=lf
+*.sh        text eol=lf

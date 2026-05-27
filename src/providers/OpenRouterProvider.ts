@@ -137,13 +137,16 @@ export class OpenRouterProvider implements LLMProvider {
 
     const costUsd = calculateCost(request.model, inputTokens, cachedInputTokens, outputTokens);
 
-    // Diagnostics — remove once we've seen real usage in production.
-    console.log('[OpenRouterProvider] response', {
-      model: pricing.model,
-      finishReason: choice?.finish_reason,
-      usage,
-      textLength: text.length,
-    });
+    // Diagnostics — dev-only so we don't pollute the production console or
+    // leak per-request usage to any visitor with devtools open.
+    if (import.meta.env.DEV) {
+      console.log('[OpenRouterProvider] response', {
+        model: pricing.model,
+        finishReason: choice?.finish_reason,
+        usage,
+        textLength: text.length,
+      });
+    }
 
     recordUsage({
       timestamp: Date.now(),
