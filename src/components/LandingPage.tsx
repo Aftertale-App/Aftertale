@@ -82,6 +82,7 @@ function Reveal({
 
 
 const NAV_LINKS = [
+  { label: 'Get started', href: '#onboard' },
   { label: 'How it works', href: '#how' },
   { label: 'Features', href: '#features' },
   { label: 'Pricing', href: '#pricing' },
@@ -190,16 +191,68 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ---------- How it works ---------- */}
+      {/* ---------- Onboarding (first-time activation) ---------- */}
+      <section className="at-section at-section-onboard" id="onboard">
+        <div className="at-container">
+          <Reveal variant="up">
+            <p className="at-kicker at-kicker-center">✦ Getting started</p>
+            <h2 className="at-section-h2 at-section-h2-center">From signup to first chapter</h2>
+          </Reveal>
+          <div className="at-onboard-grid">
+            <Reveal variant="up" delay={0}>
+              <OnboardStep
+                n={1}
+                title="Start free"
+                body="Create your account in under a minute. No credit card required. One hero is enough to begin the tale."
+              />
+            </Reveal>
+            <Reveal variant="up" delay={80}>
+              <OnboardStep
+                n={2}
+                title="Shape your hero"
+                body="Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero bible you can refine."
+              />
+            </Reveal>
+            <Reveal variant="up" delay={160}>
+              <OnboardStep
+                n={3}
+                title="Connect your game"
+                body="Install the capture addon. It watches for story moments while you play. It never controls your character or changes the game."
+              />
+            </Reveal>
+            <Reveal variant="up" delay={240}>
+              <OnboardStep
+                n={4}
+                title="Play normally"
+                body="Quest, wander, get distracted, chase something shiny. Aftertale captures the shape of the session in the background."
+              />
+            </Reveal>
+            <Reveal variant="up" delay={320}>
+              <OnboardStep
+                n={5}
+                title="Read the chapter"
+                body="When the session ends, your first Aftertale is waiting: a personalized chapter written from the hero you brought to life."
+              />
+            </Reveal>
+          </div>
+          <Reveal variant="up" delay={400}>
+            <p className="at-onboard-reassure">
+              Most players can reach their first chapter in one normal play session.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ---------- How it works (steady-state loop) ---------- */}
       <section className="at-section" id="how">
         <div className="at-container">
           <Reveal variant="up">
-            <h2 className="at-section-h2 at-section-h2-center">How it works</h2>
+            <h2 className="at-section-h2 at-section-h2-center">How it works after that</h2>
           </Reveal>
           <div className="at-how-grid">
-            <Reveal variant="up" delay={0}><HowStep n={1} title="Play" body="Aftertale captures the shape of your session as you play, from quests and encounters to the little choices that make your hero feel like yours." /></Reveal>
-            <Reveal variant="up" delay={120}><HowStep n={2} title="AI writes the chapter" body="Your gameplay becomes a polished narrative chapter with memory, continuity, and a voice tuned to your hero's ongoing saga." /></Reveal>
-            <Reveal variant="up" delay={240}><HowStep n={3} title="Read it anywhere" body="Get your new chapter after play, then read it on your phone, save it to your chronicle, or return later to watch the tale grow." /></Reveal>
+            <Reveal variant="up" delay={0}><HowStep n={1} title="Play" body="Your session creates the raw material: quests, places, victories, detours, and quiet little moments." /></Reveal>
+            <Reveal variant="up" delay={120}><HowStep n={2} title="Aftertale writes" body="Your hero bible gives those events memory, voice, and meaning." /></Reveal>
+            <Reveal variant="up" delay={240}><HowStep n={3} title="Read" body="Each session becomes another chapter in a living chronicle." /></Reveal>
           </div>
         </div>
       </section>
@@ -334,6 +387,16 @@ function HowStep({ n, title, body }: { n: number; title: string; body: string })
   return (
     <div className="at-how-step">
       <div className="at-how-number">{n}</div>
+      <h3>{title}</h3>
+      <p>{body}</p>
+    </div>
+  );
+}
+
+function OnboardStep({ n, title, body }: { n: number; title: string; body: string }) {
+  return (
+    <div className="at-onboard-step">
+      <div className="at-onboard-number">{n}</div>
       <h3>{title}</h3>
       <p>{body}</p>
     </div>
@@ -1201,6 +1264,75 @@ const landingStyles = `
   }
   .at-how-step h3 { margin: 0 0 0.5rem; font-family: var(--at-font-display); font-size: 18px; }
   .at-how-step p { margin: 0; color: var(--at-text-soft); font-size: 14.5px; }
+
+  /* ---- Onboarding (first-time activation) ---- */
+  .at-section-onboard {
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(212, 163, 115, 0.05), rgba(0, 0, 0, 0) 60%),
+      rgba(255, 255, 255, 0.015);
+    border-block: 1px solid var(--at-border);
+  }
+  .at-onboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  @media (min-width: 640px) { .at-onboard-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1040px) { .at-onboard-grid { grid-template-columns: repeat(5, 1fr); gap: 1rem; } }
+  .at-onboard-step {
+    position: relative;
+    padding: 1.5rem 1.25rem 1.4rem;
+    border: 1px solid rgba(212, 163, 115, 0.22);
+    border-radius: 14px;
+    background:
+      linear-gradient(180deg, rgba(212, 163, 115, 0.04), rgba(255, 255, 255, 0)) ,
+      var(--at-card);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .at-onboard-step:hover {
+    transform: translateY(-2px);
+    border-color: rgba(212, 163, 115, 0.45);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(212, 163, 115, 0.08);
+  }
+  .at-onboard-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(212, 163, 115, 0.55);
+    background: rgba(212, 163, 115, 0.08);
+    color: #e6c08a;
+    font-family: var(--at-font-display);
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.9rem;
+    letter-spacing: 0;
+  }
+  .at-onboard-step h3 {
+    margin: 0 0 0.5rem;
+    font-family: var(--at-font-display);
+    font-size: 17px;
+    color: var(--at-text);
+    letter-spacing: 0.01em;
+  }
+  .at-onboard-step p {
+    margin: 0;
+    color: var(--at-text-soft);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .at-onboard-reassure {
+    margin: 2.25rem auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-family: var(--at-font-display);
+    font-style: italic;
+    font-size: 16px;
+    color: var(--at-text-soft);
+    letter-spacing: 0.01em;
+  }
 
   /* ---- Features grid ---- */
   .at-features-grid {
