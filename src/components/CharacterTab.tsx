@@ -5,7 +5,7 @@ import type { LLMProvider, CharacterBible } from '../types';
 import { MODEL_CHOICES, DEFAULT_MODEL_INDEX } from '../lib/modelChoices';
 import { getKeyStatus } from '../lib/apiKeys';
 import { generatePrologue, PrologueError } from '../lib/prologueGenerator';
-import { saveBible } from '../lib/bibleStore';
+import { saveBible, loadBible } from '../lib/bibleStore';
 
 const DRAFT_KEY = 'at:autoimport-draft';
 
@@ -26,6 +26,19 @@ export function CharacterTab() {
   const [generating, setGenerating] = useState(false);
   const [generatedBible, setGeneratedBible] = useState<CharacterBible | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [hasExistingBible, setHasExistingBible] = useState<boolean>(() => !!loadBible());
+
+  // Keep the toggle's visibility in sync with bible mutations from any source
+  // (CharacterCreation's banner, auto-import accept, edits in another tab).
+  useEffect(() => {
+    const handler = () => setHasExistingBible(!!loadBible());
+    window.addEventListener('at:bible-updated', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('at:bible-updated', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
 
   async function handleGeneratePrologue() {
     if (!savedDraft || !provider) return;
@@ -97,30 +110,32 @@ export function CharacterTab() {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          gap: '0.5rem',
-          marginBottom: '1.2rem',
-          justifyContent: 'center',
-        }}
-      >
-        <button
-          type="button"
-          className={`at-btn ${mode === 'manual' ? 'at-btn-primary' : 'at-btn-secondary'}`}
-          onClick={() => setMode('manual')}
+      {!hasExistingBible && (
+        <div
+          style={{
+            display: 'flex',
+            gap: '0.5rem',
+            marginBottom: '1.2rem',
+            justifyContent: 'center',
+          }}
         >
-          Interview (manual)
-        </button>
-        <button
-          type="button"
-          className={`at-btn ${mode === 'auto' ? 'at-btn-primary' : 'at-btn-secondary'}`}
-          onClick={() => setMode('auto')}
-          title={hasKey ? '' : 'Auto-import uses the AI for Inspire Me. Add an OpenRouter key in ⚙ Keys.'}
-        >
-          ✦ Auto-import (from SavedVariables)
-        </button>
-      </div>
+          <button
+            type="button"
+            className={`at-btn ${mode === 'manual' ? 'at-btn-primary' : 'at-btn-secondary'}`}
+            onClick={() => setMode('manual')}
+          >
+            Interview (manual)
+          </button>
+          <button
+            type="button"
+            className={`at-btn ${mode === 'auto' ? 'at-btn-primary' : 'at-btn-secondary'}`}
+            onClick={() => setMode('auto')}
+            title={hasKey ? '' : 'Auto-import uses the AI for Inspire Me. Add an OpenRouter key in ⚙ Keys.'}
+          >
+            ✦ Auto-import (from SavedVariables)
+          </button>
+        </div>
+      )}
 
       {savedDraft && mode === 'auto' && (
         <div className="at-callout at-callout-success" style={{ marginBottom: '1rem' }}>

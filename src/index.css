@@ -1434,6 +1434,57 @@ select.at-input {
   font-style: italic;
 }
 
+/* Make button-pills (EditablePill) look identical to span-pills. */
+button.at-sheet-pill {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+button.at-sheet-pill:hover {
+  transform: translateY(-1px);
+  border-color: var(--gold);
+}
+
+button.at-sheet-pill:focus-visible {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(178, 132, 49, 0.35);
+}
+
+.at-sheet-pill-editing {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.at-sheet-pill-input {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  padding: 0.2rem 0;
+  width: auto;
+  min-width: 3ch;
+}
+
+/* Hide number-input spinners — they fight the pill aesthetic. */
+.at-sheet-pill-input[type='number']::-webkit-inner-spin-button,
+.at-sheet-pill-input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.at-sheet-pill-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* Chronicle section */
 
 .at-sheet-chronicle .at-sheet-section-title::after {

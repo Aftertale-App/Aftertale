@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import { loadBible } from '../lib/bibleStore';
+import { DEV_TOOLS_ENABLED } from '../lib/devTools';
 import { loadAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
 import {
   buildChronicleSessions,
@@ -176,16 +177,18 @@ export function ChronicleReader() {
           <h3 className="at-section-headline-sm">No story entries yet</h3>
           <p className="at-section-sub">
             Visit the <strong>Scribe's Desk</strong> tab to import your{' '}
-            <code>Aftertale.lua</code> and enrich it into prose, or run the Addon
-            Sim, or add manual deeds from the character sheet.
+            <code>Aftertale.lua</code> and enrich it into prose, or add manual
+            deeds from the character sheet.
           </p>
           <div className="at-chronicle-empty-actions" style={{ marginTop: '1rem' }}>
             <button className="at-btn at-btn-primary" onClick={() => requestTab('desk')}>
               Open Scribe's Desk
             </button>
-            <button className="at-btn at-btn-secondary" onClick={() => requestTab('addon')}>
-              Addon Sim
-            </button>
+            {DEV_TOOLS_ENABLED && (
+              <button className="at-btn at-btn-secondary" onClick={() => requestTab('addon')}>
+                Addon Sim
+              </button>
+            )}
             <button className="at-btn at-btn-secondary" onClick={() => requestTab('character')}>
               Add manual entry
             </button>
@@ -472,7 +475,7 @@ function SessionTrail({
 
       {sessions.length === 0 ? (
         <p className="muted">
-          No addon-observed sessions yet. Open Addon Sim, start a session, emit a few WoW events, then end the session.
+          No addon-observed sessions yet. Import your <code>Aftertale.lua</code> from the Scribe's Desk to populate them.
         </p>
       ) : (
         <div className="at-session-list">

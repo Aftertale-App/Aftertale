@@ -944,13 +944,30 @@ function CharacterSheet({
             )}
           </div>
           <div className="at-sheet-pills">
-            <span className={`at-sheet-pill at-sheet-pill-level${typeof bible.level === 'number' ? '' : ' at-sheet-pill-empty'}`}>
-              {typeof bible.level === 'number' ? `Lvl ${bible.level}` : 'Lvl —'}
-            </span>
-            <span className={`at-sheet-pill at-sheet-pill-zone${bible.currentZone ? '' : ' at-sheet-pill-empty'}`}>
-              <span aria-hidden>📍</span>
-              {bible.currentZone || 'Zone unset'}
-            </span>
+            <EditablePill
+              kind="level"
+              value={typeof bible.level === 'number' ? bible.level : null}
+              onSave={(next) => {
+                const patched: CharacterBible = {
+                  ...bible,
+                  level: next === null ? undefined : next,
+                  updatedAt: Date.now(),
+                };
+                saveBible(patched);
+              }}
+            />
+            <EditablePill
+              kind="zone"
+              value={bible.currentZone ?? null}
+              onSave={(next) => {
+                const patched: CharacterBible = {
+                  ...bible,
+                  currentZone: next ?? undefined,
+                  updatedAt: Date.now(),
+                };
+                saveBible(patched);
+              }}
+            />
           </div>
           <div className="at-sheet-meta">
             <span>◆ {mode === 'just-saved' ? 'Just saved' : 'Auto-saved'} {updated}</span>
@@ -1058,6 +1075,96 @@ function CharacterSheet({
   );
 }
 
+// EditablePill — click-to-edit Lvl / Zone pill on the sheet header. Saves on
+// blur / Enter so users can adjust without opening the full bible editor.
+function EditablePill(
+  props:
+    | { kind: 'level'; value: number | null; onSave: (next: number | null) => void }
+    | { kind: 'zone'; value: string | null; onSave: (next: string | null) => void },
+) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<string>(() =>
+    props.value === null || props.value === undefined ? '' : String(props.value),
+  );
+
+  useEffect(() => {
+    setDraft(props.value === null || props.value === undefined ? '' : String(props.value));
+  }, [props.value]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (props.kind === 'level') {
+      if (trimmed === '') {
+        props.onSave(null);
+      } else {
+        const n = Number.parseInt(trimmed, 10);
+        if (Number.isFinite(n) && n >= 1 && n <= 80) props.onSave(n);
+      }
+    } else {
+      props.onSave(trimmed === '' ? null : trimmed);
+    }
+    setEditing(false);
+  }
+
+  function cancel() {
+    setDraft(props.value === null || props.value === undefined ? '' : String(props.value));
+    setEditing(false);
+  }
+
+  const empty = props.value === null || props.value === undefined || props.value === '';
+  const baseClass = `at-sheet-pill at-sheet-pill-${props.kind}${empty ? ' at-sheet-pill-empty' : ''}`;
+
+  if (editing) {
+    return (
+      <span className={`${baseClass} at-sheet-pill-editing`}>
+        {props.kind === 'zone' && <span aria-hidden>📍</span>}
+        <input
+          autoFocus
+          className="at-sheet-pill-input"
+          type={props.kind === 'level' ? 'number' : 'text'}
+          inputMode={props.kind === 'level' ? 'numeric' : undefined}
+          min={props.kind === 'level' ? 1 : undefined}
+          max={props.kind === 'level' ? 80 : undefined}
+          placeholder={props.kind === 'level' ? 'Lvl' : 'Zone'}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              (e.currentTarget as HTMLInputElement).blur();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+          size={props.kind === 'level' ? 3 : 14}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={baseClass}
+      onClick={() => setEditing(true)}
+      title={`Click to edit ${props.kind === 'level' ? 'level' : 'current zone'}`}
+    >
+      {props.kind === 'level'
+        ? typeof props.value === 'number'
+          ? `Lvl ${props.value}`
+          : 'Lvl —'
+        : (
+          <>
+            <span aria-hidden>📍</span>
+            {props.value || 'Zone unset'}
+          </>
+        )}
+    </button>
+  );
+}
+
 function formatSheetTimestamp(ts: number): string {
   if (!ts) return '';
   try {
@@ -1127,7 +1234,7 @@ function ChronicleSection({ bible }: { bible: CharacterBible }) {
                 ]
                   .filter(Boolean)
                   .join(' · ')})`
-              : 'What happened? Set your level and zone first for richer logs.'
+              : 'What happened? Tap Lvl or Zone above to capture context.'
           }
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
