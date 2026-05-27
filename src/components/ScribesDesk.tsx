@@ -97,10 +97,10 @@ export function ScribesDesk() {
       `}</style>
       <div className="desk-layout">
         <div className="desk-main">
-          <header>
-            <p className="at-kicker">Scribe's Desk · Artisan workflow ✦</p>
-            <h2 style={{ margin: '0 0 0.25rem' }}>Turn raw play into a chapter, your way</h2>
-            <p className="muted" style={{ margin: 0 }}>
+          <header className="at-desk-intro">
+            <p className="at-kicker">✦ Scribe's Desk · Artisan workflow</p>
+            <h2 className="at-section-headline">Turn raw play into a chapter, your way</h2>
+            <p className="at-section-sub">
               Import your save file, pick which moments become prose, enrich them with the model
               of your choice, and download a restore file to drop back into the game. Four steps.
               Your hands on every one of them.
