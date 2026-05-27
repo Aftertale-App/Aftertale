@@ -42,7 +42,12 @@ export function AccountMenu() {
 
       {status === 'anonymous' && (
         <>
-          <button type="button" className="at-btn at-btn-primary at-btn-sm" onClick={() => openModal('save')}>
+          <button
+            type="button"
+            className="at-btn at-btn-primary at-btn-sm"
+            onClick={() => openModal('save')}
+            title="Your hero lives only in this browser until you save them. Saving ties them to an email so they survive a cleared cache or a new device."
+          >
             Save your chronicle
           </button>
           <button

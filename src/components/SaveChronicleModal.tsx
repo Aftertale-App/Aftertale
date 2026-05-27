@@ -14,7 +14,7 @@ const COPY = {
   save: {
     title: 'Save your chronicle',
     blurb:
-      "Your hero already lives in this browser. Tie it to an email and your chronicle survives a cleared cache — and you'll be able to read it on your phone. No password to remember.",
+      "Your hero lives in this browser — and only this browser. Tie them to an email and your chronicle survives a cleared cache, a new phone, even a different machine. Until then, this browser is the only key. No password to remember.",
     cta: 'Send me the link',
     sent: (email: string) =>
       `Check ${email} for a link to save your chronicle. Click it and you're set — same hero, now safe.`,
