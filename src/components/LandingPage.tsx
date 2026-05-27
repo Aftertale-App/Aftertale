@@ -17,6 +17,7 @@
 // pitch never drift out of sync.
 import { TIERS, TierCard } from './ScribesDesk';
 import { useEffect, useRef, useState } from 'react';
+import { assetUrl } from '../lib/assetUrl';
 
 // ----------------------------------------------------------------------------
 // Reveal — wraps children in a div that animates in when scrolled into view.
@@ -105,8 +106,8 @@ export function LandingPage() {
       />
       <header className="at-header">
         <div className="at-container at-header-inner">
-          <a href="/" className="at-logo">
-            <span className="at-logo-mark">✦</span> Aftertale
+          <a href="/" className="at-logo" aria-label="Aftertale">
+            <img src={assetUrl('aftertale-logo.png')} alt="Aftertale" className="at-logo-img" />
           </a>
           <nav className="at-nav">
             {NAV_LINKS.map((l) => (
@@ -286,7 +287,7 @@ export function LandingPage() {
       <footer className="at-footer">
         <div className="at-container at-footer-inner">
           <div className="at-footer-brand">
-            <p className="at-logo">✦ Aftertale</p>
+            <p className="at-logo"><img src={assetUrl('aftertale-logo.png')} alt="Aftertale" className="at-logo-img at-logo-img-footer" /></p>
             <p className="at-footer-tag">
               Aftertale turns your gameplay into a personalized chronicle where your hero finally
               gets the story they earned.
@@ -947,7 +948,16 @@ const landingStyles = `
     color: var(--at-text);
     text-decoration: none;
     letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
   }
+  .at-logo-img {
+    height: 44px;
+    width: auto;
+    display: block;
+  }
+  .at-logo-img-footer { height: 36px; opacity: 0.95; }
   .at-logo-mark { color: var(--at-accent); margin-right: 4px; }
   .at-nav { display: none; gap: 1.6rem; }
   .at-nav a {
