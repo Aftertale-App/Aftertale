@@ -241,13 +241,42 @@ export function LandingPage() {
             </p>
           </Reveal>
           <Reveal variant="up" delay={480}>
-            <p className="at-onboard-games">
-              <span className="at-onboard-games-live">Live today for World of Warcraft</span>
-              <span className="at-onboard-games-versions">
-                Retail, Classic Era, Hardcore, Season of Discovery, Cataclysm Classic, and Mists of Pandaria Classic
-              </span>
-              <span className="at-onboard-games-future">More games as each capture path is built right.</span>
-            </p>
+            <div className="at-supported">
+              <p className="at-supported-eyebrow">
+                <span className="at-supported-pulse" aria-hidden /> Live today for World of Warcraft
+              </p>
+              <div className="at-supported-grid">
+                <div className="at-supported-card at-supported-card-retail">
+                  <div className="at-supported-badge" aria-hidden>✦</div>
+                  <div className="at-supported-body">
+                    <p className="at-supported-name">WoW Retail</p>
+                    <p className="at-supported-sub">all current expansions</p>
+                  </div>
+                </div>
+                <div className="at-supported-card at-supported-card-classic">
+                  <div className="at-supported-badge" aria-hidden>✦</div>
+                  <div className="at-supported-body">
+                    <p className="at-supported-name">Classic Era</p>
+                    <p className="at-supported-sub">incl. Hardcore &amp; Season of Discovery</p>
+                  </div>
+                </div>
+                <div className="at-supported-card at-supported-card-cata">
+                  <div className="at-supported-badge" aria-hidden>✦</div>
+                  <div className="at-supported-body">
+                    <p className="at-supported-name">Cataclysm Classic</p>
+                    <p className="at-supported-sub">current Classic progression</p>
+                  </div>
+                </div>
+                <div className="at-supported-card at-supported-card-mists">
+                  <div className="at-supported-badge" aria-hidden>✦</div>
+                  <div className="at-supported-body">
+                    <p className="at-supported-name">Mists of Pandaria Classic</p>
+                    <p className="at-supported-sub">Pandaria anniversary</p>
+                  </div>
+                </div>
+              </div>
+              <p className="at-supported-future">More games as each capture path is built right.</p>
+            </div>
           </Reveal>
         </div>
       </section>
@@ -1349,45 +1378,125 @@ const landingStyles = `
     color: var(--at-text-soft);
     letter-spacing: 0.01em;
   }
-  .at-onboard-games {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    align-items: center;
-    margin: 1.4rem auto 0;
-    max-width: 720px;
+
+  /* ---- Supported games block ---- */
+  .at-supported {
+    margin: 3rem auto 0;
+    max-width: 1080px;
     text-align: center;
   }
-  .at-onboard-games-live {
+  .at-supported-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0 0 1.4rem;
+    padding: 0.5rem 1.1rem;
+    border: 1px solid rgba(111, 220, 156, 0.35);
+    border-radius: 999px;
+    background: rgba(111, 220, 156, 0.06);
+    font-family: var(--at-font-display);
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--at-text);
+  }
+  .at-supported-pulse {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #6fdc9c;
+    box-shadow: 0 0 0 0 rgba(111, 220, 156, 0.6);
+    animation: at-supported-pulse 2.4s ease-out infinite;
+  }
+  @keyframes at-supported-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(111, 220, 156, 0.55); }
+    70% { box-shadow: 0 0 0 10px rgba(111, 220, 156, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(111, 220, 156, 0); }
+  }
+  .at-supported-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+  @media (min-width: 640px) { .at-supported-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1040px) { .at-supported-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .at-supported-card {
+    --card-tone: 212, 163, 115;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.95rem 1.1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(var(--card-tone), 0.45);
+    background:
+      linear-gradient(135deg, rgba(var(--card-tone), 0.18), rgba(var(--card-tone), 0.04) 60%),
+      rgba(0, 0, 0, 0.35);
+    text-align: left;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    overflow: hidden;
+  }
+  .at-supported-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 0% 50%, rgba(var(--card-tone), 0.25), rgba(0,0,0,0) 60%);
+    pointer-events: none;
+    opacity: 0.9;
+  }
+  .at-supported-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(var(--card-tone), 0.75);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(var(--card-tone), 0.2);
+  }
+  .at-supported-badge {
+    position: relative;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(var(--card-tone), 0.95);
+    color: #0d0817;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--at-font-display);
+    font-size: 22px;
+    font-weight: 700;
+    box-shadow:
+      0 0 0 1px rgba(var(--card-tone), 0.4),
+      0 0 18px rgba(var(--card-tone), 0.45),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.25);
+  }
+  .at-supported-body { position: relative; min-width: 0; }
+  .at-supported-name {
+    margin: 0;
     font-family: var(--at-font-display);
     font-size: 15px;
     color: var(--at-text);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
   }
-  .at-onboard-games-live::before {
-    content: '';
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #6fdc9c;
-    box-shadow: 0 0 8px rgba(111, 220, 156, 0.55);
-    margin-right: 0.6rem;
-    vertical-align: middle;
-  }
-  .at-onboard-games-versions {
-    font-size: 13.5px;
+  .at-supported-sub {
+    margin: 0.2rem 0 0;
+    font-size: 12px;
     color: var(--at-text-soft);
-    line-height: 1.5;
-    max-width: 580px;
+    line-height: 1.35;
   }
-  .at-onboard-games-future {
+
+  /* Expansion color tones */
+  .at-supported-card-retail  { --card-tone: 156, 122, 240; }  /* violet (Midnight era) */
+  .at-supported-card-classic { --card-tone: 214, 168, 70; }   /* amber gold (vanilla) */
+  .at-supported-card-cata    { --card-tone: 214, 92, 60; }    /* Deathwing red-orange */
+  .at-supported-card-mists   { --card-tone: 74, 186, 142; }   /* Pandaria jade */
+
+  .at-supported-future {
+    margin: 1.3rem 0 0;
     font-size: 12.5px;
     color: var(--at-text-soft);
     opacity: 0.72;
     letter-spacing: 0.02em;
-    margin-top: 0.15rem;
   }
 
   /* ---- Features grid ---- */
