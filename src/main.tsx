@@ -32,13 +32,13 @@ function RouteFallback() {
           margin: 0,
           fontFamily: 'var(--font-display)',
           fontSize: 'clamp(28px, 4vw, 40px)',
-          color: 'var(--gold-bright, #d4a373)',
+          color: 'var(--fg, #ede7d8)',
           letterSpacing: '0.01em',
         }}
       >
         Turning the page…
       </p>
-      <div aria-hidden="true" style={{ color: 'var(--gold, #b28431)', opacity: 0.7 }}>✦</div>
+      <div aria-hidden="true" style={{ color: 'var(--at-accent, #a47ad1)', opacity: 0.85 }}>✦</div>
     </div>
   );
 }

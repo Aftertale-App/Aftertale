@@ -21,10 +21,20 @@
   --fg-muted:  #a89c80;
   --fg-faint:  #6a5f4a;
 
-  /* ---- Accent: gold/amber (UI primary) ---- */
+  /* ---- Accent: gold/amber (UI primary, leather-bound feel) ---- */
   --gold:        #d4a373;
   --gold-bright: #f0c896;
   --gold-deep:   #8b6240;
+
+  /* ---- Landing continuation accents ----
+     The marketing landing page is built on a purple-cosmic palette
+     (#a47ad1 / #c79bf0 on a #1a1230 → #0f0a1a wash). When a visitor clicks
+     Get Started we want the eye to see the same accent vocabulary on the
+     "frame" of the app (kickers, display headlines, ornaments, tab marks)
+     so the transition feels like one continuous surface. The deeper content
+     panels keep the warm gold "leather spellbook" identity. */
+  --at-accent:        #a47ad1;
+  --at-accent-strong: #c79bf0;
 
   /* ---- Lore-flavored accents ---- */
   --alliance: #6aa8ff;
@@ -70,10 +80,15 @@ html, body, #root {
 }
 
 body {
-  /* Layered: vignette + warm radial wash + subtle SVG noise for tactile feel */
+  /* Layered: subtle purple wash at the top (matches landing's
+     #1a1230 → #0f0a1a gradient) blending into the warm leather body,
+     plus the original warm radial wash and vignette. The purple is most
+     intense at the top so visitors arriving from the landing page see
+     the same atmosphere fade gently into the spellbook palette. */
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212, 163, 115, 0.08), transparent 60%),
-    radial-gradient(ellipse at top, #2a221a 0%, var(--bg) 60%),
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgba(164, 122, 209, 0.18), transparent 65%),
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212, 163, 115, 0.06), transparent 60%),
+    radial-gradient(ellipse at top, #1f1828 0%, var(--bg) 55%),
     var(--bg);
   background-attachment: fixed;
 }
@@ -1426,7 +1441,7 @@ select.at-input {
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--gold-bright);
+  color: var(--at-accent);
 }
 .at-kicker-center { text-align: center; }
 
@@ -2574,8 +2589,8 @@ select.at-input {
   font-size: clamp(34px, 5vw, 52px);
   line-height: 1.05;
   letter-spacing: 0.005em;
-  color: var(--gold-bright, #d4a373);
-  text-shadow: 0 0 28px rgba(212, 163, 115, 0.18);
+  color: var(--fg);
+  text-shadow: 0 0 28px rgba(164, 122, 209, 0.18);
 }
 
 .at-app-subtitle {
@@ -2590,23 +2605,25 @@ select.at-input {
 .at-app-ornament {
   margin: 1rem auto 0;
   width: fit-content;
-  color: var(--gold, #b28431);
+  color: var(--at-accent);
   font-size: 14px;
   letter-spacing: 0.4em;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 /* Active-tab manuscript glyph — only the selected chapter wears the mark.
-   Replaces the old "◆ on every tab" pattern; pairs with the gold underline. */
+   Uses the landing's purple accent so the eye sees the same color it just
+   left on the marketing page; the gold underline stays as the warm leather
+   detail (purple + gold combo mirrors landing's hero exhibit). */
 .at-tab[aria-selected='true']::before {
   content: '✦ ';
-  color: var(--gold, #b28431);
+  color: var(--at-accent);
   margin-right: 0.15em;
 }
 
 /* Visible keyboard focus ring for tablist roving focus. */
 .at-tab:focus-visible {
-  outline: 2px solid var(--gold-bright, #d4a373);
+  outline: 2px solid var(--at-accent-strong);
   outline-offset: 4px;
   border-radius: 4px;
 }
@@ -2645,8 +2662,8 @@ select.at-input {
   font-size: clamp(26px, 3.4vw, 36px);
   line-height: 1.1;
   letter-spacing: 0.005em;
-  color: var(--gold-bright, #d4a373);
-  text-shadow: 0 0 18px rgba(212, 163, 115, 0.14);
+  color: var(--fg);
+  text-shadow: 0 0 18px rgba(164, 122, 209, 0.14);
 }
 
 .at-section-headline-sm {
@@ -2654,7 +2671,7 @@ select.at-input {
   font-family: var(--font-display);
   font-size: clamp(20px, 2.6vw, 26px);
   line-height: 1.15;
-  color: var(--gold-bright, #d4a373);
+  color: var(--fg);
 }
 
 .at-section-sub {
@@ -2668,9 +2685,9 @@ select.at-input {
 .at-section-ornament {
   margin: 0.85rem auto 0;
   width: fit-content;
-  color: var(--gold, #b28431);
+  color: var(--at-accent);
   letter-spacing: 0.4em;
-  opacity: 0.7;
+  opacity: 0.85;
   font-size: 13px;
 }
 
