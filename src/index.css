@@ -873,36 +873,164 @@ select.at-input {
 }
 
 /* ===========================================================================
-   Spend bar — keep it monospaced/HUDish, but make it less ugly
+   Token bar — always-on app shell HUD. Public surface = tokens only (audit
+   parity with OpenRouter's dashboard); dev surface adds the $ estimate and
+   the breakdown drawer. Styled to match the leather-spellbook palette plus
+   the landing's purple accent for kickers / labels.
    =========================================================================== */
 
-.at-spendbar {
+.at-tokenbar {
   background: linear-gradient(180deg, #1e1810 0%, #15100a 100%);
   border-bottom: 1px solid var(--border);
-  padding: 0.5rem 1.25rem;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
+  padding: 0.55rem 1.25rem;
+  font-family: var(--font-body);
+  font-size: 13px;
   color: var(--fg-muted);
   position: relative;
   z-index: 2;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
-.at-spendbar strong { color: var(--gold); font-weight: 500; }
-.at-spendbar-table {
+
+.at-tokenbar-row {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+
+.at-tokenbar-kicker {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--at-accent);
+  padding-right: 0.4rem;
+  border-right: 1px solid var(--border);
+}
+
+.at-tokenbar-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.at-tokenbar-stat-secondary {
+  opacity: 0.78;
+  font-size: 12px;
+}
+
+.at-tokenbar-stat-dev {
+  padding-left: 0.85rem;
+  border-left: 1px dashed rgba(164, 122, 209, 0.35);
+}
+
+.at-tokenbar-label {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--at-accent);
+  opacity: 0.85;
+}
+
+.at-tokenbar-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.at-tokenbar-stat-secondary .at-tokenbar-value {
+  color: var(--fg-muted);
+}
+
+.at-tokenbar-spacer { flex: 1 1 auto; }
+
+.at-tokenbar-toggle {
+  opacity: 0.55;
+  font-size: 11px;
+}
+
+.at-tokenbar-hint {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--fg-muted);
+}
+
+.at-tokenbar-hint a {
+  color: var(--at-accent-strong);
+}
+
+.at-tokenbar-drawer {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed rgba(164, 122, 209, 0.35);
+  overflow-x: auto;
+}
+
+.at-tokenbar-dev-note {
+  margin: 0 0 0.6rem;
+  font-size: 11.5px;
+  color: var(--at-accent-strong);
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+}
+
+.at-tokenbar-dev-note code {
+  font-family: var(--font-mono);
+  background: rgba(164, 122, 209, 0.12);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.at-tokenbar-empty {
+  opacity: 0.6;
+  font-style: italic;
+  margin: 0;
+}
+
+.at-tokenbar-table {
   border-collapse: collapse;
   font-size: 11.5px;
   width: 100%;
+  font-family: var(--font-mono);
 }
-.at-spendbar-table th {
+
+.at-tokenbar-table th {
   text-align: left;
   padding: 0.35rem 0.6rem;
   font-weight: 600;
   color: var(--gold);
   border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10.5px;
 }
-.at-spendbar-table td {
+
+.at-tokenbar-table td {
   padding: 0.3rem 0.6rem;
   border-bottom: 1px solid rgba(58, 46, 34, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.at-tokenbar-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.at-tokenbar-history {
+  opacity: 0.65;
+  margin: 0.5rem 0 0;
+  font-size: 12px;
 }
 
 /* ===========================================================================
