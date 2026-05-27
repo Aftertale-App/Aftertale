@@ -1484,30 +1484,10 @@ const landingStyles = `
     max-width: 820px;
   }
 
-  /* ---- Reveal animations ---- */
-  .at-reveal {
-    opacity: 0;
-    transition:
-      opacity 800ms cubic-bezier(0.22, 0.61, 0.36, 1),
-      transform 800ms cubic-bezier(0.22, 0.61, 0.36, 1);
-    will-change: opacity, transform;
-  }
-  .at-reveal-up { transform: translate3d(0, 28px, 0); }
-  .at-reveal-in { transform: none !important; }
-  .at-reveal-in.at-reveal { opacity: 1; }
-  .at-reveal-left { transform: translate3d(-32px, 0, 0); }
-  .at-reveal-right { transform: translate3d(32px, 0, 0); }
-  .at-reveal-scale { transform: scale(0.96); }
-
-  /* Hero entrance — fires immediately on mount, no IO needed */
-  .at-hero-anim {
-    opacity: 0;
-    transform: translate3d(0, 18px, 0);
-    animation: at-hero-in 900ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
-  }
-  @keyframes at-hero-in {
-    to { opacity: 1; transform: translate3d(0, 0, 0); }
-  }
+  /* ---- Reveal animations (shared) ----
+     The .at-reveal* + .at-hero-anim + @keyframes at-hero-in rules now live in
+     src/index.css so App-side surfaces can use them too. Only landing-specific
+     animations remain in this scoped block. */
 
   /* Phone gentle float */
   .at-phone-frame {
@@ -1537,10 +1517,9 @@ const landingStyles = `
     50% { opacity: 1; }
   }
 
-  /* Accessibility — kill all motion if requested */
+  /* Accessibility — kill landing-specific motion if requested.
+     Shared .at-reveal / .at-hero-anim are handled by index.css. */
   @media (prefers-reduced-motion: reduce) {
-    .at-reveal,
-    .at-hero-anim,
     .at-phone-frame,
     .at-cta-band::before {
       animation: none !important;

@@ -1919,26 +1919,8 @@ select.at-input {
   gap: 2rem;
 }
 
-.at-welcome-header {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.at-welcome-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  color: var(--gold);
-  letter-spacing: 0.04em;
-}
-
-.at-welcome-sub {
-  margin: 0;
-  color: var(--fg-muted);
-  font-size: 1.05rem;
-}
+/* (removed dead .at-welcome-header / .at-welcome-title / .at-welcome-sub —
+   CharacterCreation now uses the shared <StepIntro/> kicker + display pattern.) */
 
 .at-welcome-presets {
   display: grid;
@@ -2642,3 +2624,74 @@ select.at-input {
   outline-offset: 6px;
   border-radius: 8px;
 }
+/* ===========================================================================
+   Section-level intro pattern (used inside .at-panel surfaces)
+   — smaller cousin of .at-app-headline so each panel can open with the same
+     kicker + display + ornament cadence as the landing page
+   =========================================================================== */
+
+.at-section-intro {
+  text-align: center;
+  margin: 0 0 1.25rem;
+}
+
+.at-section-intro .at-kicker {
+  margin: 0 0 0.5rem;
+}
+
+.at-section-headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.4vw, 36px);
+  line-height: 1.1;
+  letter-spacing: 0.005em;
+  color: var(--gold-bright, #d4a373);
+  text-shadow: 0 0 18px rgba(212, 163, 115, 0.14);
+}
+
+.at-section-headline-sm {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.6vw, 26px);
+  line-height: 1.15;
+  color: var(--gold-bright, #d4a373);
+}
+
+.at-section-sub {
+  margin: 0.55rem auto 0;
+  max-width: 60ch;
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--fg-muted);
+}
+
+.at-section-ornament {
+  margin: 0.85rem auto 0;
+  width: fit-content;
+  color: var(--gold, #b28431);
+  letter-spacing: 0.4em;
+  opacity: 0.7;
+  font-size: 13px;
+}
+
+/* Chronicle hero header — adopt the new display headline scale; the existing
+   .at-chronicle-hero flex layout still owns the left/right composition. */
+.at-chronicle-hero .at-section-headline {
+  margin-top: 0.25rem;
+}
+.at-chronicle-hero .at-section-sub {
+  margin-left: 0;
+  margin-right: 0;
+}
+.at-chronicle-empty-shell {
+  text-align: center;
+}
+/* Scribe's Desk intro — center the headline rhythm above the multi-column
+   workflow. Keep the rest of the desk visually utilitarian (artisan workbench,
+   not storybook) so heavy controls don't fight the prose vocabulary. */
+.at-desk-intro {
+  text-align: center;
+  margin: 0 0 1.5rem;
+}
+.at-desk-intro .at-kicker { margin: 0 0 0.5rem; }
+.at-desk-intro .at-section-sub { margin-left: auto; margin-right: auto; }
