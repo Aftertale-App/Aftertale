@@ -10,8 +10,7 @@
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MODEL_CHOICES, DEFAULT_MODEL_INDEX } from '../lib/modelChoices';
-import { ModelPicker } from './ModelPicker';
+import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import {
   classesForRace,
   FACTIONS,
@@ -62,7 +61,7 @@ export function CharacterCreation() {
   const [step, setStep] = useState<Step>(() => (loadBible() ? 'banner' : 'welcome'));
 
   // ---- identity form ----
-  const [modelIdx, setModelIdx] = useState(DEFAULT_MODEL_INDEX);
+  const [modelIdx] = useSelectedModelIdx();
   const [name, setName] = useState('');
   const [faction, setFaction] = useState<Faction | ''>('');
   const [race, setRace] = useState('');
@@ -664,12 +663,6 @@ export function CharacterCreation() {
       />
 
       <div className="at-creation-toolbar">
-        <ModelPicker
-          value={modelIdx}
-          onChange={setModelIdx}
-          disabled={step === 'asking' || step === 'generating' || step === 'saving'}
-          label="Loremaster model"
-        />
         {DEV_TOOLS_ENABLED && (
           <span className="at-creation-step-debug">
             step: <code>{step}</code>

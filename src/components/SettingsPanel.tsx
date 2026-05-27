@@ -7,6 +7,8 @@ import {
   type Provider,
 } from '../lib/apiKeys';
 import { getShowScribesDesk, setShowScribesDesk } from '../lib/featureFlags';
+import { ModelPicker } from './ModelPicker';
+import { useSelectedModelIdx } from '../lib/modelChoices';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -18,6 +20,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [draft, setDraft] = useState('');
   const [reveal, setReveal] = useState(false);
   const [showDesk, setShowDesk] = useState<boolean>(() => getShowScribesDesk());
+  const [modelIdx, setModelIdx] = useSelectedModelIdx();
 
   useEffect(() => {
     if (!open) return;
@@ -146,6 +149,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             </a>
             .
           </p>
+        </section>
+
+        <section className="at-settings-section" style={{ marginTop: '1rem' }}>
+          <div className="at-settings-section-head">
+            <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>Model</h3>
+          </div>
+          <p className="muted" style={{ margin: '0.25rem 0 0.6rem', fontSize: 13 }}>
+            One choice for every generate surface (chapters, recaps, NPC chat,
+            enrichment). Switch here any time — your pick sticks per browser.
+          </p>
+          <ModelPicker value={modelIdx} onChange={setModelIdx} label="Active model" />
         </section>
 
         <section className="at-settings-section" style={{ marginTop: '1rem' }}>

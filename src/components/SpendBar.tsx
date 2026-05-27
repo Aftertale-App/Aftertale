@@ -7,6 +7,7 @@ import {
   SPEND_RETENTION_DAYS,
   sumCost,
 } from '../lib/spendTracker';
+import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 
 interface SpendBarProps {
   onOpenSettings?: () => void;
@@ -17,6 +18,8 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
   const [tick, setTick] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [historyMessage, setHistoryMessage] = useState<string | null>(null);
+  const [modelIdx] = useSelectedModelIdx();
+  const activeModelLabel = MODEL_CHOICES[modelIdx]?.label ?? 'Model';
 
   // Re-read on storage events (other tabs) AND custom in-tab events.
   useEffect(() => {
@@ -91,9 +94,13 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
                 e.stopPropagation();
                 onOpenSettings();
               }}
-              title={hasAnyKey ? 'Manage API keys' : 'Set up an API key to start using the app'}
+              title={
+                hasAnyKey
+                  ? `Manage key & model — currently using ${activeModelLabel}`
+                  : 'Set up an API key to start using the app'
+              }
             >
-              ⚙ Keys{!hasAnyKey ? ' — set me' : ''}
+              {hasAnyKey ? `⚙ ${activeModelLabel}` : '⚙ Keys — set me'}
             </button>
           )}
           <span style={{ opacity: 0.55 }}>{expanded ? '▼ collapse' : '▶ breakdown'}</span>

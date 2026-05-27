@@ -14,8 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AddonImport } from './AddonImport';
 import { EventFilterPanel } from './EventFilterPanel';
-import { ModelPicker } from './ModelPicker';
-import { DEFAULT_MODEL_INDEX } from '../lib/modelChoices';
+import { useSelectedModelIdx } from '../lib/modelChoices';
 import { loadBible } from '../lib/bibleStore';
 import { loadAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
 import { buildChronicleBlob, entryId } from '../lib/chronicleExport';
@@ -600,7 +599,7 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
     [records],
   );
 
-  const [modelIdx, setModelIdx] = useState(DEFAULT_MODEL_INDEX);
+  const [modelIdx] = useSelectedModelIdx();
   const [enriched, setEnriched] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -805,12 +804,6 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
         helper={`One LLM call per event. ${events.length} would run; ${enrichedCount} already done.`}
       >
         <div className="at-chronicle-generate-controls" style={{ flexWrap: 'wrap' }}>
-          <ModelPicker
-            value={modelIdx}
-            onChange={setModelIdx}
-            disabled={busy}
-            label="Enrichment model"
-          />
           <label
             style={{
               display: 'inline-flex',

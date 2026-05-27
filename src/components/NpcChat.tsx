@@ -8,8 +8,7 @@
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
-import { ModelPicker } from './ModelPicker';
-import { MODEL_CHOICES, DEFAULT_MODEL_INDEX } from '../lib/modelChoices';
+import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import { loadBible } from '../lib/bibleStore';
 import { assetUrl } from '../lib/assetUrl';
 import {
@@ -36,7 +35,7 @@ export function NpcChat() {
 
 function NpcChatInner() {
   const [bible, setBible] = useState<CharacterBible | null>(() => loadBible());
-  const [modelIdx, setModelIdx] = useState(DEFAULT_MODEL_INDEX);
+  const [modelIdx] = useSelectedModelIdx();
   const [step, setStep] = useState<Step>('picker');
   const [npc, setNpc] = useState<NpcEntry | null>(null);
   const [thread, setThread] = useState<NpcThread | null>(null);
@@ -421,7 +420,6 @@ function NpcChatInner() {
     <div className="at-panel">
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h2 style={{ margin: 0 }}>Tavern</h2>
-        <ModelPicker label="NPC model" value={modelIdx} onChange={setModelIdx} disabled={busy !== 'idle'} />
       </header>
 
       <p className="muted" style={{ marginTop: '0.5rem', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ModelPicker } from './ModelPicker';
-import { MODEL_CHOICES, DEFAULT_MODEL_INDEX } from '../lib/modelChoices';
+import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import { loadBible } from '../lib/bibleStore';
 import { loadAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
 import {
@@ -28,7 +27,7 @@ interface Chapter {
 export function ChronicleReader() {
   const [bible, setBible] = useState<CharacterBible | null>(() => loadBible());
   const [mode, setMode] = useState<ReaderMode>('latest');
-  const [modelIdx, setModelIdx] = useState(DEFAULT_MODEL_INDEX);
+  const [modelIdx] = useSelectedModelIdx();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recap, setRecap] = useState<LLMResponse | null>(null);
@@ -208,7 +207,6 @@ export function ChronicleReader() {
                 </p>
               </div>
               <div className="at-chronicle-generate-controls">
-                <ModelPicker value={modelIdx} onChange={setModelIdx} disabled={busy} label="Narrator model" />
                 <button
                   className="at-btn at-btn-primary"
                   onClick={generateRecap}
@@ -232,8 +230,6 @@ export function ChronicleReader() {
             <SessionTrail
               sessions={sessions}
               bible={bible}
-              modelIdx={modelIdx}
-              onModelChange={setModelIdx}
             />
           ) : (
             <section className="at-chronicle-book">
@@ -431,14 +427,11 @@ function CampfireRecapArticle({ recap }: { recap: LLMResponse }) {
 function SessionTrail({
   sessions,
   bible,
-  modelIdx,
-  onModelChange,
 }: {
   sessions: ChronicleSession[];
   bible: CharacterBible;
-  modelIdx: number;
-  onModelChange: (modelIdx: number) => void;
 }) {
+  const [modelIdx] = useSelectedModelIdx();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(sessions[0]?.id ?? null);
   const [busySessionId, setBusySessionId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -514,7 +507,6 @@ function SessionTrail({
                     </p>
                   </div>
                   <div className="at-chronicle-generate-controls">
-                    <ModelPicker value={modelIdx} onChange={onModelChange} disabled={Boolean(busySessionId)} label="Narrator model" />
                     <button
                       className="at-btn at-btn-primary"
                       onClick={() => generateSelectedSessionRecap(session)}

@@ -72,3 +72,60 @@ export const MODEL_CHOICES: ModelChoice[] = [
 // sensible price. Per the architecture doc, per-tier defaults are configurable
 // in the backend at launch; this is the dev / Phase-0 default.
 export const DEFAULT_MODEL_INDEX = 0;
+
+// ---------------------------------------------------------------------------
+// Selected-model persistence.
+//
+// The picker used to live at the top of every generate surface (Character
+// Creation, Chronicle Reader, Scribe's Desk, NPC chat) with its own local
+// useState. That was noisy AND every screen reset to default on mount, so the
+// user's choice didn't follow them around. We collapsed the four pickers into
+// one global selection that's exposed inside the Settings (key) modal — the
+// place where users already think about "how my key is being used."
+// ---------------------------------------------------------------------------
+
+const SELECTED_MODEL_STORAGE_KEY = 'at.modelIdx';
+const SELECTED_MODEL_EVENT = 'at:model-updated';
+
+export function getSelectedModelIdx(): number {
+  try {
+    const raw = window.localStorage.getItem(SELECTED_MODEL_STORAGE_KEY);
+    if (raw == null) return DEFAULT_MODEL_INDEX;
+    const n = Number.parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 0 && n < MODEL_CHOICES.length) return n;
+  } catch {
+    // localStorage unavailable — fall through to default.
+  }
+  return DEFAULT_MODEL_INDEX;
+}
+
+export function setSelectedModelIdx(idx: number): void {
+  const clamped = Math.max(0, Math.min(MODEL_CHOICES.length - 1, Math.floor(idx)));
+  try {
+    window.localStorage.setItem(SELECTED_MODEL_STORAGE_KEY, String(clamped));
+  } catch {
+    // ignore — quota or private-mode failure shouldn't break the picker.
+  }
+  window.dispatchEvent(new CustomEvent(SELECTED_MODEL_EVENT, { detail: clamped }));
+}
+
+import { useEffect, useState } from 'react';
+
+/** Read the current selected-model index reactively. Updates whenever the
+ *  Settings panel changes it. Returns the index + a setter so call sites that
+ *  used to keep their own useState can drop in with a one-line change. */
+export function useSelectedModelIdx(): [number, (idx: number) => void] {
+  const [idx, setIdx] = useState<number>(() => {
+    try {
+      return getSelectedModelIdx();
+    } catch {
+      return DEFAULT_MODEL_INDEX;
+    }
+  });
+  useEffect(() => {
+    const handler = () => setIdx(getSelectedModelIdx());
+    window.addEventListener(SELECTED_MODEL_EVENT, handler);
+    return () => window.removeEventListener(SELECTED_MODEL_EVENT, handler);
+  }, []);
+  return [idx, setSelectedModelIdx];
+}
