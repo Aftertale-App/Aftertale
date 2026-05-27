@@ -953,11 +953,14 @@ function CharacterSheet({
       </header>
 
       {bible.coreQuote && bible.coreQuote.trim() && (
-        <div className="at-sheet-corequote">
-          <span className="at-sheet-corequote-mark" aria-hidden>“</span>
-          <p className="at-sheet-corequote-text">{bible.coreQuote.trim()}</p>
-          <span className="at-sheet-corequote-mark at-sheet-corequote-mark-close" aria-hidden>”</span>
-        </div>
+        <section className="at-sheet-section">
+          <h3 className="at-sheet-section-title">The Hero's Truth</h3>
+          <div className="at-sheet-corequote">
+            <span className="at-sheet-corequote-mark" aria-hidden>“</span>
+            <p className="at-sheet-corequote-text">{bible.coreQuote.trim()}</p>
+            <span className="at-sheet-corequote-mark at-sheet-corequote-mark-close" aria-hidden>”</span>
+          </div>
+        </section>
       )}
 
       <section className="at-sheet-section">
@@ -1563,7 +1566,7 @@ function ReviewView({
           rows={4}
         />
       </Field>
-      <Field label="Core quote (one sentence that distills the hero)">
+      <Field label="The Hero's Truth (one sentence that distills the hero)">
         <input
           className="at-input"
           value={bible.coreQuote ?? ''}

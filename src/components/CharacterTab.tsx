@@ -201,9 +201,12 @@ export function CharacterTab() {
               <h4>Voice</h4>
               <p>{generatedBible.voice}</p>
               {generatedBible.coreQuote && (
-                <p>
-                  <em>"{generatedBible.coreQuote}"</em>
-                </p>
+                <>
+                  <h4>The Hero's Truth</h4>
+                  <p>
+                    <em>"{generatedBible.coreQuote}"</em>
+                  </p>
+                </>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>

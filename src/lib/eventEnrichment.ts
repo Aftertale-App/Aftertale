@@ -20,7 +20,7 @@ function bibleHeader(bible: CharacterBible): string {
     `Hero: ${bible.name}, ${bible.faction} ${bible.race} ${bible.class}`,
     typeof bible.level === 'number' ? `Level: ${bible.level}` : null,
     bible.currentZone ? `Current zone: ${bible.currentZone}` : null,
-    bible.coreQuote ? `Core sentence: ${bible.coreQuote}` : null,
+    bible.coreQuote ? `Hero's truth: ${bible.coreQuote}` : null,
     '',
     'Voice:',
     bible.voice,

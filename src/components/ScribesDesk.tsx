@@ -671,7 +671,7 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
     if (!includeBible) return null;
     const lines = [
       bible.backstory?.trim(),
-      bible.coreQuote ? `Core sentence: ${bible.coreQuote}` : null,
+      bible.coreQuote ? `Hero's truth: ${bible.coreQuote}` : null,
     ].filter((l): l is string => Boolean(l && l.trim()));
     return lines.length ? lines.join('\n\n') : null;
   }, [bible, includeBible]);

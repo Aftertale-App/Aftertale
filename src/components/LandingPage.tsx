@@ -679,11 +679,13 @@ function QuotePanel() {
           Every hero in Aftertale carries a truth at their center. Not a slogan. Not a
           stat block. Something the story can return to when the road gets dark.
         </p>
-        <p className="at-quote-context">
-          For Magnus, it is this: fire reveals what metal is. Pressure reveals what men
-          are. The forge does not flatter, excuse, or forgive.
-        </p>
-        <p className="at-quote-context at-quote-context-coda">It only shows what holds.</p>
+        <div className="at-quote-gloss">
+          <p className="at-quote-context at-quote-context-gloss">
+            For Magnus, it is this: fire reveals what metal is. Pressure reveals what men
+            are. The forge does not flatter, excuse, or forgive.
+          </p>
+          <p className="at-quote-context at-quote-context-coda">It only shows what holds.</p>
+        </div>
       </div>
     </PanelFrame>
   );
@@ -1597,12 +1599,25 @@ const landingStyles = `
     margin: 0 0 0.9rem;
   }
   .at-quote-context:last-child { margin-bottom: 0; }
+  .at-quote-gloss {
+    margin-top: 1.4rem;
+    padding: 1.2rem 1.6rem 1.3rem;
+    border-left: 2px solid var(--at-accent-gold, #d4a373);
+    background: linear-gradient(180deg, rgba(212,163,115,0.08), rgba(212,163,115,0.02));
+    border-radius: 0 6px 6px 0;
+    max-width: 520px;
+  }
+  .at-quote-context-gloss {
+    color: var(--at-text);
+    font-style: italic;
+  }
   .at-quote-context-coda {
     font-family: var(--at-font-display);
     font-style: italic;
     color: var(--at-text);
     font-size: 17px;
-    margin-top: 0.4rem;
+    margin-top: 0.6rem;
+    text-align: center;
   }
   .at-panel-kicker-center { text-align: center; }
 
