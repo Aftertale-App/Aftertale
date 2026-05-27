@@ -8,6 +8,7 @@ import {
   eventFactLine,
   type ChronicleSession,
 } from '../lib/sessionHistory';
+import { Reveal } from './Reveal';
 import type { CharacterBible, HistoryEntry, LLMResponse } from '../types';
 
 const SESSION_WINDOW_MS = 9 * 60 * 60 * 1000;
@@ -100,14 +101,19 @@ export function ChronicleReader() {
 
   if (!bible) {
     return (
-      <section className="at-panel at-chronicle-reader">
-        <h2>Chronicle</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Select or roll a hero first. The Chronicle turns quest turn-ins, levels, zones, and manual notes into the story you read after a session.
-        </p>
+      <section className="at-panel at-chronicle-reader at-chronicle-empty-shell">
+        <header className="at-section-intro">
+          <p className="at-kicker">✦ Story ledger</p>
+          <h2 className="at-section-headline">Your Chronicle awaits</h2>
+          <p className="at-section-sub">
+            Select or roll a hero first. The Chronicle turns quest turn-ins, levels, zones, and manual notes
+            into the story you read after a session.
+          </p>
+          <div className="at-section-ornament" aria-hidden="true">✦</div>
+        </header>
         <div className="at-chronicle-empty-actions">
           <button className="at-btn at-btn-primary" onClick={() => requestTab('character')}>
-            ◆ Choose a hero
+            Choose a hero
           </button>
         </div>
       </section>
@@ -118,9 +124,9 @@ export function ChronicleReader() {
     <section className="at-panel at-chronicle-reader">
       <header className="at-chronicle-hero">
         <div>
-          <p className="at-kicker">Story ledger</p>
-          <h2>{bible.name}'s Chronicle</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
+          <p className="at-kicker">✦ Story ledger</p>
+          <h2 className="at-section-headline">{bible.name}'s Chronicle</h2>
+          <p className="at-section-sub">
             The "so what" layer: read the session, scan the arc, then generate a campfire recap when the log deserves prose.
           </p>
         </div>
@@ -167,18 +173,19 @@ export function ChronicleReader() {
 
       {!hasStoryData ? (
         <div className="at-chronicle-empty">
-          <h3>No story entries yet</h3>
-          <p className="muted">
+          <p className="at-kicker">✦ Not yet written</p>
+          <h3 className="at-section-headline-sm">No story entries yet</h3>
+          <p className="at-section-sub">
             Visit the <strong>Scribe's Desk</strong> tab to import your{' '}
             <code>Aftertale.lua</code> and enrich it into prose, or run the Addon
             Sim, or add manual deeds from the character sheet.
           </p>
           <div className="at-chronicle-empty-actions" style={{ marginTop: '1rem' }}>
             <button className="at-btn at-btn-primary" onClick={() => requestTab('desk')}>
-              ◆ Open Scribe's Desk
+              Open Scribe's Desk
             </button>
             <button className="at-btn at-btn-secondary" onClick={() => requestTab('addon')}>
-              ◆ Addon Sim
+              Addon Sim
             </button>
             <button className="at-btn at-btn-secondary" onClick={() => requestTab('character')}>
               Add manual entry
@@ -243,22 +250,24 @@ export function ChronicleReader() {
               ) : (
                 <div className="at-chronicle-chapters">
                   {visibleChapters.map((chapter, i) => (
-                    <article key={chapter.id} className="at-chronicle-chapter">
-                      <div className="at-chronicle-chapter-head">
-                        <span className="at-chronicle-chapter-num">Chapter {i + 1}</span>
-                        <h4>{chapter.title}</h4>
-                        <span>{formatDateRange(chapter.start, chapter.end)}</span>
-                      </div>
-                      <ol>
-                        {chapter.entries.map((entry) => (
-                          <li key={entry.id}>
-                            <span>{formatEntryTime(entry.timestamp)}</span>
-                            <p>{entry.text}</p>
-                            {entryContext(entry) && <small>{entryContext(entry)}</small>}
-                          </li>
-                        ))}
-                      </ol>
-                    </article>
+                    <Reveal key={chapter.id}>
+                      <article className="at-chronicle-chapter">
+                        <div className="at-chronicle-chapter-head">
+                          <span className="at-chronicle-chapter-num">Chapter {i + 1}</span>
+                          <h4>{chapter.title}</h4>
+                          <span>{formatDateRange(chapter.start, chapter.end)}</span>
+                        </div>
+                        <ol>
+                          {chapter.entries.map((entry) => (
+                            <li key={entry.id}>
+                              <span>{formatEntryTime(entry.timestamp)}</span>
+                              <p>{entry.text}</p>
+                              {entryContext(entry) && <small>{entryContext(entry)}</small>}
+                            </li>
+                          ))}
+                        </ol>
+                      </article>
+                    </Reveal>
                   ))}
                 </div>
               )}
