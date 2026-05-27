@@ -12,7 +12,7 @@ fallback, and (4) the subscription-only moat that keeps unlocks from
 cannibalizing recurring revenue.
 
 The strategy summary and conversion hypotheses live in
-`private/coa-monetization-dashboard.html` (Unlocks tab). That dashboard is the
+`private/aftertale-monetization-dashboard.html` (Unlocks tab). That dashboard is the
 business-case planning tool. **This doc is the engineering and UX spec.**
 
 ---
