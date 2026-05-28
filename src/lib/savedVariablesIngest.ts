@@ -265,6 +265,8 @@ function rowToEvent(
     source: 'wow-addon',
     kind: mapKind(wowEvent),
     wowEvent: wowEvent as WowEventName,
+    char: asString(row.char),
+    charName: asString(row.charName),
     timestamp: parsedTs,
     rawTs: ts,
     rawArgs,

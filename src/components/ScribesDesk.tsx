@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AddonImport,
   ImportInlineMessage,
+  ImportPreviewCard,
   importButtonLabel,
   useAftertaleLuaImport,
 } from './AddonImport';
@@ -49,6 +50,12 @@ import {
   type LootQuality,
 } from '../lib/storyBeatSettings';
 import type { CharacterBible } from '../types';
+
+function formatInkwellBinding(bible: CharacterBible): string {
+  const realm = bible.realm?.trim();
+  const raceClass = [bible.wowRace?.trim(), bible.wowClass?.trim()].filter(Boolean).join(' ');
+  return `🛡️ Bound to ${bible.name}${realm ? ` of ${realm}` : ''}${raceClass ? ` · ${raceClass}` : ''}`;
+}
 
 export function ScribesDesk() {
   const [bible, setBible] = useState<CharacterBible | null>(() => loadBible());
@@ -109,6 +116,7 @@ export function ScribesDesk() {
     () => (bible ? buildChronicleSessions(scopedRecords, bible.name) : []),
     [bible, scopedRecords],
   );
+  const bindingLabel = bible?.characterGuid ? formatInkwellBinding(bible) : null;
 
   return (
     <>
@@ -185,6 +193,9 @@ export function ScribesDesk() {
           <header className="at-desk-intro">
             <p className="at-kicker">✦ The Inkwell · Artisan workflow</p>
             <h2 className="at-section-headline">Turn raw play into chapters, your way</h2>
+            {bindingLabel && (
+              <p className="at-kicker" style={{ marginTop: '0.35rem' }}>{bindingLabel}</p>
+            )}
             <p className="at-section-sub">
               Import your save file, bind manual notes to sessions, pen Scribe's Notes, and publish session recaps into the Chronicle. Your hands on every step.
             </p>
@@ -267,9 +278,15 @@ function InkwellImportStrip({
   importRecord: ImportRecord | null;
   sessionCount: number;
 }) {
-  const { state, handleFile } = useAftertaleLuaImport();
+  const {
+    state,
+    handleFile,
+    commitPreparedImport,
+    bindCharacter,
+    cancelPreview,
+  } = useAftertaleLuaImport({ mode: 'smart' });
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const isBusy = state.status === 'checking' || state.status === 'parsing';
+  const isBusy = state.status === 'checking' || state.status === 'parsing' || state.status === 'committing';
   const bible = loadBible();
   const characterKey = bible ? String(bible.createdAt) : null;
   const [hasRememberedHandle, setHasRememberedHandle] = useState<boolean>(false);
@@ -379,6 +396,14 @@ function InkwellImportStrip({
           <ImportInlineMessage tone="fresh">
             ✨ Picked up {state.newEvents.toLocaleString()} new events since your last import
           </ImportInlineMessage>
+        )}
+        {state.status === 'preview' && state.plan && state.bible && (
+          <ImportPreviewCard
+            state={state}
+            onImport={() => commitPreparedImport()}
+            onCancel={cancelPreview}
+            onBind={bindCharacter}
+          />
         )}
         {state.status === 'error' && (
           <div

@@ -16,7 +16,7 @@ local CHAT_TAG = "|cFFFFD700[Aftertale]|r"
 -- Schema version for AftertaleDB. Bump when shape changes in a
 -- way old saves can't be loaded by new code. migrate() runs once per load
 -- and walks db.schemaVersion forward to CURRENT_SCHEMA.
-local CURRENT_SCHEMA = 1
+local CURRENT_SCHEMA = 2
 
 ------------------------------------------------------------------------
 -- Compat shims
@@ -59,7 +59,8 @@ end
 -- AftertaleDB = {
 --   meta = { version, project, build, characterName, realm, startedAt,
 --            chatLogEnabled, combatLogEnabled },
---   events = { { t, ts, event, args = {...} }, ... },
+--   events = { { id, t, ts, event, char, charName, args = {...}, enrichment? }, ... },
+--   char is the player GUID and canonical character identity.
 --   counts = { [eventName] = number },
 --   combatLogSampleRate = 50,
 --   missingEvents = { [eventName] = reasonString },
@@ -483,6 +484,8 @@ local function recordEvent(db, event, ...)
     t = GetTime(),
     ts = date("%Y-%m-%dT%H:%M:%S"),
     event = event,
+    char = UnitGUID("player") or nil,
+    charName = UnitName("player") or nil,
     args = args,
   }
   if db.enrichmentEnabled and event ~= "COMBAT_LOG_EVENT_UNFILTERED" then

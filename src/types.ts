@@ -68,6 +68,15 @@ export interface CharacterBible {
   currentZone?: string;       // current zone, e.g. 'Westfall'
   history?: HistoryEntry[];   // chronological journal, oldest first
 
+  /**
+   * Populated when the bible is bound to a real WoW character via the importer
+   * (schemaVersion 2+). Optional for backwards compatibility with existing bibles.
+   */
+  characterGuid?: string;
+  realm?: string;
+  wowClass?: string;
+  wowRace?: string;
+
   createdAt: number;
   updatedAt: number;
   // Phase 1+ will add: relationships, scars, vows, contradictions, etc.

@@ -122,6 +122,9 @@ export interface AddonEvent {
   source: AddonEventSource;
   kind: AddonEventKind;
   wowEvent: WowEventName;
+  // Populated by addon schemaVersion 2+; absent on older imports for legacy backwards compatibility.
+  char?: string;
+  charName?: string;
   timestamp: number;
   chainId?: string;
   chainTitle?: string;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   clearApiKey,
@@ -12,8 +12,9 @@ import { useSelectedModelIdx } from '../lib/modelChoices';
 import { useAuth, signOut } from '../lib/auth';
 import { clearAddonEventRecords } from '../lib/addonEventStore';
 import { clearEnrichments, ENRICHMENTS_UPDATED_EVENT } from '../lib/enrichmentStore';
-import { loadBible, clearAddonHistoryEntries } from '../lib/bibleStore';
+import { clearBibleCharacterBinding, loadBible, clearAddonHistoryEntries } from '../lib/bibleStore';
 import { SaveChronicleModal, type AuthModalMode } from './SaveChronicleModal';
+import type { CharacterBible } from '../types';
 
 export type SettingsSectionId = 'account' | 'apiKeys' | 'models' | 'data' | 'advanced';
 
@@ -308,18 +309,44 @@ function ModelsSection() {
 
 // --- Section: Data ------------------------------------------------------------
 
+function formatSettingsBinding(bible: CharacterBible): string {
+  const realm = bible.realm?.trim();
+  return `🛡️ Bound to ${bible.name}${realm ? `-${realm}` : ''}`;
+}
+
 function DataSection() {
-  const bible = useMemo(() => loadBible(), []);
+  const [bible, setBible] = useState<CharacterBible | null>(() => loadBible());
   const characterKey = bible ? String(bible.createdAt) : null;
   const characterName = bible?.name ?? null;
+  const bindingLabel = bible?.characterGuid ? formatSettingsBinding(bible) : null;
   const [armed, setArmed] = useState<null | 'character' | 'all'>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [bindingFlash, setBindingFlash] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onBibleUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<CharacterBible | null>).detail;
+      setBible(detail ?? loadBible());
+    };
+    window.addEventListener('at:bible-updated', onBibleUpdated);
+    window.addEventListener('storage', onBibleUpdated);
+    return () => {
+      window.removeEventListener('at:bible-updated', onBibleUpdated);
+      window.removeEventListener('storage', onBibleUpdated);
+    };
+  }, []);
 
   useEffect(() => {
     if (!armed) return;
     const t = setTimeout(() => setArmed(null), 4000);
     return () => clearTimeout(t);
   }, [armed]);
+
+  useEffect(() => {
+    if (!bindingFlash) return;
+    const t = setTimeout(() => setBindingFlash(null), 4000);
+    return () => clearTimeout(t);
+  }, [bindingFlash]);
 
   function purgeCharacter() {
     if (!characterKey) return;
@@ -334,6 +361,15 @@ function DataSection() {
     setFlash(
       `Cleared ${removed} session event${removed === 1 ? '' : 's'} for ${characterName ?? 'this character'}.`,
     );
+  }
+
+  function unbindCharacter() {
+    if (!bible?.characterGuid) return;
+    const cleared = clearBibleCharacterBinding(bible);
+    setBible(cleared);
+    setArmed(null);
+    setFlash(null);
+    setBindingFlash('Unbound. Next import will need to re-attribute.');
   }
 
   function purgeAll() {
@@ -367,6 +403,45 @@ function DataSection() {
       kicker="Local storage"
       blurb="Everything Aftertale stores lives in this browser. Your character bible and manual chronicle entries are never touched by the actions below."
     >
+      <div className="at-callout" style={{ padding: '0.75rem 1rem', marginBottom: '1rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <div className="at-settings-pair-label" style={{ marginBottom: 4 }}>
+              WoW character binding
+            </div>
+            {bindingLabel ? (
+              <strong>{bindingLabel}</strong>
+            ) : (
+              <span className="muted" style={{ fontSize: 13 }}>
+                No WoW character bound. Bind one via the importer.
+              </span>
+            )}
+          </div>
+          {bindingLabel && (
+            <button
+              type="button"
+              className="at-btn at-btn-secondary at-btn-sm"
+              onClick={unbindCharacter}
+            >
+              Unbind
+            </button>
+          )}
+        </div>
+        {bindingFlash && (
+          <p className="muted" role="status" style={{ margin: '0.5rem 0 0', fontSize: 13 }}>
+            ✓ {bindingFlash}
+          </p>
+        )}
+      </div>
+
       <div className="at-desk-dangerzone" style={{ marginTop: 0 }}>
         <div className="at-desk-dangerzone-head">
           <span className="at-desk-dangerzone-label">⚠ Danger zone</span>

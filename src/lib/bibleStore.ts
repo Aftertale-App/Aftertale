@@ -59,6 +59,10 @@ export function validateBible(x: unknown): x is CharacterBible {
   if (b.coreQuote !== undefined && typeof b.coreQuote !== 'string') return false;
   if (b.level !== undefined && (typeof b.level !== 'number' || !Number.isFinite(b.level))) return false;
   if (b.currentZone !== undefined && typeof b.currentZone !== 'string') return false;
+  if (b.characterGuid !== undefined && typeof b.characterGuid !== 'string') return false;
+  if (b.realm !== undefined && typeof b.realm !== 'string') return false;
+  if (b.wowClass !== undefined && typeof b.wowClass !== 'string') return false;
+  if (b.wowRace !== undefined && typeof b.wowRace !== 'string') return false;
   if (b.history !== undefined) {
     if (!Array.isArray(b.history)) return false;
     for (const entry of b.history) {
@@ -121,6 +125,18 @@ export function bibleValidationErrors(x: unknown): string[] {
   }
   if (b.currentZone !== undefined && typeof b.currentZone !== 'string') {
     errors.push('"currentZone" must be a string if present');
+  }
+  if (b.characterGuid !== undefined && typeof b.characterGuid !== 'string') {
+    errors.push('"characterGuid" must be a string if present');
+  }
+  if (b.realm !== undefined && typeof b.realm !== 'string') {
+    errors.push('"realm" must be a string if present');
+  }
+  if (b.wowClass !== undefined && typeof b.wowClass !== 'string') {
+    errors.push('"wowClass" must be a string if present');
+  }
+  if (b.wowRace !== undefined && typeof b.wowRace !== 'string') {
+    errors.push('"wowRace" must be a string if present');
   }
   if (b.history !== undefined && !Array.isArray(b.history)) {
     errors.push('"history" must be an array if present');
@@ -477,6 +493,68 @@ export function updateActiveBible(
     ...patch,
     updatedAt: Date.now(),
   };
+  writeEntry(updated);
+  fireBibleUpdated(updated);
+  return updated;
+}
+
+function ensureBibleInRoster(bible: CharacterBible): void {
+  const key = bibleKey(bible);
+  const roster = readRoster();
+  if (!roster.keys.includes(key)) {
+    roster.keys.push(key);
+    writeRoster(roster);
+  }
+}
+
+function optionalTrimmed(value: string | undefined): string | undefined {
+  return value?.trim() || undefined;
+}
+
+export function setBibleCharacterBinding(
+  bible: CharacterBible,
+  binding: { guid: string; realm?: string; wowClass?: string; wowRace?: string; charName?: string },
+): CharacterBible {
+  migrateLegacyIfPresent();
+  const updated: CharacterBible = {
+    ...bible,
+    characterGuid: binding.guid.trim(),
+    realm: optionalTrimmed(binding.realm),
+    wowClass: optionalTrimmed(binding.wowClass),
+    wowRace: optionalTrimmed(binding.wowRace),
+    updatedAt: Date.now(),
+  };
+  ensureBibleInRoster(updated);
+  writeEntry(updated);
+  fireBibleUpdated(updated);
+  return updated;
+}
+
+export function findBibleByCharacterGuid(guid: string): CharacterBible | null {
+  const trimmedGuid = guid.trim();
+  if (!trimmedGuid) return null;
+  migrateLegacyIfPresent();
+  applySeedBackfills();
+  purgeAddonHistoryFromAllBibles();
+  const roster = readRoster();
+  for (const key of roster.keys) {
+    const bible = readEntry(key);
+    if (bible?.characterGuid === trimmedGuid) return bible;
+  }
+  return null;
+}
+
+export function clearBibleCharacterBinding(bible: CharacterBible): CharacterBible {
+  migrateLegacyIfPresent();
+  const updated: CharacterBible = {
+    ...bible,
+    characterGuid: undefined,
+    realm: undefined,
+    wowClass: undefined,
+    wowRace: undefined,
+    updatedAt: Date.now(),
+  };
+  ensureBibleInRoster(updated);
   writeEntry(updated);
   fireBibleUpdated(updated);
   return updated;
