@@ -46,7 +46,7 @@ export function ingestAddonEvent(event: AddonEvent): AddonIngestResult {
   }
 
   // Addon events no longer write chronicle entries directly. They live in
-  // addonEventRecords as source material for Session Trail and the AI to
+  // addonEventRecords as source material for The Inkwell and the AI to
   // weave into committed session recaps. Only committed recaps + manual
   // entries are deeds / chapters now.
 

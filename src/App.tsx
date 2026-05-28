@@ -121,8 +121,8 @@ export function App() {
     if (showDesk) {
       specs.push({
         id: 'desk',
-        label: "Scribe's Desk",
-        title: "Import SavedVariables, pen Scribe's Notes from your events, and download a restore snippet for WoW",
+        label: "The Inkwell",
+        title: "Import SavedVariables, pen Scribe's Notes, and publish session recaps",
       });
     }
     if (SHOW_DEV_TOOLS) {

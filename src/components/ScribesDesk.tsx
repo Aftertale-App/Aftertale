@@ -1,48 +1,64 @@
 // ============================================================================
-// Scribe's Desk — the Free/BYOK manual workflow page.
+// The Inkwell — the Free/BYOK authoring workflow page.
 //
-// Linear stepper: (1) Import SV → (2) Filter → (3) Enrich → (4) Export snippet.
+// Flow: (1) Import save file → (2) Write session cards. The session cards own
+// generate / publish / unpublish / per-beat enrichment. Story-beat curation
+// lives in lib/storyBeats.ts; the only user-tunable curation knob (loot
+// quality floor) sits inline next to "Add manual entry".
+//
 // Free-tier users live here. Paid Companion+ users get this all done for
 // them by the desktop daemon (which produces the same .lua restore file).
 //
 // See docs/companion-architecture.md for the bigger picture.
 //
 // Refactored out of ChronicleReader.tsx (which is now pure-read) on
-// 2026-05-26.
+// 2026-05-26. Bulk filter/enrich/export panels removed on 2026-05-28 in
+// favor of per-session card authoring.
 // ============================================================================
 
-import { useEffect, useMemo, useState } from 'react';
-import { AddonImport } from './AddonImport';
-import { EventFilterPanel } from './EventFilterPanel';
-import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AddonImport,
+  ImportInlineMessage,
+  importButtonLabel,
+  useAftertaleLuaImport,
+} from './AddonImport';
+import ManualEntryDialog from './ManualEntryDialog';
+import { SessionTrail } from './SessionTrail';
 import { loadBible } from '../lib/bibleStore';
+import {
+  clearFileHandle,
+  ensureReadPermission,
+  isFileSystemAccessSupported,
+  loadFileHandle,
+  pickFileWithHandle,
+  saveFileHandle,
+} from '../lib/fileHandleStore';
+import {
+  IMPORT_TRACKER_UPDATED_EVENT,
+  loadImportRecord,
+  type ImportRecord,
+} from '../lib/importTracker';
 import { loadAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
-import { buildChronicleBlob, entryId } from '../lib/chronicleExport';
-import { buildChronicleSnippet, SNIPPET_FILENAME } from '../lib/chronicleSnippet';
-import { enrichEvent } from '../lib/eventEnrichment';
+import { buildChronicleSessions } from '../lib/sessionHistory';
 import {
-  clearEnrichments,
-  ENRICHMENTS_UPDATED_EVENT,
-  loadEnrichments,
-  toParagraphMap,
-  upsertEnrichments,
-} from '../lib/enrichmentStore';
-import {
-  defaultEventFilter,
-  loadEventFilter,
-  passesFilter,
-  saveEventFilter,
-  unknownEventTypes,
-  type EventFilter,
-} from '../lib/eventFilter';
-import type { AddonEvent } from '../lib/addonEvents';
-import type { CharacterBible, LLMResponse } from '../types';
-
-const ENRICH_CONCURRENCY = 3;
+  DEFAULT_STORY_BEAT_SETTINGS,
+  loadStoryBeatSettings,
+  saveStoryBeatSettings,
+  STORY_BEAT_SETTINGS_UPDATED_EVENT,
+  type LootQuality,
+} from '../lib/storyBeatSettings';
+import type { CharacterBible } from '../types';
 
 export function ScribesDesk() {
   const [bible, setBible] = useState<CharacterBible | null>(() => loadBible());
   const [records, setRecords] = useState<AddonEventRecord[]>(() => loadAddonEventRecords());
+  const [manualOpen, setManualOpen] = useState(false);
+  const [focusedSessionId, setFocusedSessionId] = useState<string | undefined>();
+  const characterKey = bible ? String(bible.createdAt) : null;
+  const [importRecord, setImportRecord] = useState<ImportRecord | null>(() =>
+    loadImportRecord(characterKey),
+  );
 
   useEffect(() => {
     const onBible = (e: Event) => {
@@ -63,10 +79,35 @@ export function ScribesDesk() {
     };
   }, []);
 
-  const characterKey = bible ? String(bible.createdAt) : null;
+  useEffect(() => {
+    const refresh = () => setImportRecord(loadImportRecord(characterKey));
+    refresh();
+    window.addEventListener(IMPORT_TRACKER_UPDATED_EVENT, refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener(IMPORT_TRACKER_UPDATED_EVENT, refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, [characterKey]);
+
+  useEffect(() => {
+    const onOpenSession = (event: Event) => {
+      const sessionId = (event as CustomEvent<string>).detail;
+      if (!sessionId) return;
+      setFocusedSessionId(sessionId);
+      window.dispatchEvent(new CustomEvent('at:scroll-to-session', { detail: sessionId }));
+    };
+    window.addEventListener('at:open-inkwell-session', onOpenSession);
+    return () => window.removeEventListener('at:open-inkwell-session', onOpenSession);
+  }, []);
+
   const scopedRecords = useMemo(
     () => (characterKey ? records.filter((r) => r.characterKey === characterKey) : []),
     [records, characterKey],
+  );
+  const sessions = useMemo(
+    () => (bible ? buildChronicleSessions(scopedRecords, bible.name) : []),
+    [bible, scopedRecords],
   );
 
   return (
@@ -89,6 +130,44 @@ export function ScribesDesk() {
           flex-direction: column;
           gap: 0.85rem;
         }
+        .inkwell-import-strip {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.75rem 0.9rem;
+          border: 1px solid rgba(164,122,209,0.3);
+          border-radius: 0.75rem;
+          background: linear-gradient(135deg, rgba(164,122,209,0.16), rgba(164,122,209,0.05));
+        }
+        .inkwell-import-strip-copy {
+          flex: 1 1 320px;
+          min-width: 0;
+        }
+        .inkwell-import-strip-copy p {
+          margin: 0;
+          line-height: 1.45;
+        }
+        .inkwell-import-link {
+          background: none;
+          border: none;
+          padding: 0;
+          color: var(--gold);
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          cursor: pointer;
+          font: inherit;
+        }
+        .inkwell-import-link:hover {
+          color: var(--gold-bright);
+        }
+        .inkwell-import-strip-action {
+          display: flex;
+          flex: 0 0 auto;
+          align-items: center;
+          gap: 0.5rem;
+        }
         @media (min-width: 960px) {
           .desk-layout {
             grid-template-columns: minmax(0, 1fr) 320px;
@@ -104,14 +183,16 @@ export function ScribesDesk() {
       <div className="desk-layout">
         <div className="desk-main">
           <header className="at-desk-intro">
-            <p className="at-kicker">✦ Scribe's Desk · Artisan workflow</p>
-            <h2 className="at-section-headline">Turn raw play into a chapter, your way</h2>
+            <p className="at-kicker">✦ The Inkwell · Artisan workflow</p>
+            <h2 className="at-section-headline">Turn raw play into chapters, your way</h2>
             <p className="at-section-sub">
-              Import your save file, pick which moments become prose, pen Scribe's Notes with the
-              model of your choice, and download a restore file to drop back into the game. Four
-              steps. Your hands on every one of them.
+              Import your save file, bind manual notes to sessions, pen Scribe's Notes, and publish session recaps into the Chronicle. Your hands on every step.
             </p>
           </header>
+
+          {importRecord && (
+            <InkwellImportStrip importRecord={importRecord} sessionCount={sessions.length} />
+          )}
 
           <Step
             number={1}
@@ -128,17 +209,37 @@ export function ScribesDesk() {
             )}
           </Step>
 
-          {!bible ? (
+
+          {bible && (
+            <Step
+              number={2}
+              title="Write session cards"
+              helper="Generate, publish, unpublish, and enrich each observed play session."
+            >
+              <div
+                className="at-chronicle-empty-actions"
+                style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}
+              >
+                <button className="at-btn at-btn-secondary" onClick={() => setManualOpen(true)}>
+                  ✦ Add manual entry
+                </button>
+                {characterKey && (
+                  <LootFloorPicker characterKey={characterKey} />
+                )}
+              </div>
+              <SessionTrail
+                sessions={sessions}
+                bible={bible}
+                defaultSessionId={focusedSessionId}
+                onSessionFocus={setFocusedSessionId}
+              />
+            </Step>
+          )}
+
+          {!bible && (
             <div className="at-callout" style={{ padding: '0.75rem 1rem' }}>
-              Roll or select a character first — Scribe's Desk needs a bible to know whose voice
-              it's writing in.
+              Roll or select a character first — The Inkwell needs a bible to know whose voice it's writing in.
             </div>
-          ) : scopedRecords.length === 0 ? (
-            <div className="at-callout" style={{ padding: '0.75rem 1rem' }}>
-              Nothing to filter or scribe yet. Drop an SV file above to begin.
-            </div>
-          ) : (
-            <DeskWorkflow bible={bible} records={scopedRecords} />
           )}
         </div>
 
@@ -146,8 +247,197 @@ export function ScribesDesk() {
           <CompanionPitchCompact />
         </aside>
       </div>
+
+      {bible && (
+        <ManualEntryDialog
+          bible={bible}
+          open={manualOpen}
+          onClose={() => setManualOpen(false)}
+          defaultSessionId={focusedSessionId}
+        />
+      )}
     </>
   );
+}
+
+function InkwellImportStrip({
+  importRecord,
+  sessionCount,
+}: {
+  importRecord: ImportRecord | null;
+  sessionCount: number;
+}) {
+  const { state, handleFile } = useAftertaleLuaImport();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const isBusy = state.status === 'checking' || state.status === 'parsing';
+  const bible = loadBible();
+  const characterKey = bible ? String(bible.createdAt) : null;
+  const [hasRememberedHandle, setHasRememberedHandle] = useState<boolean>(false);
+  const fsaSupported = isFileSystemAccessSupported();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!characterKey || !fsaSupported) {
+      setHasRememberedHandle(false);
+      return;
+    }
+    void loadFileHandle(characterKey).then((h) => {
+      if (!cancelled) setHasRememberedHandle(Boolean(h));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [characterKey, fsaSupported, importRecord]);
+
+  async function tryReadRememberedHandle(): Promise<boolean> {
+    if (!characterKey || !fsaSupported) return false;
+    const handle = await loadFileHandle(characterKey);
+    if (!handle) return false;
+    const ok = await ensureReadPermission(handle);
+    if (!ok) return false;
+    try {
+      const file = await handle.getFile();
+      await handleFile(file);
+      return true;
+    } catch {
+      // Handle is stale (file moved/deleted) — drop it so the next click
+      // re-prompts the picker.
+      await clearFileHandle(characterKey);
+      setHasRememberedHandle(false);
+      return false;
+    }
+  }
+
+  async function onImportClick() {
+    // Path 1: we already remember this character's .lua → instant re-read.
+    if (await tryReadRememberedHandle()) return;
+
+    // Path 2: File System Access API available but no remembered handle →
+    // show the picker, remember the handle, read the file.
+    if (fsaSupported) {
+      const picked = await pickFileWithHandle();
+      if (picked) {
+        if (characterKey) {
+          await saveFileHandle(characterKey, picked.handle);
+          setHasRememberedHandle(true);
+        }
+        await handleFile(picked.file);
+        return;
+      }
+      // User cancelled. Don't fall through to the input — they meant cancel.
+      return;
+    }
+
+    // Path 3: legacy browser — fall back to <input type="file">.
+    inputRef.current?.click();
+  }
+
+  async function onChangeFile() {
+    if (characterKey) {
+      await clearFileHandle(characterKey);
+      setHasRememberedHandle(false);
+    }
+    // Immediately re-trigger the picker so it's one click, not two.
+    if (fsaSupported) {
+      const picked = await pickFileWithHandle();
+      if (picked && characterKey) {
+        await saveFileHandle(characterKey, picked.handle);
+        setHasRememberedHandle(true);
+        await handleFile(picked.file);
+      }
+    } else {
+      inputRef.current?.click();
+    }
+  }
+
+  return (
+    <section className="inkwell-import-strip" aria-label="Import latest Aftertale.lua">
+      <div className="inkwell-import-strip-copy">
+        {importRecord ? (
+          <p>
+            📜 Last imported {timeAgo(importRecord.importedAt)}.{' '}
+            {sessionCount.toLocaleString()} session{sessionCount === 1 ? '' : 's'} in the Chronicle{' '}
+            from this file.
+            {hasRememberedHandle && (
+              <>
+                {' '}
+                <button type="button" className="inkwell-import-link" onClick={onChangeFile}>
+                  Change file
+                </button>
+              </>
+            )}
+          </p>
+        ) : (
+          <p>📜 Start your saga — import your Aftertale.lua to see your sessions appear here.</p>
+        )}
+        {state.status === 'up-to-date' && (
+          <ImportInlineMessage tone="passive">
+            No new entries — your save file matches your last import.
+          </ImportInlineMessage>
+        )}
+        {state.status === 'done' && typeof state.newEvents === 'number' && (
+          <ImportInlineMessage tone="fresh">
+            ✨ Picked up {state.newEvents.toLocaleString()} new events since your last import
+          </ImportInlineMessage>
+        )}
+        {state.status === 'error' && (
+          <div
+            className="at-callout-danger"
+            style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: '0.5rem' }}
+          >
+            <strong>Import failed:</strong> {state.error}
+          </div>
+        )}
+      </div>
+      <div className="inkwell-import-strip-action">
+        <button
+          type="button"
+          className="at-btn at-btn-primary"
+          onClick={() => void onImportClick()}
+          disabled={isBusy}
+          title={
+            hasRememberedHandle
+              ? 'Re-reads the same Aftertale.lua you imported before — no picker.'
+              : undefined
+          }
+        >
+          {importButtonLabel(
+            state,
+            hasRememberedHandle ? '📜 Pull latest from saved file' : '📜 Import latest Aftertale.lua',
+          )}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".lua,text/plain"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+    </section>
+  );
+}
+
+function timeAgo(timestamp: number): string {
+  const elapsed = Math.max(0, Date.now() - timestamp);
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (elapsed < minute) return 'just now';
+  if (elapsed < hour) {
+    const value = Math.floor(elapsed / minute);
+    return `${value} minute${value === 1 ? '' : 's'} ago`;
+  }
+  if (elapsed < day) {
+    const value = Math.floor(elapsed / hour);
+    return `${value} hour${value === 1 ? '' : 's'} ago`;
+  }
+  const value = Math.floor(elapsed / day);
+  return `${value} day${value === 1 ? '' : 's'} ago`;
 }
 
 // ----------------------------------------------------------------------------
@@ -596,411 +886,68 @@ function Step({
 }
 
 // ----------------------------------------------------------------------------
-// The actual filter → enrich → export workflow, shown only when we have both
-// a bible and imported records to act on.
+// LootFloorPicker — the single curation knob users still get over what
+// surfaces as a story beat. Everything else is locked to STORY_BEAT_KINDS.
 // ----------------------------------------------------------------------------
 
-function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: AddonEventRecord[] }) {
-  const allEvents = useMemo<AddonEvent[]>(
-    () => [...records].sort((a, b) => a.event.timestamp - b.event.timestamp).map((r) => r.event),
-    [records],
+const LOOT_FLOOR_LABELS: Record<LootQuality, string> = {
+  common: 'Common+',
+  uncommon: 'Uncommon+',
+  rare: 'Rare+',
+  epic: 'Epic+',
+  legendary: 'Legendary only',
+};
+
+function LootFloorPicker({ characterKey }: { characterKey: string }) {
+  const [floor, setFloor] = useState<LootQuality>(
+    () => loadStoryBeatSettings(characterKey).lootQualityFloor,
   );
 
-  const characterKey = String(bible.createdAt);
-  const [modelIdx] = useSelectedModelIdx();
-  const [enriched, setEnriched] = useState<Record<string, string>>(() =>
-    toParagraphMap(loadEnrichments(characterKey)),
-  );
-  const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUsage, setLastUsage] = useState<{ count: number; cost: number } | null>(null);
-  const [includeBible, setIncludeBible] = useState(true);
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const [enabledEvents, setEnabledEvents] = useState<EventFilter>(() => loadEventFilter());
-  const [savedFlash, setSavedFlash] = useState<{ count: number } | null>(null);
-
-  // Re-hydrate from the store whenever the active character changes or
-  // another tab pushes new enrichments. Keeps the in-memory paragraph map
-  // in lockstep with what's actually persisted.
   useEffect(() => {
-    setEnriched(toParagraphMap(loadEnrichments(characterKey)));
-    const onUpdate = () => setEnriched(toParagraphMap(loadEnrichments(characterKey)));
-    window.addEventListener(ENRICHMENTS_UPDATED_EVENT, onUpdate);
+    setFloor(loadStoryBeatSettings(characterKey).lootQualityFloor);
+    const onUpdate = () => setFloor(loadStoryBeatSettings(characterKey).lootQualityFloor);
+    window.addEventListener(STORY_BEAT_SETTINGS_UPDATED_EVENT, onUpdate);
     window.addEventListener('storage', onUpdate);
     return () => {
-      window.removeEventListener(ENRICHMENTS_UPDATED_EVENT, onUpdate);
+      window.removeEventListener(STORY_BEAT_SETTINGS_UPDATED_EVENT, onUpdate);
       window.removeEventListener('storage', onUpdate);
     };
   }, [characterKey]);
 
-  useEffect(() => {
-    saveEventFilter(enabledEvents);
-  }, [enabledEvents]);
-
-  const eventCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const e of allEvents) {
-      const name = e.wowEvent ?? '';
-      counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-    return counts;
-  }, [allEvents]);
-
-  const unknownEvents = useMemo(
-    () => unknownEventTypes(allEvents.map((e) => e.wowEvent ?? '')),
-    [allEvents],
-  );
-
-  const events = useMemo(
-    () => allEvents.filter((e) => passesFilter(e, enabledEvents)),
-    [allEvents, enabledEvents],
-  );
-
-  const ids = useMemo(() => events.map((event) => entryId(event)), [events]);
-  const enrichedCount = useMemo(
-    () => ids.filter((id) => Boolean(enriched[id])).length,
-    [ids, enriched],
-  );
-
-  function toggleEvent(name: string) {
-    setEnabledEvents((prev) => {
-      const next = new Set(prev.enabled);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return { ...prev, enabled: next };
-    });
-  }
-
-  function toggleCategory(eventNames: string[], turnOn: boolean) {
-    setEnabledEvents((prev) => {
-      const next = new Set(prev.enabled);
-      for (const name of eventNames) {
-        if (turnOn) next.add(name);
-        else next.delete(name);
-      }
-      return { ...prev, enabled: next };
-    });
-  }
-
-  function setLootMinQuality(q: number) {
-    setEnabledEvents((prev) => ({ ...prev, lootMinQuality: q }));
-  }
-
-  function resetFilterToDefaults() {
-    setEnabledEvents(defaultEventFilter());
-  }
-
-  const bibleProse = useMemo(() => {
-    if (!includeBible) return null;
-    const lines = [
-      bible.backstory?.trim(),
-      bible.coreQuote ? `Hero's truth: ${bible.coreQuote}` : null,
-    ].filter((l): l is string => Boolean(l && l.trim()));
-    return lines.length ? lines.join('\n\n') : null;
-  }, [bible, includeBible]);
-
-  const blob = useMemo(
-    () =>
-      buildChronicleBlob({
-        bible: bibleProse,
-        enrichments: ids
-          .map((id) => ({ id, paragraph: enriched[id] ?? '' }))
-          .filter((e) => e.paragraph.trim().length > 0),
-      }),
-    [bibleProse, ids, enriched],
-  );
-
-  async function runEnrichAll() {
-    if (busy || events.length === 0) return;
-    setBusy(true);
-    setError(null);
-    setLastUsage(null);
-    setSavedFlash(null);
-    const queue = events.filter((event) => !enriched[entryId(event)]);
-    const total = queue.length;
-    if (total === 0) {
-      setBusy(false);
-      return;
-    }
-    setProgress({ done: 0, total });
-    let done = 0;
-    let cost = 0;
-    let savedThisRun = 0;
-    const modelId = MODEL_CHOICES[modelIdx]?.pricingKey;
-    try {
-      for (let i = 0; i < queue.length; i += ENRICH_CONCURRENCY) {
-        const batch = queue.slice(i, i + ENRICH_CONCURRENCY);
-        const results = await Promise.all(
-          batch.map(async (event) => {
-            try {
-              const res = await enrichEvent(event, bible, modelIdx);
-              return { id: entryId(event), paragraph: res.paragraph, response: res.response };
-            } catch (err) {
-              return { id: entryId(event), error: err instanceof Error ? err.message : String(err) };
-            }
-          }),
-        );
-        // Persist successes to localStorage so they survive refresh AND show
-        // up in the Chronicle reader without round-tripping the .lua file.
-        const upserts = results
-          .filter((r): r is { id: string; paragraph: string; response: LLMResponse } =>
-            'paragraph' in r && Boolean(r.paragraph),
-          )
-          .map((r) => ({ id: r.id, paragraph: r.paragraph, modelId }));
-        if (upserts.length > 0) {
-          upsertEnrichments(characterKey, upserts);
-          savedThisRun += upserts.length;
-        }
-        setEnriched((current) => {
-          const next = { ...current };
-          for (const r of results) {
-            if ('paragraph' in r && r.paragraph) next[r.id] = r.paragraph;
-          }
-          return next;
-        });
-        for (const r of results) {
-          if ('response' in r && r.response) cost += guessCostUsd(r.response);
-          if ('error' in r && r.error && !error) setError(r.error);
-        }
-        done += batch.length;
-        setProgress({ done, total });
-      }
-      setLastUsage({ count: done, cost });
-      if (savedThisRun > 0) setSavedFlash({ count: savedThisRun });
-    } finally {
-      setBusy(false);
-      setProgress(null);
-    }
-  }
-
-  async function copyBlob() {
-    try {
-      await navigator.clipboard.writeText(blob);
-      setCopyState('copied');
-      setTimeout(() => setCopyState('idle'), 2200);
-    } catch {
-      setCopyState('failed');
-      setTimeout(() => setCopyState('idle'), 2200);
-    }
-  }
-
-  function downloadBlob() {
-    const file = new Blob([blob], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chronicle_${bible.name.replace(/\s+/g, '_')}_${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function downloadSnippet() {
-    const snippet = buildChronicleSnippet({
-      characterName: bible.name,
-      bible: bibleProse,
-      events,
-      enrichments: ids
-        .map((id) => ({ id, paragraph: enriched[id] ?? '' }))
-        .filter((e) => e.paragraph.trim().length > 0),
-    });
-    const file = new Blob([snippet], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = SNIPPET_FILENAME;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   return (
-    <>
-      <Step
-        number={2}
-        title="Pick which events become prose"
-        helper="The 8 narrative defaults match what your in-game chronicle book displays. Toggle more on if you want a denser story; toggle off to cut LLM cost."
+    <label
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        fontSize: '0.82rem',
+        color: 'var(--cp-text-muted, #888)',
+      }}
+      title="Loot below this quality is treated as telemetry, not a story beat."
+    >
+      <span aria-hidden="true">🎁</span>
+      Loot floor:
+      <select
+        value={floor}
+        onChange={(e) => {
+          const next = e.target.value as LootQuality;
+          setFloor(next);
+          saveStoryBeatSettings(characterKey, {
+            ...loadStoryBeatSettings(characterKey),
+            lootQualityFloor: next,
+          });
+        }}
+        style={{ fontSize: '0.82rem', padding: '0.15rem 0.35rem' }}
       >
-        <EventFilterPanel
-          filter={enabledEvents}
-          counts={eventCounts}
-          unknown={unknownEvents}
-          enrichableTotal={events.length}
-          grandTotal={allEvents.length}
-          onToggleEvent={toggleEvent}
-          onToggleCategory={toggleCategory}
-          onLootMinQualityChange={setLootMinQuality}
-          onReset={resetFilterToDefaults}
-          disabled={busy}
-        />
-      </Step>
-
-      <Step
-        number={3}
-        title="Pen Scribe's Notes"
-        helper={`One LLM call per event. ${events.length} would run; ${enrichedCount} already scribed.`}
-      >
-        <div className="at-chronicle-generate-controls" style={{ flexWrap: 'wrap' }}>
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              fontSize: '0.85rem',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={includeBible}
-              onChange={(e) => setIncludeBible(e.target.checked)}
-              disabled={busy}
-            />
-            Include bible line in export
-          </label>
-          <button
-            className="at-btn at-btn-primary"
-            onClick={runEnrichAll}
-            disabled={busy || events.length === 0}
-            title="Calls the LLM once per event. Skips events already scribed."
-          >
-            {busy && progress
-              ? `Scribing... ${progress.done}/${progress.total}`
-              : enrichedCount === events.length && events.length > 0
-                ? '◆ Re-scribe missing (none)'
-                : `◆ Pen Scribe's Notes (${events.length - enrichedCount || events.length})`}
-          </button>
-          {enrichedCount > 0 && (
-            <button
-              className="at-btn at-btn-secondary"
-              onClick={() => {
-                setEnriched({});
-                clearEnrichments(characterKey);
-                setSavedFlash(null);
-              }}
-              disabled={busy}
-              title="Discard generated paragraphs and start over (also removes them from your Chronicle)"
-            >
-              ✕ Clear Scribe's Notes
-            </button>
-          )}
-        </div>
-        {savedFlash && (
-          <div className="at-enrich-savedflash" role="status">
-            <span className="at-enrich-savedflash-check" aria-hidden="true">✓</span>
-            <span>
-              {savedFlash.count === 1
-                ? '1 Scribe’s Note saved to your chronicle.'
-                : `${savedFlash.count} Scribe’s Notes saved to your chronicle.`}
-            </span>
-            <button
-              type="button"
-              className="at-enrich-savedflash-cta"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('at:request-tab', { detail: 'chronicle' }));
-                // Defer mode swap so ChronicleReader has time to mount and
-                // attach its 'at:chronicle-mode' listener before we fire.
-                setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('at:chronicle-mode', { detail: 'sessions' }));
-                }, 0);
-              }}
-            >
-              View in Chronicle →
-            </button>
-          </div>
-        )}
-        {lastUsage && (
-          <p className="muted" style={{ marginTop: '0.5rem', fontSize: 13 }}>
-            Last run: {lastUsage.count} calls, ~${lastUsage.cost.toFixed(4)}
-          </p>
-        )}
-        {error && (
-          <div className="at-callout-danger at-chronicle-error" style={{ marginTop: '0.75rem' }}>
-            <strong>The scribe hit a snag:</strong> {error}
-          </div>
-        )}
-      </Step>
-
-      <Step
-        number={4}
-        title="Send it back to the game"
-        helper={
-          enrichedCount === 0
-            ? 'Pen Scribe’s Notes above first, then download the restore file.'
-            : `Drop ${SNIPPET_FILENAME} into your save data folder, launch the game — done.`
-        }
-      >
-        <div className="at-chronicle-generate-controls" style={{ flexWrap: 'wrap' }}>
-          <button
-            className="at-btn at-btn-primary"
-            onClick={downloadSnippet}
-            disabled={busy || enrichedCount === 0}
-            title="Download a restore file to drop into your save data folder."
-          >
-            ⬇ Download {SNIPPET_FILENAME}
-          </button>
-          <details style={{ marginLeft: 'auto' }}>
-            <summary className="muted" style={{ cursor: 'pointer', fontSize: 13 }}>
-              Legacy: copy/paste blob
-            </summary>
-            <div
-              className="at-chronicle-generate-controls"
-              style={{ flexWrap: 'wrap', marginTop: '0.5rem' }}
-            >
-              <button
-                className="at-btn at-btn-secondary"
-                onClick={copyBlob}
-                disabled={busy || enrichedCount === 0}
-                title="Copy the at-CHRONICLE-V1 blob to your clipboard for /aftertale sync"
-              >
-                {copyState === 'copied'
-                  ? '✓ Copied'
-                  : copyState === 'failed'
-                    ? '✗ Clipboard blocked'
-                    : '⧉ Copy chronicle blob'}
-              </button>
-              <button
-                className="at-btn at-btn-secondary"
-                onClick={downloadBlob}
-                disabled={busy || enrichedCount === 0}
-                title="Download the blob as a .txt file"
-              >
-                ⬇ Download .txt
-              </button>
-            </div>
-          </details>
-        </div>
-        {enrichedCount > 0 && (
-          <details style={{ marginTop: '0.75rem' }}>
-            <summary className="muted" style={{ cursor: 'pointer' }}>
-              Preview blob ({blob.length.toLocaleString()} chars)
-            </summary>
-            <pre
-              style={{
-                maxHeight: '320px',
-                overflow: 'auto',
-                padding: '0.75rem',
-                background: 'var(--cp-surface-soft, rgba(0,0,0,0.04))',
-                fontSize: '0.78rem',
-                lineHeight: 1.45,
-                borderRadius: '0.5rem',
-                marginTop: '0.5rem',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-              }}
-            >
-              {blob}
-            </pre>
-          </details>
-        )}
-      </Step>
-    </>
+        {(Object.keys(LOOT_FLOOR_LABELS) as LootQuality[]).map((q) => (
+          <option key={q} value={q}>
+            {LOOT_FLOOR_LABELS[q]}
+          </option>
+        ))}
+      </select>
+      {floor !== DEFAULT_STORY_BEAT_SETTINGS.lootQualityFloor && (
+        <span style={{ opacity: 0.6 }}>· default {LOOT_FLOOR_LABELS[DEFAULT_STORY_BEAT_SETTINGS.lootQualityFloor]}</span>
+      )}
+    </label>
   );
-}
-
-function guessCostUsd(response: LLMResponse): number {
-  const maybe = (response as unknown as { costUsd?: number }).costUsd;
-  return typeof maybe === 'number' ? maybe : 0;
 }

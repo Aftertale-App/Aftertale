@@ -1,4 +1,5 @@
 import type { CharacterBible } from '../types';
+import type { LootQuality } from './storyBeatSettings';
 import type { LuaValue } from './luaSavedVariables';
 
 // Re-export so downstream tooling (chronicleSnippet) doesn't have to reach
@@ -16,9 +17,14 @@ export type AddonEventKind =
   | 'zone_changed'
   | 'level_up'
   | 'player_death'
+  | 'achievement_earned'
   | 'unit_kill'
   | 'item_use'
+  | 'item_loot'
   | 'escort_start'
+  | 'instance_enter_first'
+  | 'boss_kill'
+  | 'instance_complete'
   | 'unknown';
 
 export type WowEventName =
@@ -59,6 +65,7 @@ export interface AddonEventTemplate {
   npcId?: number;
   unitName?: string;
   itemName?: string;
+  itemQuality?: LootQuality;
   playerLevel?: number;
 }
 
@@ -129,6 +136,7 @@ export interface AddonEvent {
   npcId?: number;
   unitName?: string;
   itemName?: string;
+  itemQuality?: LootQuality;
   playerLevel?: number;
   playerXp?: number;
   playerXpMax?: number;

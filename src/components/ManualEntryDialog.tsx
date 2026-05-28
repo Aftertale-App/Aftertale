@@ -10,12 +10,14 @@
  * user's selected model. The user keeps an "Undo polish" escape hatch.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CharacterBible } from '../types';
-import { appendHistoryEntry, updateActiveBible } from '../lib/bibleStore';
+import { appendManualHistoryEntry, updateActiveBible } from '../lib/bibleStore';
 import { getApiKey } from '../lib/apiKeys';
 import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
+import { loadAddonEventRecords } from '../lib/addonEventStore';
+import { buildChronicleSessions } from '../lib/sessionHistory';
 import {
   LoremasterPolishError,
   polishChronicleEntry,
@@ -35,6 +37,7 @@ interface ManualEntryDialogProps {
   open: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  defaultSessionId?: string;
 }
 
 export default function ManualEntryDialog({
@@ -42,6 +45,7 @@ export default function ManualEntryDialog({
   open,
   onClose,
   onSaved,
+  defaultSessionId,
 }: ManualEntryDialogProps) {
   const [level, setLevel] = useState<string>(
     typeof bible.level === 'number' ? String(bible.level) : '',
@@ -51,6 +55,8 @@ export default function ManualEntryDialog({
   const [companions, setCompanions] = useState('');
   const [mood, setMood] = useState<string>('');
   const [text, setText] = useState('');
+  const [boundSessionId, setBoundSessionId] = useState('');
+  const [addonRecords, setAddonRecords] = useState(() => loadAddonEventRecords());
   const [polishing, setPolishing] = useState(false);
   const [polishError, setPolishError] = useState<string | null>(null);
   const [polishedFrom, setPolishedFrom] = useState<string | null>(null);
@@ -59,6 +65,13 @@ export default function ManualEntryDialog({
 
   const hasKey = !!getApiKey('openrouter');
   const canSave = text.trim().length > 0;
+  const recentSessions = useMemo(() => {
+    const characterKey = String(bible.createdAt);
+    return buildChronicleSessions(
+      addonRecords.filter((record) => record.characterKey === characterKey),
+      bible.name,
+    ).slice(0, 10);
+  }, [addonRecords, bible.createdAt, bible.name]);
 
   // Reset state every time the dialog opens.
   useEffect(() => {
@@ -71,9 +84,11 @@ export default function ManualEntryDialog({
     setText('');
     setPolishedFrom(null);
     setPolishError(null);
+    setBoundSessionId(defaultSessionId ?? '');
+    setAddonRecords(loadAddonEventRecords());
     // Focus the body text after the modal mounts.
     requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [open, bible.level, bible.currentZone]);
+  }, [open, bible.level, bible.currentZone, defaultSessionId]);
 
   // Esc closes.
   useEffect(() => {
@@ -166,7 +181,13 @@ export default function ManualEntryDialog({
     const finalText =
       ctxBits.length > 0 ? `_${ctxBits.join(' · ')}_\n\n${body}` : body;
 
-    appendHistoryEntry(finalText);
+    const boundSession = recentSessions.find((session) => session.id === boundSessionId);
+    appendManualHistoryEntry(finalText, {
+      zone: boundSession?.endZone ?? boundSession?.startZone ?? (zoneTrim || undefined),
+      level: boundSession?.endLevel ?? boundSession?.startLevel ?? (Number.isFinite(parsedLevel as number) ? (parsedLevel as number) : undefined),
+      sessionId: boundSessionId || undefined,
+      timestamp: boundSession ? boundSession.finishedAt + 1 : undefined,
+    });
     onSaved?.();
     onClose();
   }
@@ -245,6 +266,23 @@ export default function ManualEntryDialog({
             />
           </label>
         </div>
+
+
+        <label className="at-manual-bind">
+          <span className="at-manual-pill-label">Bind to session</span>
+          <select
+            className="at-input"
+            value={boundSessionId}
+            onChange={(e) => setBoundSessionId(e.target.value)}
+          >
+            <option value="">— No session binding (free-floating) —</option>
+            {recentSessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {sessionOptionLabel(session)}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <div className="at-manual-mood">
           <span className="at-manual-pill-label">Tone</span>
@@ -336,4 +374,19 @@ export default function ManualEntryDialog({
   );
 
   return createPortal(modal, document.body);
+}
+
+function sessionOptionLabel(session: ReturnType<typeof buildChronicleSessions>[number]): string {
+  const zone = session.endZone ?? session.startZone ?? 'The road';
+  return `Session ${session.index} · ${zone} · ${relativeTime(session.startedAt)}`;
+}
+
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const days = Math.floor(diff / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return '1 day ago';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? '1 month ago' : `${months} months ago`;
 }

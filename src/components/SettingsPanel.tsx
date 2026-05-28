@@ -442,7 +442,7 @@ function AdvancedSection() {
           }}
         />
         <span>
-          Show <strong>Scribe's Desk</strong> tab
+          Show <strong>The Inkwell</strong> tab
           <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>
             (manual SV import → enrich → export workflow)
           </span>

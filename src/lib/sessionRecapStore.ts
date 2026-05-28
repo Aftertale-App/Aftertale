@@ -1,6 +1,6 @@
 // ============================================================================
 // Session recap store — localStorage persistence for full-session campfire
-// recaps produced at the per-session "scribe's desk" panel on each session
+// recaps produced at the per-session "the inkwell" panel on each session
 // card. Scoped per character so heroes don't bleed recaps into each other.
 //
 // Why this exists: generating a session recap is real $$ on OpenRouter. Before

@@ -13,7 +13,7 @@
 // in place without touching layout.
 // ============================================================================
 
-// Tier cards reused from the in-app pitch so this page and the Scribe's Desk
+// Tier cards reused from the in-app pitch so this page and the The Inkwell
 // pitch never drift out of sync.
 import { TIERS, TierCard } from './ScribesDesk';
 import { useEffect, useRef, useState } from 'react';
