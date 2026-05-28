@@ -421,8 +421,12 @@ local function buildEnrichment(event, args)
     end
 
   elseif event == "PLAYER_LEVEL_UP" then
-    -- args[1] is new level per Blizzard docs; snapshot already has it
-    -- as the new level since UnitLevel fires after the event.
+    -- args[1] is the NEW level. Empirically, UnitLevel("player") still
+    -- returns the OLD level during this event handler (Blizzard's docs
+    -- imply otherwise but practice disagrees), so overwrite the stale
+    -- snapshot level with the authoritative arg.
+    local newLevel = args and tonumber(args[1])
+    if newLevel then enr.level = newLevel end
     if GetXPExhaustion then
       local rest = safeCall(GetXPExhaustion)
       if rest then enr.restedXP = rest end
