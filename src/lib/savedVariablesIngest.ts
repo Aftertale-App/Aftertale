@@ -246,7 +246,15 @@ function rowToEvent(
   const id = asString(row.id) ?? fallbackId;
   const zone = enrichment ? asString(enrichment.zoneText) : undefined;
   const subZone = enrichment ? asString(enrichment.subzoneText) : undefined;
-  const playerLevel = enrichment ? asNumber(enrichment.level) : undefined;
+  // For PLAYER_LEVEL_UP, rawArgs[0] is the NEW level. Older addon builds
+  // (schemaVersion 1) stamped enrichment.level from UnitLevel(), which
+  // returns the OLD level during the event handler -- so prefer the arg.
+  const playerLevel =
+    wowEvent === 'PLAYER_LEVEL_UP'
+      ? asNumber(rawArgs[0]) ?? (enrichment ? asNumber(enrichment.level) : undefined)
+      : enrichment
+        ? asNumber(enrichment.level)
+        : undefined;
   const npc = enrichment && isObj(enrichment.npc) ? enrichment.npc : undefined;
   const npcName = npc ? asString(npc.name) : undefined;
   const questId = (() => {
