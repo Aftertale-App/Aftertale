@@ -1,5 +1,7 @@
 import type { AddonEvent, AddonEventKind } from './addonEvents';
 import type { AddonEventRecord } from './addonEventStore';
+import { pickStoryBeats } from './storyBeats';
+import type { StoryBeatSettings } from './storyBeatSettings';
 
 const SESSION_IDLE_GAP_MS = 9 * 60 * 60 * 1000;
 
@@ -214,6 +216,14 @@ function campfireRecap(session: ChronicleSession, heroName: string): string {
 
 function unique<T>(values: T[]): T[] {
   return Array.from(new Set(values));
+}
+
+/** Convenience: story beats for a single ChronicleSession, settings-aware. */
+export function sessionStoryBeats(
+  session: ChronicleSession,
+  settings?: StoryBeatSettings,
+): AddonEventRecord[] {
+  return pickStoryBeats(session.records, settings);
 }
 
 export function eventFactLine(event: AddonEvent): string {

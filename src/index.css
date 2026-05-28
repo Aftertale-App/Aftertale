@@ -3657,7 +3657,7 @@ button.at-sheet-pill:focus-visible {
 .at-chronicle-empty-shell {
   text-align: center;
 }
-/* Scribe's Desk intro — center the headline rhythm above the multi-column
+/* The Inkwell intro — center the headline rhythm above the multi-column
    workflow. Keep the rest of the desk visually utilitarian (artisan workbench,
    not storybook) so heavy controls don't fight the prose vocabulary. */
 .at-desk-intro {

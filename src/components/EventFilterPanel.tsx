@@ -1,10 +1,10 @@
 // ============================================================================
-// EventFilterPanel — per-event-type checkbox grid used by Scribe's Desk.
+// EventFilterPanel — per-event-type checkbox grid used by The Inkwell.
 // Lets the user pick which addon events get enriched before paying the LLM
 // cost. Defaults track `defaultEventFilter()` in eventFilter.ts which mirrors
 // the addon's `Templates.IsNarrativeEvent` list (currently 8 narrative events).
 //
-// Extracted from ChronicleReader.tsx in the Scribe's Desk refactor so the
+// Extracted from ChronicleReader.tsx in the The Inkwell refactor so the
 // reader can stay pure-read.
 // ============================================================================
 

@@ -1,6 +1,6 @@
 // ============================================================================
 // Enrichment store — localStorage persistence for per-event LLM paragraphs
-// produced at the Scribe's Desk. Scoped per character so heroes don't bleed
+// produced at the The Inkwell. Scoped per character so heroes don't bleed
 // prose into each other.
 //
 // Why this exists: enrichment is the user's most expensive activity (real

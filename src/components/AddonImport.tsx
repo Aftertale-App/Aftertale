@@ -13,26 +13,39 @@ import {
   loadAddonEventRecords,
 } from '../lib/addonEventStore';
 import {
+  hashFileContents,
+  loadImportRecord,
+  saveImportRecord,
+  type ImportRecord,
+} from '../lib/importTracker';
+import {
   ingestChroniclesSavedVariablesText,
   type IngestSummary,
 } from '../lib/savedVariablesIngest';
 
-interface ImportState {
-  status: 'idle' | 'parsing' | 'done' | 'error';
+export interface ImportState {
+  status: 'idle' | 'checking' | 'parsing' | 'done' | 'up-to-date' | 'error';
   summary?: IngestSummary;
   imported?: number;
   duplicates?: number;
   error?: string;
   fileName?: string;
+  newEvents?: number;
+  previousRecord?: ImportRecord | null;
 }
 
-export function AddonImport() {
+export function importButtonLabel(state: ImportState, idleLabel = '⬆ Choose file'): string {
+  if (state.status === 'checking') return 'Checking...';
+  if (state.status === 'parsing') return 'Parsing...';
+  if (state.status === 'up-to-date') return 'Already up to date';
+  return idleLabel;
+}
+
+export function useAftertaleLuaImport() {
   const [state, setState] = useState<ImportState>({ status: 'idle' });
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFile = useCallback(async (file: File) => {
-    setState({ status: 'parsing', fileName: file.name });
+    setState({ status: 'checking', fileName: file.name });
     let text: string;
     try {
       text = await file.text();
@@ -44,44 +57,97 @@ export function AddonImport() {
       });
       return;
     }
-    const result = ingestChroniclesSavedVariablesText(text);
+
     const bible = loadBible();
     const characterKey = bible ? String(bible.createdAt) : null;
-    const savedAt = Date.now();
+    const fileHash = await hashFileContents(text);
+    const previousRecord = loadImportRecord(characterKey);
 
-    // Use a snapshot of existing IDs so the dedupe check is O(1) across the
-    // batch. hasAddonEvent re-reads localStorage each call.
-    const existing = new Set(loadAddonEventRecords().map((r) => r.event.id));
-    let imported = 0;
-    let duplicates = 0;
-    for (const event of result.events) {
-      if (existing.has(event.id) || hasAddonEvent(event.id)) {
-        duplicates++;
-        continue;
-      }
-      appendAddonEventRecord({
-        event,
-        characterKey,
-        result: {
-          status: 'ingested',
-          message: 'Imported from SavedVariables.',
-          changes: [],
-          characterKey: characterKey ?? undefined,
-        },
-        savedAt,
+    if (previousRecord?.fileHash === fileHash) {
+      setState({
+        status: 'up-to-date',
+        fileName: file.name,
+        previousRecord,
       });
-      existing.add(event.id);
-      imported++;
+      return;
     }
 
-    setState({
-      status: 'done',
-      summary: result.summary,
-      imported,
-      duplicates,
-      fileName: file.name,
-    });
+    setState({ status: 'parsing', fileName: file.name, previousRecord });
+
+    try {
+      const result = ingestChroniclesSavedVariablesText(text);
+      const eventCount = result.events.length;
+      const latestEventAt = result.events.reduce(
+        (latest, event) => Math.max(latest, event.timestamp || 0),
+        0,
+      );
+      const savedAt = Date.now();
+
+      if (characterKey) {
+        saveImportRecord(characterKey, {
+          fileHash,
+          fileSize: file.size,
+          importedAt: savedAt,
+          eventCount,
+          latestEventAt,
+        });
+      }
+
+      // Use a snapshot of existing IDs so the dedupe check is O(1) across the
+      // batch. hasAddonEvent re-reads localStorage each call.
+      const existing = new Set(loadAddonEventRecords().map((r) => r.event.id));
+      let imported = 0;
+      let duplicates = 0;
+      for (const event of result.events) {
+        if (existing.has(event.id) || hasAddonEvent(event.id)) {
+          duplicates++;
+          continue;
+        }
+        appendAddonEventRecord({
+          event,
+          characterKey,
+          result: {
+            status: 'ingested',
+            message: 'Imported from SavedVariables.',
+            changes: [],
+            characterKey: characterKey ?? undefined,
+          },
+          savedAt,
+        });
+        existing.add(event.id);
+        imported++;
+      }
+
+      const newEvents = previousRecord && eventCount > previousRecord.eventCount
+        ? eventCount - previousRecord.eventCount
+        : eventCount;
+
+      setState({
+        status: 'done',
+        summary: result.summary,
+        imported,
+        duplicates,
+        fileName: file.name,
+        newEvents,
+        previousRecord,
+      });
+    } catch (err) {
+      setState({
+        status: 'error',
+        error: err instanceof Error ? err.message : String(err),
+        fileName: file.name,
+        previousRecord,
+      });
+    }
   }, []);
+
+  return { state, handleFile };
+}
+
+export function AddonImport() {
+  const { state, handleFile } = useAftertaleLuaImport();
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -131,9 +197,9 @@ export function AddonImport() {
           <button
             className="at-btn at-btn-primary"
             onClick={() => inputRef.current?.click()}
-            disabled={state.status === 'parsing'}
+            disabled={state.status === 'checking' || state.status === 'parsing'}
           >
-            {state.status === 'parsing' ? 'Parsing...' : '⬆ Choose file'}
+            {importButtonLabel(state)}
           </button>
           <input
             ref={inputRef}
@@ -148,6 +214,18 @@ export function AddonImport() {
           />
         </div>
       </div>
+
+      {state.status === 'up-to-date' && (
+        <ImportInlineMessage tone="passive">
+          No new entries — your save file matches your last import.
+        </ImportInlineMessage>
+      )}
+
+      {state.status === 'done' && typeof state.newEvents === 'number' && (
+        <ImportInlineMessage tone="fresh">
+          ✨ Picked up {state.newEvents.toLocaleString()} new events since your last import
+        </ImportInlineMessage>
+      )}
 
       {state.status === 'done' && state.summary && (
         <div
@@ -190,5 +268,33 @@ export function AddonImport() {
         </div>
       )}
     </section>
+  );
+}
+
+export function ImportInlineMessage({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone: 'fresh' | 'passive';
+}) {
+  return (
+    <div
+      style={{
+        marginTop: '0.75rem',
+        padding: '0.55rem 0.75rem',
+        borderRadius: '0.55rem',
+        background: tone === 'fresh'
+          ? 'rgba(164,122,209,0.18)'
+          : 'var(--cp-surface-soft, rgba(0,0,0,0.04))',
+        border: tone === 'fresh'
+          ? '1px solid rgba(164,122,209,0.35)'
+          : '1px solid rgba(255,255,255,0.12)',
+        fontSize: '0.85rem',
+        lineHeight: 1.45,
+      }}
+    >
+      {children}
+    </div>
   );
 }

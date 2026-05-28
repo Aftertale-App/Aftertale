@@ -488,18 +488,28 @@ export function updateActiveBible(
  * or null if there is no active bible.
  */
 export function appendHistoryEntry(text: string): HistoryEntry | null {
+  return appendManualHistoryEntry(text, {});
+}
+
+export function appendManualHistoryEntry(
+  text: string,
+  opts: { zone?: string; level?: number; title?: string; sessionId?: string; timestamp?: number } = {},
+): HistoryEntry | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
   const current = loadBible();
   if (!current) return null;
+  const timestamp = opts.timestamp ?? Date.now();
   const entry: HistoryEntry = {
-    id: `h_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-    timestamp: Date.now(),
+    id: `manual_${timestamp}_${Math.random().toString(36).slice(2, 8)}`,
+    timestamp,
     text: trimmed,
-    zone: current.currentZone,
-    level: current.level,
+    zone: opts.zone ?? current.currentZone,
+    level: opts.level ?? current.level,
+    title: opts.title?.trim() || undefined,
+    sessionId: opts.sessionId?.trim() || undefined,
   };
-  const history = [...(current.history ?? []), entry];
+  const history = [...(current.history ?? []), entry].sort((a, b) => a.timestamp - b.timestamp);
   updateActiveBible({ history });
   return entry;
 }

@@ -1,7 +1,7 @@
 // ============================================================================
 // Feature flags — localStorage-backed power-user toggles.
 //
-// Phase 0 design note: Scribe's Desk is visible by default. Post-launch (when
+// Phase 0 design note: The Inkwell is visible by default. Post-launch (when
 // tier detection lands), the default will flip to false for paid tiers and
 // stay true for Free/BYOK. The flag mechanism exists now so the toggle UX
 // is already wired when that day comes.

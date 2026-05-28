@@ -80,6 +80,7 @@ export interface HistoryEntry {
   zone?: string;       // snapshot of zone at the time
   level?: number;      // snapshot of level at the time
   title?: string;      // optional chapter title (set by session-recap entries)
+  sessionId?: string;  // optional ChronicleSession binding for manual entries
 }
 
 // Versioned envelope so Phase 1 (SQLite migration) can detect old shapes.

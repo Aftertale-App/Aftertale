@@ -77,7 +77,7 @@ export const DEFAULT_MODEL_INDEX = 0;
 // Selected-model persistence.
 //
 // The picker used to live at the top of every generate surface (Character
-// Creation, Chronicle Reader, Scribe's Desk, NPC chat) with its own local
+// Creation, Chronicle Reader, The Inkwell, NPC chat) with its own local
 // useState. That was noisy AND every screen reset to default on mount, so the
 // user's choice didn't follow them around. We collapsed the four pickers into
 // one global selection that's exposed inside the Settings (key) modal — the
