@@ -51,9 +51,10 @@ Legend:
 
 | Event              | Capture | Observed payload | Notes |
 | ------------------ | ------- | ---------------- | ----- |
-| `PLAYER_LEVEL_UP`  | ⚠️ (01) | 9 args — `(level, hpΔ, manaΔ, numTalents, numPvpTalentSlots, strΔ, agiΔ, staΔ, intΔ)` — `("2","29","0","0","0","1","1","29","1")` | Simulator assumes 1 arg (`level`). Reality is *rich* — stat deltas land directly in the event, no follow-up calls needed. Worth grafting into chronicle entries ("you grew stronger -- +29 stamina"). |
+| `PLAYER_LEVEL_UP`  | ⚠️ (01) | 9 args — `(level, hpΔ, manaΔ, numTalents, numPvpTalentSlots, strΔ, agiΔ, staΔ, intΔ)` — `("2","29","0","0","0","1","1","29","1")` | Simulator assumes 1 arg (`level`). Reality is *rich* — stat deltas land directly in the event, no follow-up calls needed. Worth grafting into chronicle entries ("you grew stronger -- +29 stamina"). **⚠ Snapshot trap:** `UnitLevel("player")` returns the OLD level when the handler fires, so the enrichment snap captures pre-ding. Always trust `args[1]` (new level) over the snapshot for this event. The addon overwrites `enrichment.level = args[1]` in its PLAYER\_LEVEL\_UP branch (`Aftertale.lua` ~L423); the web ingest applies the same correction defensively (`savedVariablesIngest.ts` ~L249). |
 | `PLAYER_DEAD`      | ✅ (02) | `()` | Fires when the player hits 0 HP. Use `UnitIsDead("player")` for state. |
 | `PLAYER_ALIVE`     | ✅ (02) | `()` | Fires on release-to-corpse AND on resurrection — capture 02 saw 2 fires for 1 death. **Important:** can't distinguish "ghost" from "alive" via the event payload; query `UnitIsGhost("player")`. |
+| `PLAYER_LOGOUT`    | ✅      | `()` | Fires once when the player initiates logout/exit. **⚠ Snapshot trap:** during logout teardown `UnitLevel("player")` can return a stale value (we've observed `level = 1` on a level-5 character). Treat the snapshot's level/zone on this event as advisory only — derive "session end level" from the chronological max of observed `playerLevel` across the session (level only goes up). `sessionHistory.buildSession` and `commitImport` both do this. |
 
 ### World state
 

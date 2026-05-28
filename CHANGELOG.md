@@ -7,6 +7,79 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — Inkwell + Chronicle pipeline *(2026-05-27 evening)*
+
+- **The Inkwell — authoring hub rebuild.** Renamed and relocated the
+  Session Trail surface to **The Inkwell**, an authoring hub that pairs
+  story-beat curation with chronicle publishing. New
+  `storyBeats`/`storyBeatSettings`/`sessionHistory` data layer powers
+  per-session arcs. Dead onboarding steps 2/3/4 ripped; loot floor is
+  surfaced inline on the active session card.
+- **Arc Map.** Per-session timeline scrubber with level-up markers,
+  sticky-bottom dock, and ghost pills for upcoming/skipped beats.
+- **Chronicle session-recap pipeline (Lane A canon).** End-of-session
+  recap generation flows directly into Chronicle; manual-entry dialog
+  picks up Loremaster polish (rich form, validation, scribe voice
+  preview). Chronicle purge surfaces are wired across the app.
+- **Multi-toon attribution.** Every captured event now carries the
+  player GUID (`event.char`) and character name. The web importer
+  splits incoming events into per-character buckets, prompts the user
+  to confirm which character to import, and writes only the accepted
+  GUIDs to the active bible. Fixes the "Garygidney's playtime is
+  Futony's playtime" merge bug from shared SavedVariables.
+- **Bound-character pill on the Inkwell header.** Shows the active
+  bible's class / race / faction / level / zone; a Settings "rebind"
+  affordance lets the player switch characters without nuking state.
+
+### Fixed — Level / zone tracking on bulk import *(2026-05-27 night)*
+
+> Symptom: Futony dings to 5, re-imports cleanly, and every level-aware
+> surface still reads **Lvl 1**. Root cause was the same underlying bug
+> wearing five hats — `UnitLevel("player")` returns stale (or
+> teardown-state) values at the moments we were snapshotting it.
+
+- **PLAYER\_LEVEL\_UP captured the OLD level.** The addon snap function
+  reads `UnitLevel("player")` at handler-fire time, which returns the
+  pre-ding level. Addon now overwrites `enrichment.level = args[1]`
+  (the new level from the event payload) inside the PLAYER\_LEVEL\_UP
+  branch. The web ingest applies the same correction defensively
+  (`rawArgs[0]` wins over `enrichment.level` for this event type).
+  See `addon/Aftertale/Aftertale.lua` and
+  `src/lib/savedVariablesIngest.ts`.
+- **Re-import was a no-op.** `commitImport` deduped against the global
+  event-id store, so re-importing the same SV file after fixing the
+  addon skipped every event and the corrected `playerLevel` never
+  reached storage. Added `upsertAddonEventRecord` and rewrote
+  `commitImport` to track `imported` vs `refreshed` counts; the import
+  toast now surfaces both.
+- **`commitImport` never patched the bible.** The live ingest path
+  updated `bible.level` / `bible.currentZone`; bulk import didn't.
+  `commitImport` now patches both from the freshest accepted event.
+- **Session "Levels earned" card collapsed to `Lvl 1 → 1`.**
+  `PLAYER_LOGOUT` can carry a stale `UnitLevel = 1` from logout
+  teardown, and `sessionHistory.buildSession` was trusting that snapshot
+  as `endLevel`. Now derives start/end from the chronological min/max of
+  observed `playerLevel` across the bucket — level only goes up in WoW,
+  so max is correct. Same logic applied to `commitImport`'s bible
+  patch.
+- **Character picker showed "level 1" forever.** The "Pick a character
+  to onboard" card was reading `firstSeen.level`, which is locked at
+  the moment Aftertale first loaded for that toon. `characterIngest`
+  now synthesizes a `lastSeen` snapshot per character by scanning the
+  events log (max observed level, latest non-empty zone). Buckets by
+  both GUID and charName so manual SV edits / multi-account merges /
+  upstream GUID drift can't silently collapse the picker back to the
+  stale snapshot. When the addon eventually does start writing
+  `lastSeen` natively, we merge field-by-field so a written stale
+  value never overrides a derived max.
+
+### Added — Security *(2026-05-27 evening)*
+
+- **CSP headers, vulnerability disclosure, gitleaks pre-commit hook**
+  (commit `2c73840`). See `SECURITY.md`.
+
+
+
 > **Note (2026-05-26):** Per current strategic direction, nothing under this
 > heading ships to users until the full multi-tier launch is coordinated
 > (Free/BYOK + Companion + Chronicler + Loremaster). Entries below represent
