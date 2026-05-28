@@ -1,6 +1,10 @@
 import type { CharacterBible } from '../types';
 import type { AddonEvent, AddonIngestResult } from './addonEvents';
-import { appendAddonEventRecord, hasAddonEvent, loadAddonEventRecords } from './addonEventStore';
+import {
+  appendAddonEventRecord,
+  hasAddonEvent,
+  upsertAddonEventRecord,
+} from './addonEventStore';
 import { loadBible, updateActiveBible } from './bibleStore';
 import { ingestChroniclesSavedVariables } from './savedVariablesIngest';
 import { parseSavedVariables, type LuaValue } from './luaSavedVariables';
@@ -34,8 +38,10 @@ export interface CommitOptions {
 
 export interface CommitResult {
   imported: number;
+  refreshed: number;
   skipped: number;
   characterKey: string;
+  biblePatch?: Partial<Pick<CharacterBible, 'level' | 'currentZone'>>;
 }
 
 function characterKey(createdAt: number): string {
@@ -147,10 +153,11 @@ export function planImport(content: string): ImportPlan {
 export function commitImport(plan: ImportPlan, opts: CommitOptions): CommitResult {
   const key = characterKey(opts.bible.createdAt);
   const accepted = new Set(opts.acceptGuids.map((guid) => guid.trim()).filter(Boolean));
-  const existing = new Set(loadAddonEventRecords().map((r) => r.event.id));
   const savedAt = Date.now();
   let imported = 0;
+  let refreshed = 0;
   let skipped = 0;
+  let latest: AddonEvent | undefined;
 
   for (const event of plan.rawEvents) {
     const guid = event.char?.trim();
@@ -159,12 +166,11 @@ export function commitImport(plan: ImportPlan, opts: CommitOptions): CommitResul
       skipped++;
       continue;
     }
-    if (existing.has(event.id) || hasAddonEvent(event.id)) {
-      skipped++;
-      continue;
-    }
 
-    appendAddonEventRecord({
+    // Upsert: re-importing the same file refreshes stored event shape so a
+    // newer parser pass (e.g. corrected playerLevel) reaches the UI without
+    // forcing users to clear first. Re-stamps under the active bible's key.
+    const outcome = upsertAddonEventRecord({
       event,
       characterKey: key,
       result: {
@@ -175,11 +181,36 @@ export function commitImport(plan: ImportPlan, opts: CommitOptions): CommitResul
       },
       savedAt,
     });
-    existing.add(event.id);
-    imported++;
+    if (outcome === 'inserted') imported++;
+    else refreshed++;
+
+    if (!latest || event.timestamp > latest.timestamp) latest = event;
   }
 
-  return { imported, skipped, characterKey: key };
+  // Propagate latest snapshot to the bible so "current level / zone" reflects
+  // the freshest event in the import, not whatever the live ingest path
+  // happened to leave behind. Only applies when something was actually
+  // imported for the active bible.
+  const biblePatch: NonNullable<CommitResult['biblePatch']> = {};
+  if (latest && (imported > 0 || refreshed > 0)) {
+    if (typeof latest.playerLevel === 'number' && latest.playerLevel !== opts.bible.level) {
+      biblePatch.level = latest.playerLevel;
+    }
+    if (latest.zone && latest.zone !== opts.bible.currentZone) {
+      biblePatch.currentZone = latest.zone;
+    }
+    if (Object.keys(biblePatch).length > 0) {
+      updateActiveBible(biblePatch);
+    }
+  }
+
+  return {
+    imported,
+    refreshed,
+    skipped,
+    characterKey: key,
+    biblePatch: Object.keys(biblePatch).length > 0 ? biblePatch : undefined,
+  };
 }
 
 export function ingestAddonEvent(event: AddonEvent): AddonIngestResult {

@@ -102,7 +102,10 @@ function resultMessage(plan: ImportPlan, bible: CharacterBible, result: CommitRe
     ? bible.name
     : plan.characters.find((c) => c.guid === bible.characterGuid)?.name ?? bible.name;
   const skipped = Math.max(0, result.skipped);
-  return `✓ ${name} · ${result.imported.toLocaleString()} events imported. (${skipped.toLocaleString()} events from other characters skipped.)`;
+  const refreshedSuffix = result.refreshed > 0
+    ? ` (${result.refreshed.toLocaleString()} refreshed)`
+    : '';
+  return `✓ ${name} · ${result.imported.toLocaleString()} events imported${refreshedSuffix}. (${skipped.toLocaleString()} events from other characters skipped.)`;
 }
 
 export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}) {

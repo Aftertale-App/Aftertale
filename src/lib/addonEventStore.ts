@@ -44,6 +44,28 @@ export function appendAddonEventRecord(record: AddonEventRecord): void {
   fireAddonEventsUpdated();
 }
 
+/**
+ * Upsert variant of {@link appendAddonEventRecord}. If a record with the same
+ * event id already exists it is replaced in-place (preserving its position).
+ * Returns 'inserted' for a fresh add or 'refreshed' for a replacement. Used by
+ * bulk re-imports so a newer parser pass can refresh stored event shape
+ * (e.g. corrected playerLevel) without forcing the user to clear first.
+ */
+export function upsertAddonEventRecord(record: AddonEventRecord): 'inserted' | 'refreshed' {
+  const records = loadAddonEventRecords();
+  const idx = records.findIndex((r) => r.event.id === record.event.id);
+  if (idx >= 0) {
+    records[idx] = record;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    fireAddonEventsUpdated();
+    return 'refreshed';
+  }
+  records.unshift(record);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  fireAddonEventsUpdated();
+  return 'inserted';
+}
+
 export function clearAddonEventRecords(characterKey?: string): number {
   const records = loadAddonEventRecords();
   const keep = characterKey === undefined
