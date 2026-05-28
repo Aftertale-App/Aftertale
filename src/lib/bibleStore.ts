@@ -236,6 +236,7 @@ function fireBibleUpdated(bible: CharacterBible | null): void {
 // ---------------------------------------------------------------------------
 
 const BACKFILL_FLAG = 'at.migrations.fears-flaws-quote.v1';
+const PURGE_ADDON_HISTORY_FLAG = 'at.migrations.purge-addon-history.v1';
 
 interface BibleBackfill {
   createdAt: number;
@@ -299,6 +300,42 @@ function applySeedBackfills(): void {
   }
 }
 
+// Lane A migration: addon-derived chronicle entries are no longer canon.
+// Sweep every bible in the roster and strip any HistoryEntry whose id starts
+// with `addon_`. Runs once per browser; manual entries and committed session
+// recaps are preserved.
+function purgeAddonHistoryFromAllBibles(): void {
+  try {
+    if (localStorage.getItem(PURGE_ADDON_HISTORY_FLAG)) return;
+    const roster = readRoster();
+    let purgedBibles = 0;
+    let purgedEntries = 0;
+    for (const key of roster.keys) {
+      const bible = readEntry(key);
+      if (!bible || !Array.isArray(bible.history)) continue;
+      const next = bible.history.filter((e) => !e.id.startsWith('addon_'));
+      const removed = bible.history.length - next.length;
+      if (removed === 0) continue;
+      const updated: CharacterBible = {
+        ...bible,
+        history: next,
+        updatedAt: Date.now(),
+      };
+      writeEntry(updated);
+      purgedBibles += 1;
+      purgedEntries += removed;
+    }
+    localStorage.setItem(PURGE_ADDON_HISTORY_FLAG, String(Date.now()));
+    if (purgedEntries > 0) {
+      console.info(
+        `[bibleStore] Lane A migration: stripped ${purgedEntries} addon-derived chronicle entr(ies) from ${purgedBibles} bible(s)`,
+      );
+    }
+  } catch (err) {
+    console.warn('[bibleStore] addon-history purge migration failed:', err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // public API — single-active-bible (existing surface, preserved)
 // ---------------------------------------------------------------------------
@@ -306,6 +343,7 @@ function applySeedBackfills(): void {
 export function loadBible(): CharacterBible | null {
   migrateLegacyIfPresent();
   applySeedBackfills();
+  purgeAddonHistoryFromAllBibles();
   const roster = readRoster();
   if (!roster.activeKey) return null;
   return readEntry(roster.activeKey);
@@ -467,6 +505,50 @@ export function appendHistoryEntry(text: string): HistoryEntry | null {
 }
 
 /**
+ * Commit a session recap (LLM-generated full-session narrative) as a permanent
+ * HistoryEntry in the active bible. Uses a stable `recap_<sessionId>` id so
+ * re-committing replaces the existing entry instead of duplicating it.
+ * Caller supplies the session's startedAt timestamp so the chapter slots into
+ * chronological order in the Chronicle, plus optional zone/level snapshots.
+ */
+export function appendSessionRecapHistoryEntry(
+  sessionId: string,
+  text: string,
+  sessionStartedAt: number,
+  zone?: string,
+  level?: number,
+  title?: string,
+): HistoryEntry | null {
+  const trimmed = text.trim();
+  if (!trimmed || !sessionId) return null;
+  const current = loadBible();
+  if (!current) return null;
+  const id = `recap_${sessionId}`;
+  const entry: HistoryEntry = {
+    id,
+    timestamp: sessionStartedAt,
+    text: trimmed,
+    zone,
+    level,
+    title: title?.trim() || undefined,
+  };
+  const existing = current.history ?? [];
+  const without = existing.filter((e) => e.id !== id);
+  const history = [...without, entry].sort((a, b) => a.timestamp - b.timestamp);
+  updateActiveBible({ history });
+  return entry;
+}
+
+/**
+ * Remove a committed session-recap chapter from the active bible. No-op if
+ * the entry doesn't exist (e.g. it was already cleared by a chapter purge).
+ */
+export function removeSessionRecapHistoryEntry(sessionId: string): void {
+  if (!sessionId) return;
+  deleteHistoryEntry(`recap_${sessionId}`);
+}
+
+/**
  * Remove a single history entry by id from the active bible.
  */
 export function deleteHistoryEntry(id: string): void {
@@ -475,5 +557,34 @@ export function deleteHistoryEntry(id: string): void {
   const next = current.history.filter((e) => e.id !== id);
   if (next.length === current.history.length) return;
   updateActiveBible({ history: next });
+}
+
+/**
+ * Remove every addon-derived history entry (id prefixed with `addon_`) from
+ * the active bible. Manual entries are preserved. Returns the count removed.
+ */
+export function clearAddonHistoryEntries(): number {
+  const current = loadBible();
+  if (!current || !Array.isArray(current.history)) return 0;
+  const next = current.history.filter((e) => !e.id.startsWith('addon_'));
+  const removed = current.history.length - next.length;
+  if (removed > 0) updateActiveBible({ history: next });
+  return removed;
+}
+
+/**
+ * Remove the specific addon-derived history entries that correspond to a given
+ * set of addon event ids (entry id = `addon_<eventId>`). Manual entries are
+ * never touched. Returns the count removed.
+ */
+export function removeAddonHistoryEntriesByEventIds(eventIds: string[]): number {
+  if (eventIds.length === 0) return 0;
+  const current = loadBible();
+  if (!current || !Array.isArray(current.history)) return 0;
+  const drop = new Set(eventIds.map((id) => `addon_${id}`));
+  const next = current.history.filter((e) => !drop.has(e.id));
+  const removed = current.history.length - next.length;
+  if (removed > 0) updateActiveBible({ history: next });
+  return removed;
 }
 

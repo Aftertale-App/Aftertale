@@ -2,12 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { SpendBar } from './components/SpendBar';
 import { CharacterTab } from './components/CharacterTab';
 import { NpcChat } from './components/NpcChat';
-import { CharacterSelector } from './components/CharacterSelector';
-import { SettingsPanel } from './components/SettingsPanel';
+import { SettingsPanel, type SettingsSectionId } from './components/SettingsPanel';
 import { AddonSimulator } from './components/AddonSimulator';
 import { ChronicleReader } from './components/ChronicleReader';
 import { ScribesDesk } from './components/ScribesDesk';
-import { AccountMenu } from './components/AccountMenu';
 import { getKeyStatus } from './lib/apiKeys';
 import { getShowScribesDesk } from './lib/featureFlags';
 import { ensureAnonymousSession } from './lib/auth';
@@ -27,6 +25,7 @@ interface TabSpec {
   id: Tab;
   label: string;
   title?: string;
+  isDev?: boolean;
 }
 
 function useActiveBible(): CharacterBible | null {
@@ -49,7 +48,15 @@ function useActiveBible(): CharacterBible | null {
 
 export function App() {
   const [tab, setTab] = useState<Tab>('character');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<{ open: boolean; section?: SettingsSectionId }>({
+    open: false,
+  });
+  const openSettings = useCallback((section?: SettingsSectionId) => {
+    setSettings({ open: true, section });
+  }, []);
+  const closeSettings = useCallback(() => {
+    setSettings((s) => ({ open: false, section: s.section }));
+  }, []);
   const [keyTick, setKeyTick] = useState(0);
   const [showDesk, setShowDesk] = useState<boolean>(() => getShowScribesDesk());
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({
@@ -95,10 +102,10 @@ export function App() {
     void ensureAnonymousSession();
   }, []);
 
-  // First-run nudge: if no key, pop the settings panel automatically.
+  // First-run nudge: if no key, pop the settings panel automatically to API Keys.
   useEffect(() => {
     if (!getKeyStatus('openrouter').hasKey) {
-      setSettingsOpen(true);
+      setSettings({ open: true, section: 'apiKeys' });
     }
   }, []);
 
@@ -115,12 +122,12 @@ export function App() {
       specs.push({
         id: 'desk',
         label: "Scribe's Desk",
-        title: 'Import SavedVariables, enrich events into prose, and download a restore snippet for WoW',
+        title: "Import SavedVariables, pen Scribe's Notes from your events, and download a restore snippet for WoW",
       });
     }
     if (SHOW_DEV_TOOLS) {
-      specs.push({ id: 'npc', label: 'Tavern (dev)', title: 'Developer-only: live NPC chat (not exposed on public builds)' });
-      specs.push({ id: 'addon', label: 'Addon Sim (dev)', title: 'Developer-only: fires synthetic addon events' });
+      specs.push({ id: 'npc', label: 'Tavern', isDev: true, title: 'Developer-only: live NPC chat (not exposed on public builds)' });
+      specs.push({ id: 'addon', label: 'Addon Sim', isDev: true, title: 'Developer-only: fires synthetic addon events' });
     }
     return specs;
   }, [showDesk]);
@@ -154,12 +161,8 @@ export function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <SpendBar onOpenSettings={() => setSettingsOpen(true)} hasAnyKey={anyKey} />
+      <SpendBar onOpenSettings={openSettings} hasAnyKey={anyKey} />
       <main className="at-app-shell">
-        <div className="at-app-meta at-hero-anim">
-          <AccountMenu />
-          <CharacterSelector />
-        </div>
         <header className="at-app-header at-hero-anim" style={{ animationDelay: '60ms' }}>
           <p className="at-kicker">{kickerCopy}</p>
           <h1 className="at-app-headline">{headlineCopy}</h1>
@@ -190,6 +193,7 @@ export function App() {
                 title={spec.title}
                 onClick={() => setTab(spec.id)}
               >
+                {spec.isDev && <span className="at-dev-pill" style={{ marginRight: '0.5rem' }}>DEV</span>}
                 {spec.label}
               </button>
             );
@@ -211,7 +215,11 @@ export function App() {
           {tab === 'addon' && SHOW_DEV_TOOLS && <AddonSimulator />}
         </div>
       </main>
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsPanel
+        open={settings.open}
+        initialSection={settings.section}
+        onClose={closeSettings}
+      />
     </div>
   );
 }

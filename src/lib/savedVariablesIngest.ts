@@ -159,8 +159,11 @@ function mapKind(wowEvent: string): AddonEventKind {
     case 'BOSS_KILL':
       return 'unit_kill';
     default:
-      // Widen at runtime; the kind union is a simulator ergonomics layer.
-      return 'session_start' as AddonEventKind;
+      // Anything we don't recognise (TIME_PLAYED_MSG, PLAYER_LOGIN, combat
+      // log spam, etc.) gets the neutral 'unknown' kind. Crucially this is
+      // NOT 'session_start' — that used to be the default and it caused
+      // every unmapped event to start a new session bucket in the trail.
+      return 'unknown';
   }
 }
 

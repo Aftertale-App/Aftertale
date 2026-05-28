@@ -666,6 +666,7 @@ export function CharacterCreation() {
       <div className="at-creation-toolbar">
         {DEV_TOOLS_ENABLED && (
           <span className="at-creation-step-debug">
+            <span className="at-dev-pill">DEV</span>
             step: <code>{step}</code>
             {step === 'interview' && ` · turn ${userTurnsSoFar} / ${MAX_TURNS}`}
           </span>
@@ -1820,14 +1821,10 @@ function CreationIntro({
   userTurnsSoFar: number;
   maxTurns: number;
 }) {
-  // Banner: showing the hero you already have. Lead with their name.
+  // Banner: the page header already shows "{hero}'s Aftertale" + Race/Class
+  // for the active hero, so suppress the duplicate intro inside the panel.
   if (step === 'banner' && existingBible) {
-    return (
-      <StepIntro
-        kicker="✦ Your hero"
-        headline={`${existingBible.name}'s Aftertale`}
-      />
-    );
+    return null;
   }
   if (step === 'welcome') {
     return (

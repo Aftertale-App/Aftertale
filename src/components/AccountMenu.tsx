@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth, signOut } from '../lib/auth';
 import { SaveChronicleModal, type AuthModalMode } from './SaveChronicleModal';
+import type { SettingsSectionId } from './SettingsPanel';
+
+interface AccountMenuProps {
+  onOpenSettings?: (section?: SettingsSectionId) => void;
+}
 
 // Top-right account control for the app shell. Anonymous-by-default: account
 // creation is framed as preserving the chronicle, never as a gate.
-export function AccountMenu() {
+export function AccountMenu({ onOpenSettings }: AccountMenuProps = {}) {
   const { status, email } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<AuthModalMode>('save');
@@ -82,11 +87,26 @@ export function AccountMenu() {
               role="menu"
               style={{
                 position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 30,
-                minWidth: 180, padding: '0.4rem', borderRadius: 'var(--r-md)',
+                minWidth: 200, padding: '0.4rem', display: 'flex', flexDirection: 'column', gap: 4,
+                borderRadius: 'var(--r-md)',
                 background: 'var(--panel, #1c1710)', border: '1px solid rgba(255,240,200,0.12)',
                 boxShadow: 'var(--sh-panel)',
               }}
             >
+              {onOpenSettings && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="at-btn at-btn-secondary at-btn-sm"
+                  style={{ width: '100%' }}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenSettings('account');
+                  }}
+                >
+                  ⚙ Settings…
+                </button>
+              )}
               <button
                 type="button"
                 role="menuitem"

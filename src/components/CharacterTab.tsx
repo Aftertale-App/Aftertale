@@ -139,9 +139,7 @@ export function CharacterTab() {
 
       {savedDraft && mode === 'auto' && (
         <div className="at-callout at-callout-success" style={{ marginBottom: '1rem' }}>
-          <strong>Draft saved.</strong> {savedDraft.character.identity.name}'s onboarding payload
-          is in localStorage as <code>{DRAFT_KEY}</code>. The next step (prologue generator) will
-          turn this into a full chronicle bible.
+          <strong>Got it.</strong> We pulled <em>{savedDraft.character.identity.name}</em> from your save data. Generate the prologue & bible to bring them to life.
         </div>
       )}
 

@@ -1,8 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
-import { loadBible } from '../lib/bibleStore';
+import { loadBible, clearAddonHistoryEntries, removeAddonHistoryEntriesByEventIds, deleteHistoryEntry, appendSessionRecapHistoryEntry, removeSessionRecapHistoryEntry } from '../lib/bibleStore';
 import { DEV_TOOLS_ENABLED } from '../lib/devTools';
-import { loadAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
+import { loadAddonEventRecords, clearAddonEventRecords, removeAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
+import {
+  clearEnrichments,
+  ENRICHMENTS_UPDATED_EVENT,
+  loadEnrichments,
+  removeEnrichments,
+  toParagraphMap,
+} from '../lib/enrichmentStore';
+import {
+  loadSessionRecaps,
+  saveSessionRecap,
+  removeSessionRecap,
+  SESSION_RECAPS_UPDATED_EVENT,
+  type SessionRecapMap,
+  type SessionRecapRecord,
+} from '../lib/sessionRecapStore';
+import { entryId } from '../lib/chronicleExport';
 import {
   buildChronicleSessions,
   eventFactLine,
@@ -13,7 +29,6 @@ import ManualEntryDialog from './ManualEntryDialog';
 import type { CharacterBible, HistoryEntry, LLMResponse } from '../types';
 
 const SESSION_WINDOW_MS = 9 * 60 * 60 * 1000;
-const FULL_RECAP_ENTRY_LIMIT = 40;
 
 type ReaderMode = 'latest' | 'full' | 'sessions';
 
@@ -29,12 +44,10 @@ interface Chapter {
 export function ChronicleReader() {
   const [bible, setBible] = useState<CharacterBible | null>(() => loadBible());
   const [mode, setMode] = useState<ReaderMode>('latest');
-  const [modelIdx] = useSelectedModelIdx();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [recap, setRecap] = useState<LLMResponse | null>(null);
   const [addonRecords, setAddonRecords] = useState<AddonEventRecord[]>(() => loadAddonEventRecords());
   const [manualOpen, setManualOpen] = useState(false);
+  const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
+  const chapterRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   useEffect(() => {
     const onUpdate = (e: Event) => {
@@ -55,6 +68,17 @@ export function ChronicleReader() {
     };
   }, []);
 
+  useEffect(() => {
+    const onModeRequest = (event: Event) => {
+      const detail = (event as CustomEvent<ReaderMode>).detail;
+      if (detail === 'latest' || detail === 'full' || detail === 'sessions') {
+        setMode(detail);
+      }
+    };
+    window.addEventListener('at:chronicle-mode', onModeRequest);
+    return () => window.removeEventListener('at:chronicle-mode', onModeRequest);
+  }, []);
+
   const entries = useMemo(
     () => [...(bible?.history ?? [])].sort((a, b) => a.timestamp - b.timestamp),
     [bible],
@@ -70,35 +94,55 @@ export function ChronicleReader() {
   );
   const latestEntries = useMemo(() => latestSessionEntries(entries), [entries]);
   const visibleEntries = mode === 'full' ? entries : latestEntries;
-  const chapters = useMemo(() => buildChapters(entries), [entries]);
   const visibleChapters = useMemo(() => buildChapters(visibleEntries), [visibleEntries]);
-  const insight = bible ? buildInsight(bible, visibleEntries, entries) : null;
+  const insight = bible ? buildInsight(bible, visibleEntries, entries, visibleChapters.length) : null;
   const hasStoryData = entries.length > 0 || sessions.length > 0;
+
+  // Arc Map active-pill tracking: watch each rendered chapter heading and mark
+  // the most-visible one as active. The pill list highlights it so the user
+  // always knows where they are in the scroll.
+  useEffect(() => {
+    if (mode === 'sessions') {
+      setActiveChapterId(null);
+      return;
+    }
+    if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') return;
+    const refs = chapterRefs.current;
+    if (refs.size === 0) return;
+
+    const visibility = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (changes) => {
+        for (const change of changes) {
+          const id = (change.target as HTMLElement).dataset.chapterId;
+          if (!id) continue;
+          visibility.set(id, change.intersectionRatio);
+        }
+        let bestId: string | null = null;
+        let bestRatio = 0;
+        for (const [id, ratio] of visibility) {
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            bestId = id;
+          }
+        }
+        if (bestRatio > 0) setActiveChapterId(bestId);
+      },
+      { rootMargin: '-20% 0px -55% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+    for (const el of refs.values()) observer.observe(el);
+    return () => observer.disconnect();
+  }, [mode, visibleChapters]);
+
+  function scrollToChapter(chapterId: string) {
+    const el = chapterRefs.current.get(chapterId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setActiveChapterId(chapterId);
+  }
 
   function requestTab(tab: string) {
     window.dispatchEvent(new CustomEvent('at:request-tab', { detail: tab }));
-  }
-
-  async function generateRecap() {
-    if (!bible || mode === 'sessions' || visibleEntries.length === 0) return;
-    setBusy(true);
-    setError(null);
-    setRecap(null);
-    try {
-      const scopedEntries =
-        mode === 'latest'
-          ? visibleEntries
-          : visibleEntries.slice(-FULL_RECAP_ENTRY_LIMIT);
-      const res = await requestCampfireRecap(
-        modelIdx,
-        buildRecapPrompt(bible, scopedEntries, mode, visibleEntries.length),
-      );
-      setRecap(res);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
   }
 
   if (!bible) {
@@ -146,7 +190,6 @@ export function ChronicleReader() {
           aria-pressed={mode === 'latest'}
           onClick={() => {
             setMode('latest');
-            setRecap(null);
           }}
         >
           Latest session
@@ -156,7 +199,6 @@ export function ChronicleReader() {
           aria-pressed={mode === 'full'}
           onClick={() => {
             setMode('full');
-            setRecap(null);
           }}
         >
           Full saga
@@ -166,7 +208,6 @@ export function ChronicleReader() {
           aria-pressed={mode === 'sessions'}
           onClick={() => {
             setMode('sessions');
-            setRecap(null);
           }}
         >
           Session trail
@@ -179,6 +220,13 @@ export function ChronicleReader() {
         >
           ✦ Add manual entry
         </button>
+        {scopedAddonRecords.length > 0 && (
+          <PurgeChronicleButton
+            characterKey={characterKey}
+            characterName={bible?.name ?? null}
+            recordCount={scopedAddonRecords.length}
+          />
+        )}
       </div>
 
       {!hasStoryData ? (
@@ -187,8 +235,8 @@ export function ChronicleReader() {
           <h3 className="at-section-headline-sm">No story entries yet</h3>
           <p className="at-section-sub">
             Visit the <strong>Scribe's Desk</strong> tab to import your{' '}
-            <code>Aftertale.lua</code> and enrich it into prose, or add manual
-            deeds from the character sheet.
+            <code>Aftertale.lua</code> and pen Scribe's Notes from your deeds,
+            or add manual entries from the character sheet.
           </p>
           <div className="at-chronicle-empty-actions" style={{ marginTop: '1rem' }}>
             <button className="at-btn at-btn-primary" onClick={() => requestTab('desk')}>
@@ -208,37 +256,6 @@ export function ChronicleReader() {
         <>
           {mode !== 'sessions' && insight && <InsightGrid insight={insight} mode={mode} />}
 
-          {mode !== 'sessions' && visibleEntries.length > 0 && (
-            <section className="at-chronicle-generate">
-              <div>
-                <h3>Campfire recap</h3>
-                <p className="muted">
-                  Generate a readable chapter from {visibleEntries.length} chronicle {visibleEntries.length === 1 ? 'entry' : 'entries'}.
-                  {mode === 'full' && visibleEntries.length > FULL_RECAP_ENTRY_LIMIT
-                    ? ` The prompt uses the latest ${FULL_RECAP_ENTRY_LIMIT} entries to stay focused.`
-                    : ''}
-                </p>
-              </div>
-              <div className="at-chronicle-generate-controls">
-                <button
-                  className="at-btn at-btn-primary"
-                  onClick={generateRecap}
-                  disabled={busy || visibleEntries.length === 0}
-                >
-                  {busy ? 'Writing...' : '◆ Write recap'}
-                </button>
-              </div>
-            </section>
-          )}
-
-          {error && (
-            <div className="at-callout-danger at-chronicle-error">
-              <strong>Recap failed:</strong> {error}
-            </div>
-          )}
-
-          {recap && <CampfireRecapArticle recap={recap} />}
-
           {mode === 'sessions' ? (
             <SessionTrail
               sessions={sessions}
@@ -251,7 +268,7 @@ export function ChronicleReader() {
                   <p className="at-kicker">{mode === 'latest' ? 'Tonight at the table' : 'The road so far'}</p>
                   <h3>{mode === 'latest' ? latestSessionTitle(visibleEntries) : 'Full saga timeline'}</h3>
                 </div>
-                <span className="at-chronicle-count">{visibleEntries.length} deeds</span>
+                <span className="at-chronicle-count">{visibleChapters.length} {visibleChapters.length === 1 ? 'chapter' : 'chapters'}</span>
               </header>
 
               {visibleChapters.length === 0 ? (
@@ -260,17 +277,33 @@ export function ChronicleReader() {
                 <div className="at-chronicle-chapters">
                   {visibleChapters.map((chapter, i) => (
                     <Reveal key={chapter.id}>
-                      <article className="at-chronicle-chapter">
+                      <article
+                        className="at-chronicle-chapter"
+                        data-chapter-id={chapter.id}
+                        ref={(el) => {
+                          if (el) chapterRefs.current.set(chapter.id, el);
+                          else chapterRefs.current.delete(chapter.id);
+                        }}
+                      >
                         <div className="at-chronicle-chapter-head">
                           <span className="at-chronicle-chapter-num">Chapter {i + 1}</span>
                           <h4>{chapter.title}</h4>
                           <span>{formatDateRange(chapter.start, chapter.end)}</span>
+                          {characterKey && (
+                            <PurgeChapterButton
+                              chapter={chapter}
+                              characterKey={characterKey}
+                              chapterNumber={i + 1}
+                            />
+                          )}
                         </div>
                         <ol>
                           {chapter.entries.map((entry) => (
                             <li key={entry.id}>
                               <span>{formatEntryTime(entry.timestamp)}</span>
-                              <p>{entry.text}</p>
+                              <div className="at-chronicle-entry-body">
+                                {renderEntryParagraphs(entry.text)}
+                              </div>
                               {entryContext(entry) && <small>{entryContext(entry)}</small>}
                             </li>
                           ))}
@@ -283,15 +316,24 @@ export function ChronicleReader() {
             </section>
           )}
 
-          {mode !== 'sessions' && chapters.length > 0 && (
+          {mode !== 'sessions' && visibleChapters.length > 0 && (
             <section className="at-chronicle-arc-map">
               <p className="at-kicker">Arc map</p>
               <div>
-                {chapters.map((chapter, i) => (
-                  <span key={chapter.id}>
-                    {i + 1}. {chapter.title}
-                  </span>
-                ))}
+                {visibleChapters.map((chapter, i) => {
+                  const isActive = activeChapterId === chapter.id;
+                  return (
+                    <button
+                      key={chapter.id}
+                      type="button"
+                      className={`at-arc-pill${isActive ? ' is-active' : ''}`}
+                      aria-current={isActive ? 'true' : undefined}
+                      onClick={() => scrollToChapter(chapter.id)}
+                    >
+                      {i + 1}. {chapter.title}
+                    </button>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -323,7 +365,7 @@ function buildChapters(entries: HistoryEntry[]): Chapter[] {
     if (!last || !last.zones.includes(zone)) {
       chapters.push({
         id: `${entry.id}_chapter`,
-        title: zone,
+        title: entry.title?.trim() || zone,
         entries: [entry],
         zones: [zone],
         start: entry.timestamp,
@@ -333,11 +375,16 @@ function buildChapters(entries: HistoryEntry[]): Chapter[] {
     }
     last.entries.push(entry);
     last.end = entry.timestamp;
+    // Promote a richer title if this entry has one and the chapter is still
+    // using its zone fallback.
+    if (entry.title?.trim() && last.title === zone) {
+      last.title = entry.title.trim();
+    }
   }
   return chapters;
 }
 
-function buildInsight(bible: CharacterBible, visibleEntries: HistoryEntry[], allEntries: HistoryEntry[]) {
+function buildInsight(bible: CharacterBible, visibleEntries: HistoryEntry[], allEntries: HistoryEntry[], chapterCount: number) {
   const first = visibleEntries[0] ?? allEntries[0];
   const last = visibleEntries[visibleEntries.length - 1] ?? allEntries[allEntries.length - 1];
   const zones = unique(visibleEntries.map((entry) => entry.zone).filter((z): z is string => Boolean(z)));
@@ -352,7 +399,7 @@ function buildInsight(bible: CharacterBible, visibleEntries: HistoryEntry[], all
       : 0;
 
   return {
-    deeds: visibleEntries.length,
+    chapters: chapterCount,
     zones,
     levelDelta,
     firstText: first?.text ?? '',
@@ -363,9 +410,133 @@ function buildInsight(bible: CharacterBible, visibleEntries: HistoryEntry[], all
       || bible.beliefs[0]
       || `${bible.name} is still deciding what kind of hero the road will make.`,
     nextHook: last
-      ? `The next NPC should remember this: ${last.text}`
-      : 'Start logging quest turn-ins or manual deeds, then this becomes a living story hook.',
+      ? `The next NPC should remember this: ${summarizeForHook(last.text)}`
+      : 'Pen a session recap from Session Trail, then this becomes a living story hook.',
   };
+}
+
+function summarizeForHook(raw: string, maxChars = 180): string {
+  const cleaned = cleanRecapText(raw).replace(/\s+/g, ' ').trim();
+  if (cleaned.length <= maxChars) return cleaned;
+  // Prefer cutting at a sentence boundary.
+  const sliced = cleaned.slice(0, maxChars);
+  const lastStop = Math.max(sliced.lastIndexOf('. '), sliced.lastIndexOf('! '), sliced.lastIndexOf('? '));
+  if (lastStop > maxChars * 0.5) return sliced.slice(0, lastStop + 1);
+  const lastSpace = sliced.lastIndexOf(' ');
+  return (lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced).trimEnd() + '…';
+}
+
+// Strip the LLM's markdown formatting before we display the recap as a
+// chronicle chapter. The model loves to lead with a `# Title` line and bold
+// the "So what changed" bullet header — both look like garbage when rendered
+// as plain text in the chapter list.
+export function cleanRecapText(raw: string): string {
+  let text = raw.replace(/\r\n/g, '\n').trim();
+  // Drop a leading "# Title" line (and the blank line after it). The chapter
+  // already has its own title (either auto-extracted from this line, or
+  // zone-based as a fallback) so we don't want it inline.
+  text = text.replace(/^#{1,6}\s+[^\n]*\n+/, '');
+  // Convert **bold** / __bold__ to plain text.
+  text = text.replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1');
+  // Convert *em* / _em_ to plain text (avoid eating bullet markers).
+  text = text.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:!?]|$)/g, '$1$2');
+  text = text.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,;:!?]|$)/g, '$1$2');
+  // Normalize bullet lines so they render cleanly when paragraph-split.
+  text = text.replace(/^[ \t]*[-*•][ \t]+/gm, '• ');
+  // Defang em/en dashes and double-hyphens that the model loves to scatter
+  // around. Sentence break ("X — Y") becomes ", "; mid-word ("9–11") becomes
+  // a single hyphen.
+  text = text.replace(/\s+[—–]\s+/g, ', ');
+  text = text.replace(/[—–]/g, '-');
+  text = text.replace(/\s+--\s+/g, ', ');
+  // Collapse 3+ blank lines into a single paragraph break.
+  text = text.replace(/\n{3,}/g, '\n\n');
+  return text.trim();
+}
+
+// Pull the first `# Title` line out of a raw recap, if present. Returns the
+// title without the leading hashes. Used so committed session recaps can set
+// the chapter banner to something narrative ("The Quartermaster's Ledger")
+// rather than just the zone name ("Anvilmar").
+export function extractRecapTitle(raw: string): string | null {
+  const m = raw.replace(/\r\n/g, '\n').trimStart().match(/^#{1,6}\s+([^\n]+)/);
+  if (!m) return null;
+  const title = m[1].trim().replace(/[—–]/g, '-');
+  return title || null;
+}
+
+function renderEntryParagraphs(raw: string) {
+  const text = cleanRecapText(raw);
+  const blocks = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  if (blocks.length === 0) return <p>{text}</p>;
+  let leadApplied = false;
+  const renderPlainPara = (content: string, key: number) => {
+    if (leadApplied) return <p key={key}>{content}</p>;
+    leadApplied = true;
+    const m = content.match(/^(\S+)(\s+)([\s\S]*)$/);
+    if (!m) return <p key={key}><span className="at-entry-leadword">{content}</span></p>;
+    const [, lead, gap, rest] = m;
+    return (
+      <p key={key}>
+        <span className="at-entry-leadword">{lead}</span>{gap}{rest}
+      </p>
+    );
+  };
+  return (
+    <>
+      {blocks.map((block, i) => {
+        const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+        const bulletLines = lines.filter((l) => l.startsWith('• '));
+        const isBulletBlock = bulletLines.length > 0 && bulletLines.length === lines.length;
+        if (isBulletBlock) {
+          return (
+            <ul key={i} className="at-entry-bullets">
+              {bulletLines.map((line, li) => (
+                <li key={li}>{line.replace(/^•\s+/, '')}</li>
+              ))}
+            </ul>
+          );
+        }
+        if (lines.length === 1 && lines[0].length < 60 && lines[0].endsWith(':')) {
+          return <p key={i} className="at-entry-label">{lines[0]}</p>;
+        }
+        if (lines.length > 1) {
+          // Multi-line non-bullet block; only apply lead-word to the very first line.
+          const [firstLine, ...rest] = lines;
+          if (!leadApplied) {
+            leadApplied = true;
+            const m = firstLine.match(/^(\S+)(\s+)([\s\S]*)$/);
+            const head = m ? (
+              <>
+                <span className="at-entry-leadword">{m[1]}</span>{m[2]}{m[3]}
+              </>
+            ) : (
+              <span className="at-entry-leadword">{firstLine}</span>
+            );
+            return (
+              <p key={i}>
+                {head}
+                {rest.map((line, li) => (
+                  <span key={li}><br />{line}</span>
+                ))}
+              </p>
+            );
+          }
+          return (
+            <p key={i}>
+              {lines.map((line, li) => (
+                <span key={li}>
+                  {line}
+                  {li < lines.length - 1 && <br />}
+                </span>
+              ))}
+            </p>
+          );
+        }
+        return renderPlainPara(lines[0], i);
+      })}
+    </>
+  );
 }
 
 function InsightGrid({
@@ -379,7 +550,7 @@ function InsightGrid({
     <div className="at-chronicle-insights">
       <article>
         <span>Session shape</span>
-        <strong>{insight.deeds} deeds</strong>
+        <strong>{insight.chapters} {insight.chapters === 1 ? 'chapter' : 'chapters'}</strong>
         <p>
           {mode === 'latest' ? 'Latest-session window' : 'Full chronicle'} ·{' '}
           {insight.zones.length > 0 ? insight.zones.join(' → ') : 'no zone snapshots yet'}
@@ -420,7 +591,19 @@ async function requestCampfireRecap(modelIdx: number, prompt: string): Promise<L
           'Write polished story prose from structured character-history notes.',
           'Use only the provided facts. Do not invent completed quests, locations, NPC relationships, or outcomes.',
           'Keep the hero as the subject. Do not mention prompts, models, localStorage, UI tabs, or the app.',
-          'Output plain text with a title, 3-5 short paragraphs, and a final "So what changed:" section with 3 bullets.',
+          '',
+          'STYLE RULES (strict):',
+          '- Never use em dashes (—) or en dashes (–). If you would reach for one, use a comma, semicolon, or period instead. Two hyphens (--) are also forbidden.',
+          '- Avoid ellipses unless quoting a character. No "..." for dramatic pauses.',
+          '- Avoid the cliche "not X, but Y" construction. Vary sentence rhythm.',
+          '- Prefer concrete nouns and verbs over abstract sentiment. Show, don\'t narrate the feeling.',
+          '',
+          'OUTPUT FORMAT (strict):',
+          '- Line 1: a single chapter title in the form `# <Title>`. The title must be 3 to 7 words drawn from the actual events of THIS session (the specific NPC, item, deed, or beat that defines it). Do NOT use the zone name alone, do NOT use generic phrases like "A Day\'s Work" or "Coldridge Errands".',
+          '- One blank line.',
+          '- 3 to 5 short paragraphs of prose, each separated by a blank line.',
+          '- One blank line.',
+          '- A final closing section. Use the heading `What lingers:` on its own line, then 2 to 3 short bullets starting with `- `. Each bullet is one sentence about what this session leaves with the hero: a debt, a question, a face they will see again, a small change in how they carry themselves. Do NOT use "So what changed".',
         ].join('\n'),
       },
       {
@@ -429,19 +612,6 @@ async function requestCampfireRecap(modelIdx: number, prompt: string): Promise<L
       },
     ],
   });
-}
-
-function CampfireRecapArticle({ recap }: { recap: LLMResponse }) {
-  return (
-    <article className="at-chronicle-recap">
-      <span className="at-bubble-label">CAMPFIRE RECAP</span>
-      <div>{recap.text}</div>
-      <footer>
-        {recap.inputTokens} in / {recap.cachedInputTokens} cached / {recap.outputTokens} out ·{' '}
-        {recap.latencyMs.toFixed(0)}ms · {recap.model}
-      </footer>
-    </article>
-  );
 }
 
 function SessionTrail({
@@ -455,7 +625,48 @@ function SessionTrail({
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(sessions[0]?.id ?? null);
   const [busySessionId, setBusySessionId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
-  const [sessionRecaps, setSessionRecaps] = useState<Record<string, LLMResponse>>({});
+  const characterKey = String(bible.createdAt);
+  const [sessionRecaps, setSessionRecaps] = useState<SessionRecapMap>(() =>
+    loadSessionRecaps(characterKey),
+  );
+  useEffect(() => {
+    setSessionRecaps(loadSessionRecaps(characterKey));
+    const refresh = () => setSessionRecaps(loadSessionRecaps(characterKey));
+    window.addEventListener(SESSION_RECAPS_UPDATED_EVENT, refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener(SESSION_RECAPS_UPDATED_EVENT, refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, [characterKey]);
+
+  const committedRecapIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of bible.history ?? []) {
+      if (typeof e.id === 'string' && e.id.startsWith('recap_')) {
+        ids.add(e.id.slice('recap_'.length));
+      }
+    }
+    return ids;
+  }, [bible.history]);
+
+  const [enrichments, setEnrichments] = useState<Record<string, string>>(() =>
+    toParagraphMap(loadEnrichments(characterKey)),
+  );
+  useEffect(() => {
+    setEnrichments(toParagraphMap(loadEnrichments(characterKey)));
+    const refresh = () => setEnrichments(toParagraphMap(loadEnrichments(characterKey)));
+    window.addEventListener(ENRICHMENTS_UPDATED_EVENT, refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener(ENRICHMENTS_UPDATED_EVENT, refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, [characterKey]);
+
+  function requestTab(tab: string) {
+    window.dispatchEvent(new CustomEvent('at:request-tab', { detail: tab }));
+  }
 
   useEffect(() => {
     if (sessions.length === 0) {
@@ -463,21 +674,67 @@ function SessionTrail({
       return;
     }
     if (!selectedSessionId || !sessions.some((session) => session.id === selectedSessionId)) {
-      setSelectedSessionId(sessions[0].id);
+      // Prefer the most recent session that actually has enriched prose, so
+      // landing here from Scribe's Desk lands on something visible. Falls back
+      // to the latest session if nothing is enriched yet.
+      const firstEnriched = sessions.find((s) =>
+        s.records.some((r) => enrichments[entryId(r.event)]),
+      );
+      setSelectedSessionId((firstEnriched ?? sessions[0]).id);
     }
-  }, [sessions, selectedSessionId]);
+  }, [sessions, selectedSessionId, enrichments]);
+
+  function jumpToEnrichedSession() {
+    const target = sessions.find((s) => s.records.some((r) => enrichments[entryId(r.event)]));
+    if (!target) return;
+    setSelectedSessionId(target.id);
+    // Defer to next frame so the <details open> re-render lands before scroll.
+    requestAnimationFrame(() => {
+      document.getElementById(`at-session-${target.id}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }
 
   async function generateSelectedSessionRecap(session: ChronicleSession) {
     setBusySessionId(session.id);
     setSessionError(null);
     try {
       const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session));
-      setSessionRecaps((current) => ({ ...current, [session.id]: res }));
+      saveSessionRecap(characterKey, session.id, {
+        text: res.text,
+        savedAt: Date.now(),
+        modelId: res.model,
+      });
     } catch (err) {
       setSessionError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusySessionId(null);
     }
+  }
+
+  function commitRecapToChronicle(session: ChronicleSession) {
+    const recap = sessionRecaps[session.id];
+    if (!recap) return;
+    const title = extractRecapTitle(recap.text);
+    appendSessionRecapHistoryEntry(
+      session.id,
+      cleanRecapText(recap.text),
+      session.startedAt,
+      session.endZone ?? session.startZone,
+      session.endLevel ?? session.startLevel,
+      title ?? undefined,
+    );
+  }
+
+  function removeRecapFromChronicle(session: ChronicleSession) {
+    removeSessionRecapHistoryEntry(session.id);
+  }
+
+  function discardRecap(session: ChronicleSession) {
+    removeSessionRecap(characterKey, session.id);
+    removeSessionRecapHistoryEntry(session.id);
   }
 
   return (
@@ -496,8 +753,57 @@ function SessionTrail({
         </p>
       ) : (
         <div className="at-session-list">
+          {(() => {
+            const totalEvents = sessions.reduce((sum, s) => sum + s.records.length, 0);
+            const enrichedHere = sessions.reduce(
+              (sum, s) =>
+                sum + s.records.filter((r) => enrichments[entryId(r.event)]).length,
+              0,
+            );
+            if (totalEvents === 0) return null;
+            if (enrichedHere === totalEvents) {
+              return (
+                <div className="at-chronicle-enrich-nudge at-chronicle-enrich-nudge-done" role="status">
+                  <span className="at-enriched-chip" aria-hidden="true">✦ Scribe’s Note</span>
+                  <span>
+                    All {totalEvents} addon-observed facts have a Scribe’s Note.
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <div className="at-chronicle-enrich-nudge" role="status">
+                <span>
+                  <strong>{enrichedHere}</strong> of <strong>{totalEvents}</strong> addon-observed facts have a Scribe’s Note.
+                </span>
+                <span className="at-chronicle-enrich-nudge-actions">
+                  {enrichedHere > 0 && (
+                    <button
+                      type="button"
+                      className="at-btn at-btn-primary"
+                      onClick={jumpToEnrichedSession}
+                    >
+                      Jump to scribed session ↓
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="at-btn at-btn-secondary"
+                    onClick={() => requestTab('desk')}
+                  >
+                    Open Scribe's Desk →
+                  </button>
+                </span>
+              </div>
+            );
+          })()}
           {sessions.map((session) => (
-            <details key={session.id} className="at-session-card" open={selectedSessionId === session.id}>
+            <details
+              key={session.id}
+              id={`at-session-${session.id}`}
+              className="at-session-card"
+              open={selectedSessionId === session.id}
+            >
               <summary
                 onClick={(event) => {
                   event.preventDefault();
@@ -514,16 +820,27 @@ function SessionTrail({
                     {formatDuration(session.finishedAt - session.startedAt)}
                   </p>
                 </div>
-                <strong>{session.stats.questsCompleted} quests · +{session.stats.levelsGained} levels</strong>
+                <div className="at-session-card-summary-right">
+                  <strong>{session.stats.questsCompleted} quests · +{session.stats.levelsGained} levels</strong>
+                  {committedRecapIds.has(session.id) && (
+                    <span className="at-session-scribed-badge" title="A chapter from this session lives in the Chronicle">
+                      ✦ In Chronicle
+                    </span>
+                  )}
+                  <PurgeSessionButton
+                    session={session}
+                    characterKey={characterKey}
+                  />
+                </div>
               </summary>
 
               <section className="at-session-campfire-hero">
                 <div className="at-session-campfire-head">
                   <div>
-                    <p className="at-kicker">Selected session campfire</p>
-                    <h4>Make this session the story</h4>
+                    <p className="at-kicker">✒ At the scribe's desk</p>
+                    <h4>Ink this chapter into the chronicle</h4>
                     <p className="muted">
-                      Writes the same full campfire recap as Latest session, scoped to this session's addon-observed facts.
+                      The scribe will draw from this session's observed facts and pen a proper chapter — title, prose, and a closing reflection.
                     </p>
                   </div>
                   <div className="at-chronicle-generate-controls">
@@ -532,42 +849,51 @@ function SessionTrail({
                       onClick={() => generateSelectedSessionRecap(session)}
                       disabled={Boolean(busySessionId)}
                     >
-                      {busySessionId === session.id ? 'Writing...' : '◆ Write session recap'}
+                      {busySessionId === session.id
+                        ? 'Dipping the quill…'
+                        : sessionRecaps[session.id]
+                          ? '✒ Re-pen this chapter'
+                          : '✒ Pen this chapter'}
                     </button>
                   </div>
                 </div>
 
                 {sessionError && selectedSessionId === session.id && (
                   <div className="at-callout-danger at-chronicle-error">
-                    <strong>Session recap failed:</strong> {sessionError}
+                    <strong>The quill slipped:</strong> {sessionError}
                   </div>
                 )}
 
                 {sessionRecaps[session.id] ? (
-                  <CampfireRecapArticle recap={sessionRecaps[session.id]} />
+                  <SavedSessionRecapArticle
+                    record={sessionRecaps[session.id]}
+                    committed={committedRecapIds.has(session.id)}
+                    onCommit={() => commitRecapToChronicle(session)}
+                    onUncommit={() => removeRecapFromChronicle(session)}
+                    onDiscard={() => discardRecap(session)}
+                  />
                 ) : (
                   <p className="at-session-campfire-empty">
-                    No generated recap yet. Pick this session, hit the button, and the Chronicle will turn these facts into the
-                    title, paragraphs, and "So what changed" section.
+                    The parchment is still blank. Press the quill above and the scribe will spin these observed facts into a proper chapter — a title, a few paragraphs, and a closing "and so it changed."
                   </p>
                 )}
               </section>
 
               <div className="at-session-stats">
                 <article>
-                  <span>Session window</span>
+                  <span>The hours kept</span>
                   <strong>
-                    {formatEntryTime(session.startedAt)} {'->'} {session.isOpen ? 'still active' : formatEntryTime(session.finishedAt)}
+                    {formatEntryTime(session.startedAt)} → {session.isOpen ? 'quill still in hand' : formatEntryTime(session.finishedAt)}
                   </strong>
                   <p>{formatDuration(session.finishedAt - session.startedAt)}</p>
                 </article>
                 <article>
-                  <span>Level movement</span>
+                  <span>Levels earned</span>
                   <strong>{levelRange(session)}</strong>
                   <p>{session.stats.levelsGained > 0 ? `${session.stats.levelsGained} level gains observed` : 'No level-up delta observed'}</p>
                 </article>
                 <article>
-                  <span>Quest work</span>
+                  <span>Errands run</span>
                   <strong>{session.stats.questsCompleted} completed</strong>
                   <p>{session.stats.questsAccepted} accepted during the session</p>
                 </article>
@@ -579,22 +905,12 @@ function SessionTrail({
               </div>
 
               <div className="at-session-meta">
-                <span>Zones: {session.stats.zonesVisited.length > 0 ? session.stats.zonesVisited.join(' -> ') : 'not captured'}</span>
+                <span>Zones traveled: {session.stats.zonesVisited.length > 0 ? session.stats.zonesVisited.join(' → ') : 'none recorded'}</span>
                 {session.stats.notableItems.length > 0 && <span>Items: {session.stats.notableItems.join(', ')}</span>}
                 {session.stats.notableUnits.length > 0 && <span>Foes: {session.stats.notableUnits.join(', ')}</span>}
               </div>
 
-              <div className="at-session-events">
-                <p className="at-kicker">Addon-observed facts</p>
-                <ol>
-                  {session.records.map((record) => (
-                    <li key={record.event.id}>
-                      <span>{formatEntryTime(record.event.timestamp)}</span>
-                      <p>{eventFactLine(record.event)}</p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+              <SessionMarginNotes session={session} enrichments={enrichments} />
             </details>
           ))}
         </div>
@@ -678,49 +994,6 @@ function sessionRecordPromptLine(record: AddonEventRecord): string {
   ].join('');
 }
 
-function buildRecapPrompt(
-  bible: CharacterBible,
-  entries: HistoryEntry[],
-  mode: ReaderMode,
-  totalVisibleEntries: number,
-): string {
-  return [
-    `Hero: ${bible.name}, ${bible.faction} ${bible.race} ${bible.class}`,
-    typeof bible.level === 'number' ? `Current level: ${bible.level}` : null,
-    bible.currentZone ? `Current zone: ${bible.currentZone}` : null,
-    bible.homeland ? `Homeland: ${bible.homeland}` : null,
-    bible.coreQuote ? `Hero's truth: ${bible.coreQuote}` : null,
-    '',
-    'Voice:',
-    bible.voice,
-    '',
-    'Backstory:',
-    bible.backstory,
-    '',
-    'Beliefs:',
-    ...bible.beliefs.map((belief) => `- ${belief}`),
-    '',
-    'Motivations:',
-    ...bible.motivations.map((motivation) => `- ${motivation}`),
-    ...(bible.fears && bible.fears.length > 0
-      ? ['', 'Fears:', ...bible.fears.map((fear) => `- ${fear}`)]
-      : []),
-    ...(bible.flaws && bible.flaws.length > 0
-      ? ['', 'Flaws:', ...bible.flaws.map((flaw) => `- ${flaw}`)]
-      : []),
-    '',
-    `Scope: ${mode === 'latest' ? 'latest play session' : 'full saga excerpt'}`,
-    mode === 'full' && totalVisibleEntries > entries.length
-      ? `Note: using the latest ${entries.length} of ${totalVisibleEntries} visible entries.`
-      : null,
-    '',
-    'Chronicle entries, oldest first:',
-    ...entries.map((entry) => `- ${formatPromptTimestamp(entry.timestamp)}${entryContext(entry) ? ` (${entryContext(entry)})` : ''}: ${entry.text}`),
-  ]
-    .filter((line): line is string => line !== null)
-    .join('\n');
-}
-
 function latestSessionTitle(entries: HistoryEntry[]): string {
   if (entries.length === 0) return 'Latest session';
   const zones = unique(entries.map((entry) => entry.zone).filter((z): z is string => Boolean(z)));
@@ -778,3 +1051,348 @@ function formatPromptTimestamp(ts: number): string {
     minute: '2-digit',
   });
 }
+
+// ----------------------------------------------------------------------------
+// Inline purge controls — double-confirm, no permanent surface noise.
+// Both share a 4-second auto-disarm.
+// ----------------------------------------------------------------------------
+
+function PurgeChronicleButton({
+  characterKey,
+  characterName,
+  recordCount,
+}: {
+  characterKey: string | null;
+  characterName: string | null;
+  recordCount: number;
+}) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+
+  if (!characterKey) return null;
+
+  return (
+    <button
+      type="button"
+      className={`at-btn at-btn-danger at-btn-sm${armed ? ' at-btn-danger-armed' : ''}`}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          return;
+        }
+        clearAddonEventRecords(characterKey);
+        clearEnrichments(characterKey);
+        clearAddonHistoryEntries();
+        setArmed(false);
+      }}
+      title={
+        armed
+          ? 'Click again to confirm. Manual entries are preserved.'
+          : `Purge all ${recordCount} addon-observed events${characterName ? ` for ${characterName}` : ''} (manual entries kept)`
+      }
+    >
+      {armed ? '⚠ Click again to purge' : '✕ Purge chronicle'}
+    </button>
+  );
+}
+
+function PurgeSessionButton({
+  session,
+  characterKey,
+}: {
+  session: ChronicleSession;
+  characterKey: string;
+}) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+
+  return (
+    <button
+      type="button"
+      className={`at-btn at-btn-danger at-btn-sm at-session-purge${armed ? ' at-btn-danger-armed' : ''}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!armed) {
+          setArmed(true);
+          return;
+        }
+        const eventIds = session.records.map((r) => r.event.id);
+        const enrichmentIds = session.records.map((r) => entryId(r.event));
+        removeAddonEventRecords(eventIds);
+        removeEnrichments(characterKey, enrichmentIds);
+        removeAddonHistoryEntriesByEventIds(eventIds);
+        removeSessionRecap(characterKey, session.id);
+        removeSessionRecapHistoryEntry(session.id);
+        setArmed(false);
+      }}
+      title={
+        armed
+          ? 'Click again to confirm — this session only'
+          : `Purge this session (${session.records.length} event${session.records.length === 1 ? '' : 's'})`
+      }
+      aria-label={armed ? 'Confirm purge this session' : 'Purge this session'}
+    >
+      {armed ? '⚠ Confirm' : '✕'}
+    </button>
+  );
+}
+
+function PurgeChapterButton({
+  chapter,
+  characterKey,
+  chapterNumber,
+}: {
+  chapter: Chapter;
+  characterKey: string;
+  chapterNumber: number;
+}) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+
+  const { addonEventIds, manualEntryIds } = useMemo(() => {
+    const addon: string[] = [];
+    const manual: string[] = [];
+    for (const entry of chapter.entries) {
+      if (typeof entry.id !== 'string') continue;
+      if (entry.id.startsWith('addon_')) addon.push(entry.id.slice('addon_'.length));
+      else manual.push(entry.id);
+    }
+    return { addonEventIds: addon, manualEntryIds: manual };
+  }, [chapter.entries]);
+
+  const total = addonEventIds.length + manualEntryIds.length;
+  if (total === 0) return null;
+
+  return (
+    <button
+      type="button"
+      className={`at-btn at-btn-danger at-btn-sm at-session-purge${armed ? ' at-btn-danger-armed' : ''}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!armed) {
+          setArmed(true);
+          return;
+        }
+        if (addonEventIds.length > 0) {
+          removeAddonEventRecords(addonEventIds);
+          removeEnrichments(characterKey, addonEventIds);
+          removeAddonHistoryEntriesByEventIds(addonEventIds);
+        }
+        for (const id of manualEntryIds) deleteHistoryEntry(id);
+        setArmed(false);
+      }}
+      title={
+        armed
+          ? `Click again to confirm — wipes Chapter ${chapterNumber} (${total} entr${total === 1 ? 'y' : 'ies'})`
+          : `Purge Chapter ${chapterNumber} (${total} entr${total === 1 ? 'y' : 'ies'}${manualEntryIds.length > 0 ? ` — includes ${manualEntryIds.length} manual` : ''})`
+      }
+      aria-label={armed ? `Confirm purge Chapter ${chapterNumber}` : `Purge Chapter ${chapterNumber}`}
+    >
+      {armed ? '⚠ Confirm' : '✕'}
+    </button>
+  );
+}
+
+const KIND_LABEL: Record<string, string> = {
+  session_start: 'Logins',
+  session_end: 'Logouts',
+  player_death: 'Deaths',
+  quest_accepted: 'Quests accepted',
+  quest_turned_in: 'Quests turned in',
+  quest_objective_progress: 'Quest progress',
+  quest_detail: 'Quest details',
+  zone_changed: 'Zone changes',
+  level_up: 'Level-ups',
+  unit_kill: 'Kills',
+  gossip_show: 'Gossip',
+  unknown: 'Chatter',
+};
+
+function SavedSessionRecapArticle({
+  record,
+  committed,
+  onCommit,
+  onUncommit,
+  onDiscard,
+}: {
+  record: SessionRecapRecord;
+  committed: boolean;
+  onCommit: () => void;
+  onUncommit: () => void;
+  onDiscard: () => void;
+}) {
+  const cleaned = cleanRecapText(record.text);
+  const paragraphs = cleaned
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const savedWhen = new Date(record.savedAt);
+  return (
+    <article className="at-chronicle-article at-session-campfire-article">
+      <div className="at-session-recap-body">
+        {paragraphs.length > 0 ? (
+          paragraphs.map((para, i) => <p key={i}>{para}</p>)
+        ) : (
+          <p>{cleaned}</p>
+        )}
+      </div>
+      <footer className="at-session-recap-footer">
+        <div className="at-session-recap-meta">
+          <span>Penned {savedWhen.toLocaleString()}</span>
+          {record.modelId && <span>· {record.modelId}</span>}
+          {committed && <span className="at-session-recap-committed">· ✦ In the Chronicle</span>}
+        </div>
+        <div className="at-session-recap-actions">
+          {committed ? (
+            <button type="button" className="at-btn at-btn-ghost" onClick={onUncommit}>
+              ✕ Remove from Chronicle
+            </button>
+          ) : (
+            <button type="button" className="at-btn at-btn-primary" onClick={onCommit}>
+              ✒ Add to Chronicle
+            </button>
+          )}
+          <button type="button" className="at-btn at-btn-ghost" onClick={onDiscard} title="Discard this draft and any committed chapter">
+            Discard draft
+          </button>
+        </div>
+      </footer>
+    </article>
+  );
+}
+
+function SessionMarginNotes({
+  session,
+  enrichments,
+}: {
+  session: ChronicleSession;
+  enrichments: Record<string, string>;
+}) {
+  const [selectedKinds, setSelectedKinds] = useState<Set<string>>(new Set());
+  const [scribedOnly, setScribedOnly] = useState(false);
+
+  const kindCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of session.records) {
+      counts[r.event.kind] = (counts[r.event.kind] || 0) + 1;
+    }
+    return counts;
+  }, [session.records]);
+
+  const kindsPresent = useMemo(
+    () => Object.keys(kindCounts).sort((a, b) => kindCounts[b] - kindCounts[a]),
+    [kindCounts],
+  );
+
+  const scribedCount = useMemo(
+    () => session.records.filter((r) => Boolean(enrichments[entryId(r.event)])).length,
+    [session.records, enrichments],
+  );
+
+  const filtered = useMemo(() => {
+    return session.records.filter((r) => {
+      if (selectedKinds.size > 0 && !selectedKinds.has(r.event.kind)) return false;
+      if (scribedOnly && !enrichments[entryId(r.event)]) return false;
+      return true;
+    });
+  }, [session.records, selectedKinds, scribedOnly, enrichments]);
+
+  const toggleKind = (kind: string) => {
+    setSelectedKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  };
+
+  const clearAll = () => {
+    setSelectedKinds(new Set());
+    setScribedOnly(false);
+  };
+
+  const hasFilters = selectedKinds.size > 0 || scribedOnly;
+
+  return (
+    <details className="at-session-events">
+      <summary className="at-session-events-summary">
+        <span className="at-kicker">Margin notes from the addon</span>
+        <span className="at-session-events-count">
+          {hasFilters ? `${filtered.length} / ${session.records.length}` : session.records.length}
+        </span>
+      </summary>
+
+      <div className="at-session-event-filters" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className={`at-pill ${!hasFilters ? 'at-pill-active' : ''}`}
+          onClick={clearAll}
+        >
+          All ({session.records.length})
+        </button>
+        {scribedCount > 0 && (
+          <button
+            type="button"
+            className={`at-pill at-pill-scribed ${scribedOnly ? 'at-pill-active' : ''}`}
+            onClick={() => setScribedOnly((v) => !v)}
+            title="Show only entries with a Scribe's Note"
+          >
+            ✦ Scribe's notes ({scribedCount})
+          </button>
+        )}
+        {kindsPresent.map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            className={`at-pill ${selectedKinds.has(kind) ? 'at-pill-active' : ''}`}
+            onClick={() => toggleKind(kind)}
+          >
+            {KIND_LABEL[kind] ?? kind} ({kindCounts[kind]})
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="at-session-events-empty">No notes match this filter.</p>
+      ) : (
+        <ol>
+          {filtered.map((record) => {
+            const prose = enrichments[entryId(record.event)];
+            return (
+              <li key={record.event.id} className={prose ? 'at-session-event-enriched' : undefined}>
+                <span>{formatEntryTime(record.event.timestamp)}</span>
+                {prose ? (
+                  <div className="at-enriched-block">
+                    <p className="at-enriched-prose">{prose}</p>
+                    <small className="at-enriched-fact">{eventFactLine(record.event)}</small>
+                    <span className="at-enriched-chip" title="Generated at the Scribe's Desk">
+                      ✦ Scribe’s Note
+                    </span>
+                  </div>
+                ) : (
+                  <p>{eventFactLine(record.event)}</p>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </details>
+  );
+}
+
+

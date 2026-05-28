@@ -49,9 +49,16 @@ function bucketRecords(records: AddonEventRecord[]): SessionBucket[] {
   const buckets: SessionBucket[] = [];
   const explicit = new Map<string, SessionBucket>();
   let fallback: SessionBucket | null = null;
+  // Tracks whether the current fallback bucket has been closed by
+  // PLAYER_LOGOUT. Once true, the NEXT unscoped event opens a fresh bucket.
+  let fallbackClosed = false;
 
   for (const record of records) {
     const event = record.event;
+
+    // Live-capture path: events with an explicit sessionId from the addon
+    // live in their own dedicated buckets. They don't interact with the
+    // fallback grouping below.
     if (event.sessionId) {
       let bucket = explicit.get(event.sessionId);
       if (!bucket) {
@@ -63,16 +70,32 @@ function bucketRecords(records: AddonEventRecord[]): SessionBucket[] {
       continue;
     }
 
+    // SV-ingest path: events arrive in chronological order. The ONLY
+    // reliable session boundary in a captured SV file is PLAYER_LOGOUT —
+    // once the player logs out the addon stops recording, so anything
+    // captured afterward must be from a subsequent login.
+    //
+    // Start-markers (PLAYER_ENTERING_WORLD, PLAYER_LOGIN, PLAYER_ALIVE)
+    // fire in unpredictable orders AND repeat throughout a play session
+    // (PEW on every loading screen / /reload, etc.) so they MUST NOT
+    // demarcate buckets. They just fall into whatever bucket is open.
+    //
+    // A new bucket opens when:
+    //   - we have no bucket yet,
+    //   - the current bucket was closed by PLAYER_LOGOUT,
+    //   - a 9hr+ idle gap (safety net for /reload-without-logout edge
+    //     cases or addon-load-during-play scenarios).
     const previous = fallback?.records[fallback.records.length - 1]?.event;
-    const startsNewFallback =
-      !fallback
-      || event.kind === 'session_start'
-      || (previous && event.timestamp - previous.timestamp > SESSION_IDLE_GAP_MS);
+    const isBigGap =
+      previous !== undefined && event.timestamp - previous.timestamp > SESSION_IDLE_GAP_MS;
+
+    const startsNewFallback = !fallback || fallbackClosed || isBigGap;
 
     let activeFallback: SessionBucket | null = fallback;
     if (startsNewFallback) {
       activeFallback = { id: `observed_${event.timestamp}`, records: [] };
       fallback = activeFallback;
+      fallbackClosed = false;
       buckets.push(activeFallback);
     }
     if (!activeFallback) {
@@ -81,7 +104,7 @@ function bucketRecords(records: AddonEventRecord[]): SessionBucket[] {
     activeFallback.records.push(record);
 
     if (event.kind === 'session_end') {
-      fallback = null;
+      fallbackClosed = true;
     }
   }
 

@@ -14,12 +14,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AddonImport } from './AddonImport';
 import { EventFilterPanel } from './EventFilterPanel';
-import { useSelectedModelIdx } from '../lib/modelChoices';
+import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import { loadBible } from '../lib/bibleStore';
 import { loadAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
 import { buildChronicleBlob, entryId } from '../lib/chronicleExport';
 import { buildChronicleSnippet, SNIPPET_FILENAME } from '../lib/chronicleSnippet';
 import { enrichEvent } from '../lib/eventEnrichment';
+import {
+  clearEnrichments,
+  ENRICHMENTS_UPDATED_EVENT,
+  loadEnrichments,
+  toParagraphMap,
+  upsertEnrichments,
+} from '../lib/enrichmentStore';
 import {
   defaultEventFilter,
   loadEventFilter,
@@ -100,9 +107,9 @@ export function ScribesDesk() {
             <p className="at-kicker">✦ Scribe's Desk · Artisan workflow</p>
             <h2 className="at-section-headline">Turn raw play into a chapter, your way</h2>
             <p className="at-section-sub">
-              Import your save file, pick which moments become prose, enrich them with the model
-              of your choice, and download a restore file to drop back into the game. Four steps.
-              Your hands on every one of them.
+              Import your save file, pick which moments become prose, pen Scribe's Notes with the
+              model of your choice, and download a restore file to drop back into the game. Four
+              steps. Your hands on every one of them.
             </p>
           </header>
 
@@ -128,7 +135,7 @@ export function ScribesDesk() {
             </div>
           ) : scopedRecords.length === 0 ? (
             <div className="at-callout" style={{ padding: '0.75rem 1rem' }}>
-              Nothing to filter or enrich yet. Drop an SV file above to begin.
+              Nothing to filter or scribe yet. Drop an SV file above to begin.
             </div>
           ) : (
             <DeskWorkflow bible={bible} records={scopedRecords} />
@@ -599,8 +606,11 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
     [records],
   );
 
+  const characterKey = String(bible.createdAt);
   const [modelIdx] = useSelectedModelIdx();
-  const [enriched, setEnriched] = useState<Record<string, string>>({});
+  const [enriched, setEnriched] = useState<Record<string, string>>(() =>
+    toParagraphMap(loadEnrichments(characterKey)),
+  );
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -608,6 +618,21 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
   const [includeBible, setIncludeBible] = useState(true);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [enabledEvents, setEnabledEvents] = useState<EventFilter>(() => loadEventFilter());
+  const [savedFlash, setSavedFlash] = useState<{ count: number } | null>(null);
+
+  // Re-hydrate from the store whenever the active character changes or
+  // another tab pushes new enrichments. Keeps the in-memory paragraph map
+  // in lockstep with what's actually persisted.
+  useEffect(() => {
+    setEnriched(toParagraphMap(loadEnrichments(characterKey)));
+    const onUpdate = () => setEnriched(toParagraphMap(loadEnrichments(characterKey)));
+    window.addEventListener(ENRICHMENTS_UPDATED_EVENT, onUpdate);
+    window.addEventListener('storage', onUpdate);
+    return () => {
+      window.removeEventListener(ENRICHMENTS_UPDATED_EVENT, onUpdate);
+      window.removeEventListener('storage', onUpdate);
+    };
+  }, [characterKey]);
 
   useEffect(() => {
     saveEventFilter(enabledEvents);
@@ -691,6 +716,7 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
     setBusy(true);
     setError(null);
     setLastUsage(null);
+    setSavedFlash(null);
     const queue = events.filter((event) => !enriched[entryId(event)]);
     const total = queue.length;
     if (total === 0) {
@@ -700,6 +726,8 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
     setProgress({ done: 0, total });
     let done = 0;
     let cost = 0;
+    let savedThisRun = 0;
+    const modelId = MODEL_CHOICES[modelIdx]?.pricingKey;
     try {
       for (let i = 0; i < queue.length; i += ENRICH_CONCURRENCY) {
         const batch = queue.slice(i, i + ENRICH_CONCURRENCY);
@@ -713,6 +741,17 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
             }
           }),
         );
+        // Persist successes to localStorage so they survive refresh AND show
+        // up in the Chronicle reader without round-tripping the .lua file.
+        const upserts = results
+          .filter((r): r is { id: string; paragraph: string; response: LLMResponse } =>
+            'paragraph' in r && Boolean(r.paragraph),
+          )
+          .map((r) => ({ id: r.id, paragraph: r.paragraph, modelId }));
+        if (upserts.length > 0) {
+          upsertEnrichments(characterKey, upserts);
+          savedThisRun += upserts.length;
+        }
         setEnriched((current) => {
           const next = { ...current };
           for (const r of results) {
@@ -728,6 +767,7 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
         setProgress({ done, total });
       }
       setLastUsage({ count: done, cost });
+      if (savedThisRun > 0) setSavedFlash({ count: savedThisRun });
     } finally {
       setBusy(false);
       setProgress(null);
@@ -800,8 +840,8 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
 
       <Step
         number={3}
-        title="Enrich with your model of choice"
-        helper={`One LLM call per event. ${events.length} would run; ${enrichedCount} already done.`}
+        title="Pen Scribe's Notes"
+        helper={`One LLM call per event. ${events.length} would run; ${enrichedCount} already scribed.`}
       >
         <div className="at-chronicle-generate-controls" style={{ flexWrap: 'wrap' }}>
           <label
@@ -824,27 +864,53 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
             className="at-btn at-btn-primary"
             onClick={runEnrichAll}
             disabled={busy || events.length === 0}
-            title="Calls the LLM once per event. Skips events already enriched."
+            title="Calls the LLM once per event. Skips events already scribed."
           >
             {busy && progress
-              ? `Enriching... ${progress.done}/${progress.total}`
+              ? `Scribing... ${progress.done}/${progress.total}`
               : enrichedCount === events.length && events.length > 0
-                ? '◆ Re-run missing (none)'
-                : `◆ Enrich ${events.length - enrichedCount || events.length} event${
-                    (events.length - enrichedCount || events.length) === 1 ? '' : 's'
-                  }`}
+                ? '◆ Re-scribe missing (none)'
+                : `◆ Pen Scribe's Notes (${events.length - enrichedCount || events.length})`}
           </button>
           {enrichedCount > 0 && (
             <button
               className="at-btn at-btn-secondary"
-              onClick={() => setEnriched({})}
+              onClick={() => {
+                setEnriched({});
+                clearEnrichments(characterKey);
+                setSavedFlash(null);
+              }}
               disabled={busy}
-              title="Discard generated paragraphs and start over"
+              title="Discard generated paragraphs and start over (also removes them from your Chronicle)"
             >
-              ✕ Clear enrichments
+              ✕ Clear Scribe's Notes
             </button>
           )}
         </div>
+        {savedFlash && (
+          <div className="at-enrich-savedflash" role="status">
+            <span className="at-enrich-savedflash-check" aria-hidden="true">✓</span>
+            <span>
+              {savedFlash.count === 1
+                ? '1 Scribe’s Note saved to your chronicle.'
+                : `${savedFlash.count} Scribe’s Notes saved to your chronicle.`}
+            </span>
+            <button
+              type="button"
+              className="at-enrich-savedflash-cta"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('at:request-tab', { detail: 'chronicle' }));
+                // Defer mode swap so ChronicleReader has time to mount and
+                // attach its 'at:chronicle-mode' listener before we fire.
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('at:chronicle-mode', { detail: 'sessions' }));
+                }, 0);
+              }}
+            >
+              View in Chronicle →
+            </button>
+          </div>
+        )}
         {lastUsage && (
           <p className="muted" style={{ marginTop: '0.5rem', fontSize: 13 }}>
             Last run: {lastUsage.count} calls, ~${lastUsage.cost.toFixed(4)}
@@ -852,7 +918,7 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
         )}
         {error && (
           <div className="at-callout-danger at-chronicle-error" style={{ marginTop: '0.75rem' }}>
-            <strong>Enrichment hit a snag:</strong> {error}
+            <strong>The scribe hit a snag:</strong> {error}
           </div>
         )}
       </Step>
@@ -862,7 +928,7 @@ function DeskWorkflow({ bible, records }: { bible: CharacterBible; records: Addo
         title="Send it back to the game"
         helper={
           enrichedCount === 0
-            ? 'Run enrichment above first, then download the restore file.'
+            ? 'Pen Scribe’s Notes above first, then download the restore file.'
             : `Drop ${SNIPPET_FILENAME} into your save data folder, launch the game — done.`
         }
       >

@@ -18,10 +18,12 @@ export type AddonEventKind =
   | 'player_death'
   | 'unit_kill'
   | 'item_use'
-  | 'escort_start';
+  | 'escort_start'
+  | 'unknown';
 
 export type WowEventName =
   | 'PLAYER_ENTERING_WORLD'
+  | 'PLAYER_LOGIN'
   | 'PLAYER_LOGOUT'
   | 'PLAYER_DEAD'
   | 'QUEST_DETAIL'

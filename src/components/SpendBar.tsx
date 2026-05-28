@@ -1,22 +1,22 @@
 // ============================================================================
-// SpendBar — the always-visible HUD strip at the top of the app shell.
+// SpendBar — the unified top-of-app header strip.
 //
-// Two surfaces in one component:
+// One row, three balanced zones:
 //
-//   1. Public (everyone, always): token-only summary. We deliberately do NOT
-//      show a dollar estimate here in prod — pricing tables drift, the user's
-//      account may have OpenRouter credits/promos we can't see, and BYOK users
-//      trust their *actual* OpenRouter dashboard, not our guess. The token
-//      counts (input + output, calls) are the same numbers OpenRouter logs,
-//      so a user can copy-paste these into their dashboard and reconcile.
+//   [ logo ]    [ Playing as · {hero} ]    [ account ] [ ⚙ model ]
 //
-//   2. Dev-only (DEV_TOOLS_ENABLED = `npm run dev`): everything from the old
-//      bar — colored $ estimate, expandable per-task breakdown with cost
-//      columns, Export CSV, Purge old buckets. This is the original Phase-0
-//      debug instrument; it stays useful for us, but never ships to users.
+// We intentionally do NOT show a token counter in the public header. The bar
+// felt cluttered explaining empty zeros to people who'd never look at them,
+// and the OpenRouter dashboard is one click away from settings if a user
+// wants the audit trail.
+//
+// Dev (`npm run dev`, DEV_TOOLS_ENABLED) gets a second muted sub-strip with
+// today's tokens / $ estimate that expands into the full per-task breakdown
+// drawer — same instrument as before, just demoted out of the user-facing
+// chrome.
 // ============================================================================
 
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   computeAverages,
   exportCsv,
@@ -28,20 +28,79 @@ import {
 import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import { DEV_TOOLS_ENABLED } from '../lib/devTools';
 import { assetUrl } from '../lib/assetUrl';
+import { AccountMenu } from './AccountMenu';
+import { CharacterSelector } from './CharacterSelector';
+import type { SettingsSectionId } from './SettingsPanel';
 
 interface SpendBarProps {
-  onOpenSettings?: () => void;
+  onOpenSettings?: (section?: SettingsSectionId) => void;
   hasAnyKey?: boolean;
 }
 
 export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {}) {
-  const [tick, setTick] = useState(0);
-  const [expanded, setExpanded] = useState(false);
-  const [historyMessage, setHistoryMessage] = useState<string | null>(null);
   const [modelIdx] = useSelectedModelIdx();
   const activeModelLabel = MODEL_CHOICES[modelIdx]?.label ?? 'Model';
 
-  // Re-read on storage events (other tabs) AND custom in-tab events.
+  return (
+    <div className="at-tokenbar" role="banner">
+      <div className="at-tokenbar-row">
+        <a
+          href="/"
+          className="at-tokenbar-brand"
+          aria-label="Aftertale — home"
+        >
+          <img
+            src={assetUrl('aftertale-logo.png')}
+            alt="Aftertale"
+            className="at-tokenbar-logo"
+          />
+        </a>
+
+        <div className="at-tokenbar-center">
+          <CharacterSelector />
+        </div>
+
+        <div className="at-tokenbar-right">
+          <AccountMenu onOpenSettings={onOpenSettings} />
+          {onOpenSettings && (
+            <button
+              type="button"
+              className={`at-btn at-btn-sm ${hasAnyKey ? 'at-btn-secondary' : 'at-btn-primary'}`}
+              onClick={() => onOpenSettings(hasAnyKey ? undefined : 'apiKeys')}
+              title={hasAnyKey ? 'Settings' : 'Set up an API key to start using the app'}
+              aria-label={hasAnyKey ? 'Settings' : 'Add OpenRouter key'}
+            >
+              {hasAnyKey ? '⚙' : '⚙ Add OpenRouter key'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {DEV_TOOLS_ENABLED && (
+        <DevSpendStrip
+          activeModelLabel={activeModelLabel}
+          onOpenModelPicker={onOpenSettings ? () => onOpenSettings('models') : undefined}
+        />
+      )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Dev-only sub-strip: today's tokens, $ estimate, expandable per-task drawer.
+// Never rendered in production builds.
+// ----------------------------------------------------------------------------
+function DevSpendStrip({
+  activeModelLabel,
+  onOpenModelPicker,
+}: {
+  activeModelLabel: string;
+  onOpenModelPicker?: () => void;
+}) {
+  const [tick, setTick] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const [historyMessage, setHistoryMessage] = useState<string | null>(null);
+
   useEffect(() => {
     const handler = () => setTick((n) => n + 1);
     window.addEventListener('storage', handler);
@@ -55,18 +114,14 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
   const records = useMemo(() => loadTodayRecords(), [tick]);
   const totals = useMemo(() => {
     let input = 0;
-    let cached = 0;
     let output = 0;
     for (const r of records) {
       input += r.inputTokens;
-      cached += r.cachedInputTokens;
       output += r.outputTokens;
     }
-    return { input, cached, output };
+    return { input, output };
   }, [records]);
-  const lastCall = records.at(-1);
 
-  // Dev-only derived data.
   const today = useMemo(() => sumCost(records), [records]);
   const averages = useMemo(() => computeAverages(records), [records]);
   const todayColor = today > 1 ? '#e85d4d' : today > 0.5 ? '#e8c14d' : '#7dd87a';
@@ -88,7 +143,6 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
         'Recent spend records, character bibles, NPC chats, and API keys will not be touched.',
     );
     if (!ok) return;
-
     const removed = purgeOldRecords();
     setTick((n) => n + 1);
     setHistoryMessage(
@@ -98,117 +152,52 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
     );
   }
 
-  const canExpand = DEV_TOOLS_ENABLED; // only dev gets the breakdown drawer
-
   return (
-    <div className="at-tokenbar" role="status" aria-label="Today's token usage">
+    <>
       <div
-        className="at-tokenbar-row"
-        onClick={canExpand ? () => setExpanded((v) => !v) : undefined}
-        style={{ cursor: canExpand ? 'pointer' : 'default' }}
+        className="at-tokenbar-devbar"
+        role="button"
+        tabIndex={0}
+        onClick={() => setExpanded((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }
+        }}
+        aria-expanded={expanded}
+        title="Dev-only spend tracker (hidden in production builds)"
       >
-        <a
-          href="/"
-          className="at-tokenbar-brand"
-          aria-label="Aftertale — home"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <img
-            src={assetUrl('aftertale-logo.png')}
-            alt="Aftertale"
-            className="at-tokenbar-logo"
-          />
-        </a>
-
-        <div className="at-tokenbar-center">
-          <span className="at-tokenbar-kicker">Today</span>
-
-          <span
-            className="at-tokenbar-stat"
-            title="Total input tokens sent to OpenRouter today (matches your OpenRouter dashboard)."
+        <span className="at-tokenbar-devbar-tag">DEV</span>
+        {onOpenModelPicker ? (
+          <button
+            type="button"
+            className="at-tokenbar-devbar-modellink"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenModelPicker();
+            }}
+            title={`Active model: ${activeModelLabel} — click to switch`}
           >
-            <span className="at-tokenbar-label">In</span>
-            <span className="at-tokenbar-value">{formatTokens(totals.input)}</span>
-          </span>
-
-          <span
-            className="at-tokenbar-stat"
-            title="Total output tokens returned by OpenRouter today (matches your OpenRouter dashboard)."
-          >
-            <span className="at-tokenbar-label">Out</span>
-            <span className="at-tokenbar-value">{formatTokens(totals.output)}</span>
-          </span>
-
-          <span className="at-tokenbar-stat">
-            <span className="at-tokenbar-label">Calls</span>
-            <span className="at-tokenbar-value">{records.length}</span>
-          </span>
-
-          {lastCall && (
-            <span className="at-tokenbar-stat at-tokenbar-stat-secondary" title={`Last call: ${lastCall.task}`}>
-              <span className="at-tokenbar-label">Last</span>
-              <span className="at-tokenbar-value">
-                {lastCall.model} · {formatTokens(lastCall.inputTokens)} in / {formatTokens(lastCall.outputTokens)} out
-              </span>
-            </span>
-          )}
-
-          {DEV_TOOLS_ENABLED && (
-            <span
-              className="at-tokenbar-stat at-tokenbar-stat-dev"
-              title="Dev-only cost estimate based on src/pricing.ts — never shown to users."
-            >
-              <span className="at-tokenbar-label">$ (dev)</span>
-              <span className="at-tokenbar-value" style={{ color: todayColor }}>
-                ${today.toFixed(4)}
-              </span>
-            </span>
-          )}
-        </div>
-
-        <div className="at-tokenbar-right">
-          {onOpenSettings && (
-            <button
-              type="button"
-              className={`at-btn at-btn-sm ${hasAnyKey ? 'at-btn-secondary' : 'at-btn-primary'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenSettings();
-              }}
-              title={
-                hasAnyKey
-                  ? `Manage key & model — currently using ${activeModelLabel}`
-                  : 'Set up an API key to start using the app'
-              }
-            >
-              {hasAnyKey ? `⚙ ${activeModelLabel}` : '⚙ Keys — set me'}
-            </button>
-          )}
-
-          {canExpand && (
-            <span className="at-tokenbar-toggle" aria-hidden="true">
-              {expanded ? '▼' : '▶'}
-            </span>
-          )}
-        </div>
+            {activeModelLabel}
+          </button>
+        ) : (
+          <span className="at-tokenbar-devbar-stat">{activeModelLabel}</span>
+        )}
+        <span className="at-tokenbar-devbar-sep" aria-hidden="true">·</span>
+        <span className="at-tokenbar-devbar-stat">
+          {formatTokens(totals.input)} in · {formatTokens(totals.output)} out · {records.length} call
+          {records.length === 1 ? '' : 's'}
+        </span>
+        <span className="at-tokenbar-devbar-stat" style={{ color: todayColor }}>
+          ${today.toFixed(4)}
+        </span>
+        <span className="at-tokenbar-devbar-caret" aria-hidden="true">
+          {expanded ? '▾' : '▸'}
+        </span>
       </div>
 
-      {!hasAnyKey ? (
-        <p className="at-tokenbar-hint">
-          Add your OpenRouter key in <strong>⚙ Settings</strong> to start writing. You only pay your own OpenRouter
-          usage — Aftertale never charges you, and these counters match what your dashboard records.
-        </p>
-      ) : records.length === 0 ? (
-        <p className="at-tokenbar-hint">
-          Token counts will appear here as you generate. They match your{' '}
-          <a href="https://openrouter.ai/activity" target="_blank" rel="noreferrer noopener">
-            OpenRouter activity log
-          </a>
-          , so you can audit usage any time.
-        </p>
-      ) : null}
-
-      {canExpand && expanded && (
+      {expanded && (
         <div className="at-tokenbar-drawer">
           <p className="at-tokenbar-dev-note">
             <strong>Dev-only:</strong> cost columns use the static pricing table at <code>src/pricing.ts</code>.
@@ -247,21 +236,12 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
             </table>
           )}
           <div className="at-tokenbar-actions">
-            <button
-              className="at-btn at-btn-secondary at-btn-sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleExport();
-              }}
-            >
+            <button className="at-btn at-btn-secondary at-btn-sm" onClick={handleExport}>
               Export CSV
             </button>
             <button
               className="at-btn at-btn-secondary at-btn-sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePurgeOldRecords();
-              }}
+              onClick={handlePurgeOldRecords}
               title={`Remove only spend buckets older than ${SPEND_RETENTION_DAYS} days`}
             >
               Purge old spend records
@@ -270,7 +250,7 @@ export function SpendBar({ onOpenSettings, hasAnyKey = true }: SpendBarProps = {
           {historyMessage && <p className="at-tokenbar-history">{historyMessage}</p>}
         </div>
       )}
-    </div>
+    </>
   );
 }
 

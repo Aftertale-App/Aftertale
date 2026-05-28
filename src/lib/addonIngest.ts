@@ -1,39 +1,9 @@
-import type { HistoryEntry } from '../types';
-import { loadBible, updateActiveBible } from './bibleStore';
 import type { AddonEvent, AddonIngestResult } from './addonEvents';
+import { loadBible, updateActiveBible } from './bibleStore';
 import { appendAddonEventRecord, hasAddonEvent } from './addonEventStore';
 
 function characterKey(createdAt: number): string {
   return String(createdAt);
-}
-
-function cleanInline(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
-function questTextNote(event: AddonEvent): string | null {
-  const raw = event.questTextEnrichment?.text;
-  if (!raw?.trim()) return null;
-  const compact = cleanInline(raw);
-  if (!compact) return null;
-  const clipped = compact.length > 360 ? `${compact.slice(0, 357)}...` : compact;
-  return ` Local quest-text note: ${clipped}`;
-}
-
-function shouldAppendHistory(event: AddonEvent): boolean {
-  if (event.kind === 'quest_turned_in') return true;
-  if (event.kind === 'level_up') return true;
-  return false;
-}
-
-function historyTextFor(event: AddonEvent): string | null {
-  if (event.kind === 'level_up' && typeof event.playerLevel === 'number') {
-    return `Reached level ${event.playerLevel}${event.zone ? ` in ${event.zone}` : ''}.`;
-  }
-  if (!shouldAppendHistory(event)) return null;
-  const base = event.storyCard?.chronicleEntry ?? event.summary;
-  const note = questTextNote(event);
-  return `${base}${note ?? ''}`;
 }
 
 export function ingestAddonEvent(event: AddonEvent): AddonIngestResult {
@@ -75,22 +45,10 @@ export function ingestAddonEvent(event: AddonEvent): AddonIngestResult {
     changes.push(`Level → ${event.playerLevel}`);
   }
 
-  const text = historyTextFor(event);
-  if (text) {
-    const id = `addon_${event.id}`;
-    const exists = (bible.history ?? []).some((h) => h.id === id);
-    if (!exists) {
-      const entry: HistoryEntry = {
-        id,
-        timestamp: event.timestamp,
-        text,
-        zone: event.zone ?? bible.currentZone,
-        level: event.playerLevel ?? bible.level,
-      };
-      patch.history = [...(bible.history ?? []), entry];
-      changes.push('Chronicle entry appended');
-    }
-  }
+  // Addon events no longer write chronicle entries directly. They live in
+  // addonEventRecords as source material for Session Trail and the AI to
+  // weave into committed session recaps. Only committed recaps + manual
+  // entries are deeds / chapters now.
 
   if (changes.length > 0) {
     updateActiveBible(patch);

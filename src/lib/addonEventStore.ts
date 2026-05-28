@@ -54,3 +54,19 @@ export function clearAddonEventRecords(characterKey?: string): number {
   fireAddonEventsUpdated();
   return removed;
 }
+
+/**
+ * Remove specific addon event records by their event id. Returns the count
+ * actually removed. Fires the standard updated event so consumers re-bucket.
+ */
+export function removeAddonEventRecords(eventIds: string[]): number {
+  if (eventIds.length === 0) return 0;
+  const drop = new Set(eventIds);
+  const records = loadAddonEventRecords();
+  const keep = records.filter((r) => !drop.has(r.event.id));
+  const removed = records.length - keep.length;
+  if (removed === 0) return 0;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(keep));
+  fireAddonEventsUpdated();
+  return removed;
+}
