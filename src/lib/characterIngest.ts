@@ -92,6 +92,16 @@ export function ingestCharactersFromParsed(parsed: Record<string, LuaValue>): In
     return result;
   }
 
+  // Derive a per-GUID "live" snapshot from the events log. The addon's
+  // characters.firstSeen is a permanent first-sighting record, and lastSeen
+  // is only populated by newer addon builds, so without this synthesis the
+  // picker shows whatever level the toon was at the moment Aftertale first
+  // loaded -- e.g. "level 1" for a character who has since dinged to 5.
+  // Level is taken as the MAX observed (level only goes up; logout snapshots
+  // can carry stale UnitLevel=1 from teardown state). Zone is taken from the
+  // latest event by timestamp that actually has a non-empty zoneText.
+  const eventSnapshots = collectEventSnapshots(db.events);
+
   for (const [guid, raw] of Object.entries(characters)) {
     const rec = asObject(raw);
     if (!rec) {
@@ -106,6 +116,29 @@ export function ingestCharactersFromParsed(parsed: Record<string, LuaValue>): In
     }
     const coordsObj = asObject(firstSeen.coords);
     const lastSeenObj = asObject(rec.lastSeen);
+    const derived = eventSnapshots.get(guid);
+
+    // Prefer the addon-written lastSeen when present, otherwise synthesize
+    // from event-log scan. Merge field-by-field so we never DOWNGRADE level
+    // from a derived max back to an addon-written stale snapshot.
+    let lastSeen: IngestedCharacter['lastSeen'];
+    if (lastSeenObj || derived) {
+      const baseLevel = lastSeenObj ? asNumber(lastSeenObj.level) : 0;
+      const derivedLevel = derived?.level ?? 0;
+      const baseTs = lastSeenObj ? asNumber(lastSeenObj.timestamp) : 0;
+      const derivedTs = derived?.timestamp ?? 0;
+      lastSeen = {
+        timestamp: Math.max(baseTs, derivedTs),
+        iso: derivedTs > baseTs && derived?.iso
+          ? derived.iso
+          : asString(lastSeenObj?.iso ?? ''),
+        level: Math.max(baseLevel, derivedLevel),
+        zoneText:
+          (lastSeenObj && asString(lastSeenObj.zoneText)) || derived?.zoneText || undefined,
+        subzoneText:
+          (lastSeenObj && asString(lastSeenObj.subzoneText)) || derived?.subzoneText || undefined,
+      };
+    }
 
     const character: IngestedCharacter = {
       guid,
@@ -133,15 +166,7 @@ export function ingestCharactersFromParsed(parsed: Record<string, LuaValue>): In
           ? { x: asNumber(coordsObj.x), y: asNumber(coordsObj.y) }
           : undefined,
       },
-      lastSeen: lastSeenObj
-        ? {
-            timestamp: asNumber(lastSeenObj.timestamp),
-            iso: asString(lastSeenObj.iso),
-            level: asNumber(lastSeenObj.level),
-            zoneText: asString(lastSeenObj.zoneText) || undefined,
-            subzoneText: asString(lastSeenObj.subzoneText) || undefined,
-          }
-        : undefined,
+      lastSeen,
       classification: (asString(rec.classification, 'pending') as Classification),
       classificationReason: asString(rec.classificationReason) || undefined,
       onboardingState: (asString(rec.onboardingState, 'pending') as OnboardingState),
@@ -160,6 +185,64 @@ export function ingestCharactersFromParsed(parsed: Record<string, LuaValue>): In
   });
 
   return result;
+}
+
+interface EventSnapshot {
+  level: number;
+  timestamp: number;
+  iso?: string;
+  zoneText?: string;
+  subzoneText?: string;
+}
+
+function collectEventSnapshots(rawEvents: LuaValue | undefined): Map<string, EventSnapshot> {
+  const snapshots = new Map<string, EventSnapshot>();
+  if (!rawEvents || typeof rawEvents !== 'object') return snapshots;
+  // events is a Lua array; our parser yields either an array or an object
+  // with numeric keys. Iterate values either way.
+  const list: LuaValue[] = Array.isArray(rawEvents)
+    ? (rawEvents as LuaValue[])
+    : Object.values(rawEvents as Record<string, LuaValue>);
+  for (const item of list) {
+    const ev = asObject(item);
+    if (!ev) continue;
+    const guid = asString(ev.char);
+    if (!guid) continue;
+    const enrichment = asObject(ev.enrichment);
+    const lvl = enrichment ? asNumber(enrichment.level, 0) : 0;
+    const iso = asString(ev.ts);
+    const ts = isoToUnix(iso);
+    const zoneText = enrichment ? asString(enrichment.zoneText) : '';
+    const subzoneText = enrichment ? asString(enrichment.subzoneText) : '';
+    const prior = snapshots.get(guid);
+    if (!prior) {
+      snapshots.set(guid, {
+        level: lvl,
+        timestamp: ts,
+        iso: iso || undefined,
+        zoneText: zoneText || undefined,
+        subzoneText: subzoneText || undefined,
+      });
+      continue;
+    }
+    if (lvl > prior.level) prior.level = lvl;
+    if (ts > prior.timestamp) {
+      prior.timestamp = ts;
+      prior.iso = iso || prior.iso;
+    }
+    // Always update zone from the latest event that actually has one.
+    if (zoneText && ts >= prior.timestamp - 1) {
+      prior.zoneText = zoneText;
+      prior.subzoneText = subzoneText || undefined;
+    }
+  }
+  return snapshots;
+}
+
+function isoToUnix(iso: string): number {
+  if (!iso) return 0;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? Math.floor(t / 1000) : 0;
 }
 
 /**
