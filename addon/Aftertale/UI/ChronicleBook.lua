@@ -333,8 +333,10 @@ local function buildEntryRow(parent)
   hl:SetColorTexture(S.rgba("accent", 0)) -- alpha animated on hover/select
   row.hl = hl
 
+  -- Default font, not Cinzel — the icon holds decorative glyphs (✦) that
+  -- Cinzel lacks (would render as tofu).
   local icon = row:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(icon, 12, "")
+  icon:SetFont((GameFontNormalLarge or GameFontNormal):GetFont(), 14, "")
   icon:SetPoint("LEFT", row, "LEFT", 8, 0)
   icon:SetWidth(16)
   icon:SetJustifyH("CENTER")
@@ -447,6 +449,11 @@ local function buildBook()
   book:SetScript("OnDragStop", book.StopMovingOrSizing)
   book:Hide()
 
+  -- Close on ESC, like a standard panel. UISpecialFrames resolves the frame
+  -- by global name, so expose it under one.
+  _G["AftertaleBookFrame"] = book
+  table.insert(UISpecialFrames, "AftertaleBookFrame")
+
   -- Header band: kicker + title, with a violet rule beneath.
   local kicker = S.AddKicker(book, "Aftertale")
   kicker:SetPoint("TOPLEFT", book, "TOPLEFT", PAD + 4, -16)
@@ -459,12 +466,13 @@ local function buildBook()
   headRule:SetPoint("TOPLEFT", book, "TOPLEFT", PAD, -(HEADER_H - 8))
   headRule:SetPoint("TOPRIGHT", book, "TOPRIGHT", -PAD, -(HEADER_H - 8))
 
-  -- Close button: a styled "✕" (no more Blizzard texture).
+  -- Close button: a styled "✕". Rendered in the DEFAULT font, not Cinzel —
+  -- Cinzel has no ✕ glyph and falls back to a tofu box.
   local close = CreateFrame("Button", nil, book)
   close:SetSize(26, 26)
   close:SetPoint("TOPRIGHT", book, "TOPRIGHT", -12, -12)
   local x = close:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(x, 16, "")
+  x:SetFont((GameFontNormalLarge or GameFontNormal):GetFont(), 18, "")
   x:SetPoint("CENTER")
   x:SetText("✕")
   x:SetTextColor(S.rgba("fgMuted"))
