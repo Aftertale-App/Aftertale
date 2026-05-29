@@ -293,7 +293,9 @@ local ROW_HEIGHT_HEADER = 24
 local ROW_HEIGHT_BIBLE  = 36
 
 local function styleRowAsBible(row)
-  row.icon:SetText("✦")
+  -- No ✦ here: U+2726 isn't in WoW's default font and tofus. The label
+  -- carries the row; the icon stays empty until we ship a star texture.
+  row.icon:SetText("")
   row.icon:SetTextColor(S.rgba("accent"))
   row.label:SetText(formatKicker("The Hero's Truth"))
   S.UseDisplayFont(row.label, 11, "")
@@ -472,9 +474,9 @@ local function buildBook()
   close:SetSize(26, 26)
   close:SetPoint("TOPRIGHT", book, "TOPRIGHT", -12, -12)
   local x = close:CreateFontString(nil, "OVERLAY")
-  x:SetFont((GameFontNormalLarge or GameFontNormal):GetFont(), 18, "")
+  x:SetFont((GameFontNormalLarge or GameFontNormal):GetFont(), 20, "")
   x:SetPoint("CENTER")
-  x:SetText("✕")
+  x:SetText("\195\151") -- × U+00D7, Latin-1 (renders in Friz; ✕/U+2715 tofus)
   x:SetTextColor(S.rgba("fgMuted"))
   close:SetScript("OnEnter", function() x:SetTextColor(S.rgba("goldBright")) end)
   close:SetScript("OnLeave", function() x:SetTextColor(S.rgba("fgMuted")) end)
