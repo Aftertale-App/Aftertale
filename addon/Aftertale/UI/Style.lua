@@ -150,7 +150,11 @@ end
 -- crowds the gold filigree).
 ------------------------------------------------------------------------
 
-local FRAME_ART = "Art\\frame\\aftertale-9slice-frame"
+-- IMPORTANT: include the explicit ".png" extension. WoW's Texture:SetTexture
+-- only auto-resolves missing extensions to .blp and .tga -- it does NOT try
+-- .png. Without the suffix the texture fails to load silently and you get
+-- a flat panel with no error.
+local FRAME_ART = "Art\\frame\\aftertale-9slice-frame.png"
 -- Flip to true once addon/Aftertale/Art/frame/aftertale-9slice-frame.png
 -- (or .tga) is in the repo. Until then the framed panel falls back to flat.
 S.FRAME_PNG_READY = true

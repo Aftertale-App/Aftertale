@@ -58,7 +58,7 @@ end
 local function currentPlace()
   local zone = GetZoneText and GetZoneText() or ""
   local sub  = GetSubZoneText and GetSubZoneText() or ""
-  if sub ~= "" and sub ~= zone then return zone .. "  ·  " .. sub end
+  if sub ~= "" and sub ~= zone then return zone .. "  —  " .. sub end
   return zone ~= "" and zone or "The road"
 end
 
@@ -77,21 +77,28 @@ end
 -- one-line confirmation in the right column for ~1.4s, then returns).
 ------------------------------------------------------------------------
 
+-- An invisible ticker frame that drives the pulse fade. FontStrings can't
+-- own OnUpdate scripts -- only Frames can. Built lazily on first pulse.
+local pulseTicker
+
 local function showPulse(panel, text, color)
   if not panel.pulse then return end
   panel.pulse:SetText(text or "")
   if color then panel.pulse:SetTextColor(color[1], color[2], color[3], 1) end
   panel.pulse:SetAlpha(1)
   panel.pulse:Show()
-  -- Cheap fade: a few setalpha steps via OnUpdate. Cross-flavor safe.
-  panel.pulse._t = 0
-  panel.pulse:SetScript("OnUpdate", function(self, dt)
+
+  pulseTicker = pulseTicker or CreateFrame("Frame")
+  pulseTicker._t = 0
+  pulseTicker._fs = panel.pulse
+  pulseTicker:SetScript("OnUpdate", function(self, dt)
     self._t = (self._t or 0) + dt
     if self._t < 0.9 then return end -- hold full alpha briefly
     local a = math.max(0, 1 - (self._t - 0.9) / 0.5)
-    self:SetAlpha(a)
+    if self._fs then self._fs:SetAlpha(a) end
     if a <= 0 then
-      self:Hide()
+      if self._fs then self._fs:Hide() end
+      self._fs = nil
       self:SetScript("OnUpdate", nil)
     end
   end)
@@ -161,17 +168,23 @@ local function refreshNameBlock(panel)
   if race    ~= "" then table.insert(parts, race)    end
   if class   ~= "" then table.insert(parts, class)   end
   if faction ~= "" then table.insert(parts, faction) end
-  panel.heroMeta:SetText(S.Kicker(table.concat(parts, "  ·  ")))
+  panel.heroMeta:SetText(S.Kicker(table.concat(parts, "  —  ")))
 end
 
 local function refreshSessionColumn(panel)
   local s = NS.session or {}
   local started = s.startedAt or time()
   local secs = (time and time() or 0) - started
-  panel.placeLine:SetText(currentPlace() .. (hourMinute() ~= "" and ("  ·  " .. hourMinute()) or ""))
+  panel.placeLine:SetText(currentPlace() .. (hourMinute() ~= "" and ("  —  " .. hourMinute()) or ""))
   panel.beats:SetText(C.beatsLabel  .. ":  " .. (s.events or 0))
   panel.held:SetText (C.heldLabel   .. ":  " .. (s.held   or 0))
-  panel.watch:SetText(C.watchLabel  .. "  " .. formatDuration(secs) .. " ago")
+  -- "The watch began just now." vs "The watch began 8m ago." -- the "ago"
+  -- suffix only reads right when there's a duration in front of it.
+  local dur = formatDuration(secs)
+  local watchText = (dur == "just now")
+    and (C.watchLabel .. " just now.")
+    or  (C.watchLabel .. "  " .. dur .. " ago.")
+  panel.watch:SetText(watchText)
 end
 
 local function refreshButtons(panel)
