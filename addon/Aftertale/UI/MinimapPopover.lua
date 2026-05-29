@@ -16,7 +16,10 @@
 local ADDON_NAME, NS = ...
 local S = NS.Style
 
-local W, H = 560, 360
+-- Outer popover sized so popover.content (the framed-panel inset child) is
+-- roughly the original 560x360 working area after the frame thickness +
+-- padding (cornerSize 36 + padding 10 = 46px on each side).
+local W, H = 620, 432
 
 ------------------------------------------------------------------------
 -- Voice copy
@@ -111,27 +114,25 @@ end
 local popover
 
 local function buildLeftPortrait(parent, x, y, w, h)
-  -- The brand 9-slice frame wraps the portrait. cornerSize 28 gives the gold
-  -- star a visible-but-not-dominant footprint; padding 0 lets the model fill
-  -- the inner area right up to the gold edge.
-  local frame = S.CreateFramedPanel(parent, { cornerSize = 28, padding = 0 })
+  -- Simple inset panel for the portrait. The brand 9-slice frame wraps the
+  -- whole popover (built in build()); the portrait just gets a thin-bordered
+  -- container for the 3D model. Halo behind it is the paused-state dimmer.
+  local frame = S.CreatePanel(parent, { fill = "inset", border = "border", borderAlpha = 0.55 })
   frame:SetSize(w, h)
   frame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
 
-  -- Soft violet halo behind the frame -- adds to the frame's own inner glow,
-  -- and is the element we dim when the watch is paused.
   local halo = parent:CreateTexture(nil, "BACKGROUND")
-  halo:SetColorTexture(S.rgba("accent", 0.12))
-  halo:SetPoint("TOPLEFT", frame, "TOPLEFT", -10, 10)
-  halo:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 10, -10)
+  halo:SetColorTexture(S.rgba("accent", 0.14))
+  halo:SetPoint("TOPLEFT", frame, "TOPLEFT", -8, 8)
+  halo:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 8, -8)
   frame.halo = halo
 
-  -- The live PlayerModel. Anchored to frame.content (the framed-panel inner
-  -- child) so it never overlaps the gold edge. Hidden until popover opens
-  -- -- PlayerModel is relatively heavy; only render when visible.
-  local model = CreateFrame("PlayerModel", nil, frame.content)
-  model:SetAllPoints(frame.content)
-  local bg = frame.content:CreateTexture(nil, "BACKGROUND", nil, 1)
+  -- Live PlayerModel filling the panel interior. PlayerModel is relatively
+  -- heavy to draw -- only render when the popover is visible.
+  local model = CreateFrame("PlayerModel", nil, frame)
+  model:SetPoint("TOPLEFT", frame, "TOPLEFT", 2, -2)
+  model:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
+  local bg = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
   bg:SetAllPoints(model)
   bg:SetColorTexture(0.04, 0.02, 0.08, 1)
   frame.model = model
@@ -266,7 +267,11 @@ end
 local function build()
   if popover then return popover end
 
-  popover = S.CreatePanel(UIParent, { fill = "bg", border = "border", borderAlpha = 0.7 })
+  -- The whole popover is wrapped in the brand 9-slice frame. cornerSize 36
+  -- gives the gold star sigils a meaningful presence on the outer corners;
+  -- padding 10 keeps content from crowding the gold filigree. popover.content
+  -- (the framed-panel inset child) is where every child anchors.
+  popover = S.CreateFramedPanel(UIParent, { cornerSize = 36, padding = 10 })
   popover:SetSize(W, H)
   popover:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   popover:SetFrameStrata("DIALOG")
@@ -280,10 +285,13 @@ local function build()
   _G["AftertaleMinimapPopover"] = popover
   table.insert(UISpecialFrames, "AftertaleMinimapPopover") -- ESC closes
 
-  -- Close button (Latin-1-safe glyph; see ChronicleBook for the tofu story).
-  local close = CreateFrame("Button", nil, popover)
+  local C_AREA = popover.content -- shorthand; everything below anchors here
+
+  -- Close button -- inside the frame, top-right of the content area, so it
+  -- doesn't sit on top of the gold corner sigil.
+  local close = CreateFrame("Button", nil, C_AREA)
   close:SetSize(24, 24)
-  close:SetPoint("TOPRIGHT", popover, "TOPRIGHT", -10, -10)
+  close:SetPoint("TOPRIGHT", C_AREA, "TOPRIGHT", -2, -2)
   local x = close:CreateFontString(nil, "OVERLAY")
   x:SetFont((GameFontNormalLarge or GameFontNormal):GetFont(), 18, "")
   x:SetPoint("CENTER")
@@ -293,60 +301,59 @@ local function build()
   close:SetScript("OnLeave", function() x:SetTextColor(S.rgba("fgMuted")) end)
   close:SetScript("OnClick", function() popover:Hide() end)
 
-  -- LEFT COLUMN: 60% width. Portrait + halo + hero name + caps subtitle.
-  local PAD = 18
-  local LEFT_W  = math.floor(W * 0.60) - PAD - 8
-  local RIGHT_W = W - LEFT_W - PAD * 2 - 16
+  -- LEFT COLUMN: 60% of the CONTENT area. Portrait + hero name + caps subtitle.
+  local PAD = 12
+  local cw = C_AREA:GetWidth() > 0 and C_AREA:GetWidth() or (W - 92) -- 92 = frame inset both sides
+  local LEFT_W  = math.floor(cw * 0.60) - PAD - 4
+  local RIGHT_W = cw - LEFT_W - PAD * 2 - 12
   local PORT_H  = 240
 
-  popover.portrait = buildLeftPortrait(popover, PAD, -PAD, LEFT_W, PORT_H)
+  popover.portrait = buildLeftPortrait(C_AREA, PAD, -PAD, LEFT_W, PORT_H)
 
-  popover.heroName = S.AddHeading(popover, "", 26)
+  popover.heroName = S.AddHeading(C_AREA, "", 26)
   popover.heroName:SetPoint("TOPLEFT", popover.portrait, "BOTTOMLEFT", 0, -10)
   popover.heroName:SetWidth(LEFT_W)
   popover.heroName:SetJustifyH("CENTER")
 
-  popover.heroMeta = S.AddKicker(popover, "")
+  popover.heroMeta = S.AddKicker(C_AREA, "")
   popover.heroMeta:SetPoint("TOPLEFT", popover.heroName, "BOTTOMLEFT", 0, -6)
   popover.heroMeta:SetWidth(LEFT_W)
   popover.heroMeta:SetJustifyH("CENTER")
   popover.heroMeta:SetTextColor(S.rgba("accent"))
 
-  -- RIGHT COLUMN: kicker + live session lines + a divider + the pulse line.
-  local rightX = PAD + LEFT_W + 16
+  -- RIGHT COLUMN: kicker + live session lines + divider + pulse.
+  local rightX = PAD + LEFT_W + 12
   local rightTopY = -PAD - 6
 
-  local sectKicker = S.AddKicker(popover, C.sectionKicker)
-  sectKicker:SetPoint("TOPLEFT", popover, "TOPLEFT", rightX, rightTopY)
+  local sectKicker = S.AddKicker(C_AREA, C.sectionKicker)
+  sectKicker:SetPoint("TOPLEFT", C_AREA, "TOPLEFT", rightX, rightTopY)
   sectKicker:SetWidth(RIGHT_W)
   sectKicker:SetJustifyH("LEFT")
   sectKicker:SetTextColor(S.rgba("accent"))
 
-  local place = S.AddBody(popover, "", 15)
+  local place = S.AddBody(C_AREA, "", 15)
   place:SetPoint("TOPLEFT", sectKicker, "BOTTOMLEFT", 0, -10)
   place:SetWidth(RIGHT_W)
   place:SetJustifyH("LEFT")
   popover.placeLine = place
 
-  -- Thin violet rule
-  local rule = S.CreateRule(popover, "accent", 0.35)
+  local rule = S.CreateRule(C_AREA, "accent", 0.35)
   rule:SetPoint("TOPLEFT", place, "BOTTOMLEFT", 0, -14)
   rule:SetWidth(RIGHT_W)
 
-  popover.beats = S.AddBody(popover, "", 14)
+  popover.beats = S.AddBody(C_AREA, "", 14)
   popover.beats:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, -14)
   popover.beats:SetWidth(RIGHT_W)
 
-  popover.held = S.AddBody(popover, "", 14)
+  popover.held = S.AddBody(C_AREA, "", 14)
   popover.held:SetPoint("TOPLEFT", popover.beats, "BOTTOMLEFT", 0, -6)
   popover.held:SetWidth(RIGHT_W)
 
-  popover.watch = S.AddMuted(popover, "", 12)
+  popover.watch = S.AddMuted(C_AREA, "", 12)
   popover.watch:SetPoint("TOPLEFT", popover.held, "BOTTOMLEFT", 0, -10)
   popover.watch:SetWidth(RIGHT_W)
 
-  -- "The watch is paused." line, only shown when paused.
-  popover.pausedLine = S.AddBody(popover, C.pausedLine, 13)
+  popover.pausedLine = S.AddBody(C_AREA, C.pausedLine, 13)
   popover.pausedLine:SetPoint("TOPLEFT", popover.watch, "BOTTOMLEFT", 0, -10)
   popover.pausedLine:SetWidth(RIGHT_W)
   popover.pausedLine:SetTextColor(S.rgba("accent"))
@@ -354,25 +361,25 @@ local function build()
 
   -- Pulse line: the brief "Held." / "Sealed for now." feedback. Lives in
   -- the same column but on its own anchor so it never collides.
-  popover.pulse = popover:CreateFontString(nil, "OVERLAY")
+  popover.pulse = C_AREA:CreateFontString(nil, "OVERLAY")
   S.UseDisplayFont(popover.pulse, 14, "")
-  popover.pulse:SetPoint("BOTTOMLEFT", popover, "BOTTOMLEFT", rightX, 78)
+  popover.pulse:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, 78)
   popover.pulse:SetWidth(RIGHT_W)
   popover.pulse:SetJustifyH("LEFT")
   popover.pulse:Hide()
 
   -- BUTTONS, anchored to the bottom of the right column.
   local BTN_H = 32
-  popover.holdBtn = makeButton(popover, RIGHT_W, BTN_H, C.holdBtn)
-  popover.holdBtn:SetPoint("BOTTOMLEFT", popover, "BOTTOMLEFT", rightX, PAD + BTN_H + 8)
+  popover.holdBtn = makeButton(C_AREA, RIGHT_W, BTN_H, C.holdBtn)
+  popover.holdBtn:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, PAD + BTN_H + 8)
   popover.holdBtn:SetScript("OnClick", function()
     if NS.MarkHeldMoment then NS.MarkHeldMoment() end
     refreshSessionColumn(popover)
     showPulse(popover, S.Kicker(C.heldPulse), { S.rgba("accent") })
   end)
 
-  popover.pauseBtn = makeButton(popover, RIGHT_W, BTN_H, C.pauseBtn)
-  popover.pauseBtn:SetPoint("BOTTOMLEFT", popover, "BOTTOMLEFT", rightX, PAD)
+  popover.pauseBtn = makeButton(C_AREA, RIGHT_W, BTN_H, C.pauseBtn)
+  popover.pauseBtn:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, PAD)
   popover.pauseBtn:SetScript("OnClick", function()
     local nowPaused = not (NS.IsPaused and NS.IsPaused())
     if NS.SetPaused then NS.SetPaused(nowPaused) end
