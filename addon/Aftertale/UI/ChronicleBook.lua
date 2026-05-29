@@ -182,7 +182,78 @@ local function buildRightPage(parent)
     or "Choose a beat from the journal to read it.")
   page.empty = empty
 
+  -- ----- Hero Card overlay (shown only when the Hero's Truth row is selected)
+  -- The landing-page "Meet the Hero" card, ported to in-client surfaces:
+  -- live PlayerModel portrait inside a panel with a violet halo, a giant gold
+  -- Cinzel hero name (reuses page.title), a letter-spaced caps subtitle, and
+  -- the bible body below. Rounded corners + soft blur are 9-slice work for
+  -- later — these are the in-client pieces that don't need designed art.
+  local card = {}
+
+  -- Portrait area: a thin-bordered panel framing the live player model.
+  -- Sized for chest-up framing inside the right pane.
+  local portFrame = S.CreatePanel(page, { fill = "inset", border = "border", borderAlpha = 0.6 })
+  portFrame:SetSize(width, 260)
+  portFrame:SetPoint("TOPLEFT", page, "TOPLEFT", INNER, -(INNER + 22))
+  portFrame:Hide()
+  card.portFrame = portFrame
+
+  -- Violet halo: a low-alpha violet panel anchored ~6px larger than the
+  -- portrait frame on every side. Reads as a tint zone behind the card —
+  -- the cheap stand-in for the landing page's soft glow until 9-slice ships.
+  local halo = page:CreateTexture(nil, "BACKGROUND")
+  halo:SetColorTexture(S.rgba("accent", 0.18))
+  halo:SetPoint("TOPLEFT", portFrame, "TOPLEFT", -8, 8)
+  halo:SetPoint("BOTTOMRIGHT", portFrame, "BOTTOMRIGHT", 8, -8)
+  halo:Hide()
+  card.halo = halo
+
+  -- The live PlayerModel: the addon's headline trick — your actual character
+  -- breathing in the panel, not a stamped image. Lives inside portFrame so
+  -- it inherits the framing.
+  local model = CreateFrame("PlayerModel", nil, portFrame)
+  model:SetPoint("TOPLEFT", portFrame, "TOPLEFT", 2, -2)
+  model:SetPoint("BOTTOMRIGHT", portFrame, "BOTTOMRIGHT", -2, 2)
+  -- Black background showing through if the model fails to load on this flavor.
+  local modelBg = portFrame:CreateTexture(nil, "BACKGROUND", nil, 1)
+  modelBg:SetAllPoints(model)
+  modelBg:SetColorTexture(0.04, 0.02, 0.08, 1)
+  card.model = model
+
+  -- Subtitle below the hero name: race · class · faction, letter-spaced caps.
+  -- (Cinzel has no italic, so we use the same kicker treatment as the landing,
+  -- which is how the landing actually renders "FORGESWORN · IRON-BOUND".)
+  local subtitle = S.AddKicker(page, "")
+  subtitle:Hide()
+  card.subtitle = subtitle
+
+  -- A warm-amber wash at the bottom of the page that mimics the landing
+  -- card's purple→amber gradient under the portrait. Solid color w/ vertex
+  -- gradient: transparent at top, low-alpha amber at the bottom.
+  local wash = page:CreateTexture(nil, "BACKGROUND", nil, 2)
+  wash:SetColorTexture(1, 1, 1, 1)
+  wash:SetGradient("VERTICAL",
+    CreateColor and CreateColor(0.545, 0.384, 0.251, 0.18) or { r = 0.545, g = 0.384, b = 0.251, a = 0.18 },
+    CreateColor and CreateColor(0.102, 0.055, 0.180, 0)   or { r = 0.102, g = 0.055, b = 0.180, a = 0    })
+  wash:SetPoint("BOTTOMLEFT", page, "BOTTOMLEFT", 1, 1)
+  wash:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -1, 1)
+  wash:SetHeight(140)
+  wash:Hide()
+  card.wash = wash
+
+  page.card = card
   return page
+end
+
+-- Show/hide the hero-card-only widgets in one call.
+local function setHeroCardShown(page, shown)
+  local c = page.card
+  if not c then return end
+  if shown then
+    c.portFrame:Show(); c.halo:Show(); c.subtitle:Show(); c.wash:Show()
+  else
+    c.portFrame:Hide(); c.halo:Hide(); c.subtitle:Hide(); c.wash:Hide()
+  end
 end
 
 local function clearDetail(page)
@@ -193,9 +264,30 @@ local function clearDetail(page)
   page.rule:Hide()
 end
 
+-- Default (non-card) anchors for the title/rule/body. The hero-card render
+-- relocates them below the portrait; everything else uses these. Re-applying
+-- the same SetPoint cycle on every render is cheap and reliable.
+local function applyDefaultAnchors(page)
+  local INNER = 22
+  local width = page:GetWidth() - INNER * 2
+  page.title:ClearAllPoints()
+  page.title:SetPoint("TOPLEFT", page.kicker, "BOTTOMLEFT", 0, -8)
+  page.title:SetWidth(width)
+  page.title:SetJustifyH("LEFT")
+  page.rule:ClearAllPoints()
+  page.rule:SetPoint("TOPLEFT", page.title, "BOTTOMLEFT", 0, -12)
+  page.rule:SetWidth(width)
+  page.body:ClearAllPoints()
+  page.body:SetPoint("TOPLEFT", page.rule, "BOTTOMLEFT", 0, -14)
+  page.body:SetWidth(width)
+  page.body:SetPoint("BOTTOM", page, "BOTTOM", 0, 44)
+  page.body:SetJustifyH("LEFT")
+end
+
 local function renderEntry(page, row)
   if not row or not row.kind then
     clearDetail(page)
+    setHeroCardShown(page, false)
     if NS.Scribe and NS.Scribe.Voice then page.empty:SetText(NS.Scribe.Voice.rightPageEmpty) end
     page.empty:Show()
     return
@@ -206,25 +298,76 @@ local function renderEntry(page, row)
   page.kicker:SetTextColor(S.rgba("accent"))
 
   if row.kind == "bible" then
+    -- Hero Card layout: portrait halo + live PlayerModel up top, hero name
+    -- below as the title, letter-spaced subtitle, then the bible body. This
+    -- is the in-client port of the landing's "Meet the Hero" exhibit.
     local db = NS.GetDB and NS.GetDB() or AftertaleDB
     local char = NS.GetCurrentCharacter and select(1, NS.GetCurrentCharacter()) or nil
-    local name = (char and char.identity and char.identity.name) or "the traveler"
-    local raceCls
-    if char and char.identity then
-      raceCls = ((char.identity.race or "") .. " " .. (char.identity.class or "")):gsub("^%s+", ""):gsub("%s+$", "")
+    local name = (char and char.identity and char.identity.name) or (UnitName and UnitName("player")) or "the traveler"
+    local race    = (char and char.identity and char.identity.race) or (UnitRace and UnitRace("player")) or ""
+    local class   = (char and char.identity and char.identity.class) or (UnitClass and UnitClass("player")) or ""
+    local faction = (char and char.identity and char.identity.faction) or (UnitFactionGroup and UnitFactionGroup("player")) or ""
+    local parts = {}
+    if race    ~= "" then table.insert(parts, race) end
+    if class   ~= "" then table.insert(parts, class) end
+    if faction ~= "" then table.insert(parts, faction) end
+    local subtitle = table.concat(parts, "  ·  ")
+
+    -- Show the card, hide the standard top-of-page rule (subtitle does that work).
+    setHeroCardShown(page, true)
+    page.rule:Hide()
+
+    -- Live player model on the portrait frame. SetPortraitZoom isn't on
+    -- Vanilla, so we degrade to default framing on flavors that lack it.
+    local m = page.card.model
+    if m then
+      pcall(m.ClearModel, m)
+      pcall(m.SetUnit, m, "player")
+      if m.SetPortraitZoom then pcall(m.SetPortraitZoom, m, 0.7) end
+      if m.SetCamDistanceScale then pcall(m.SetCamDistanceScale, m, 1.0) end
+      if m.RefreshUnit then pcall(m.RefreshUnit, m) end
     end
+
+    -- Kicker stays violet ("THE HERO'S TRUTH"); title sits BELOW the portrait.
     page.kicker:SetText(formatKicker((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bibleKicker) or "The Hero's Truth"))
-    page.kicker:SetTextColor(S.rgba("goldDeep"))
-    page.title:SetText("The Chronicle of " .. name)
+    page.kicker:SetTextColor(S.rgba("accent"))
+
+    -- Anchor title under the portrait, big and centered to feel like the card.
+    local INNER = 22
+    local width = page:GetWidth() - INNER * 2
+    page.title:ClearAllPoints()
+    page.title:SetPoint("TOPLEFT", page.card.portFrame, "BOTTOMLEFT", 0, -14)
+    page.title:SetWidth(width)
+    page.title:SetJustifyH("CENTER")
+    page.title:SetText(name)
+
+    -- Subtitle: letter-spaced caps below the hero name.
+    page.card.subtitle:SetText(formatKicker(subtitle))
+    page.card.subtitle:ClearAllPoints()
+    page.card.subtitle:SetPoint("TOPLEFT", page.title, "BOTTOMLEFT", 0, -8)
+    page.card.subtitle:SetWidth(width)
+    page.card.subtitle:SetJustifyH("CENTER")
+    page.card.subtitle:SetTextColor(S.rgba("accent"))
+
+    -- Body: the bible prose, anchored below the subtitle.
+    page.body:ClearAllPoints()
+    page.body:SetPoint("TOPLEFT", page.card.subtitle, "BOTTOMLEFT", 0, -14)
+    page.body:SetWidth(width)
+    page.body:SetPoint("BOTTOM", page, "BOTTOM", 0, 20)
+    page.body:SetJustifyH("CENTER")
     local body = db.bible or ""
     if body == "" then
       body = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bibleEmpty)
         or "No bible yet. Roll your hero at aftertale.gg, then drop the AftertaleRestore.lua file into your SavedVariables folder."
     end
     page.body:SetText(body)
-    page.footer:SetText(raceCls and raceCls ~= "" and raceCls or "")
+    page.footer:SetText("")
     return
   end
+
+  -- Non-bible rows: regular anchors, no card.
+  setHeroCardShown(page, false)
+  applyDefaultAnchors(page)
 
   if row.kind == "chapter" then
     page.kicker:SetText(formatKicker("Chapter " .. (row.index or "")))
