@@ -138,6 +138,120 @@ function S.CreateRule(parent, colorName, alpha)
 end
 
 ------------------------------------------------------------------------
+-- The Aftertale frame: a 9-slice gold-on-violet ornament that wraps any
+-- panel where we want the brand frame instead of the plain border. The
+-- source asset is a 1024x1024 PNG with 64px corners; coords are normalized
+-- below. If the PNG is missing (FRAME_PNG_READY = false), CreateFramedPanel
+-- falls back to the plain CreatePanel so the addon never errors on art
+-- not yet being in place.
+--
+-- Returns the outer frame; attach children to frame.content (a child
+-- frame already inset by the frame thickness + padding so text never
+-- crowds the gold filigree).
+------------------------------------------------------------------------
+
+local FRAME_ART = "Art\\Frame\\aftertale-9slice-frame"
+-- Flip to true once addon/Aftertale/Art/Frame/aftertale-9slice-frame.png
+-- (or .tga) is in the repo. Until then the framed panel falls back to flat.
+S.FRAME_PNG_READY = false
+
+-- Normalized texcoords: slice is 64/1024 = 0.0625, inner band is 960/1024 = 0.9375
+local SC = 0.0625
+local LC = 0.9375
+local SLICE = {
+  tl     = { 0,  SC, 0,  SC },
+  top    = { SC, LC, 0,  SC },
+  tr     = { LC, 1,  0,  SC },
+  left   = { 0,  SC, SC, LC },
+  center = { SC, LC, SC, LC },
+  right  = { LC, 1,  SC, LC },
+  bl     = { 0,  SC, LC, 1  },
+  bottom = { SC, LC, LC, 1  },
+  br     = { LC, 1,  LC, 1  },
+}
+
+function S.CreateFramedPanel(parent, opts)
+  opts = opts or {}
+  local cornerSize = opts.cornerSize or 28
+  local padding    = opts.padding    or 16
+
+  if not S.FRAME_PNG_READY then
+    -- Asset not in repo yet -- fall back to the existing flat panel so the
+    -- addon stays renderable. Same .content child shape so callers don't
+    -- have to branch.
+    local f = S.CreatePanel(parent, { fill = "panel", border = "border", borderAlpha = 0.5 })
+    local content = CreateFrame("Frame", nil, f)
+    content:SetPoint("TOPLEFT", f, "TOPLEFT", padding, -padding)
+    content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -padding, padding)
+    f.content = content
+    return f
+  end
+
+  local tex = (NS.ADDON_PATH or ("Interface\\AddOns\\" .. ADDON_NAME)) .. "\\" .. FRAME_ART
+
+  local f = CreateFrame("Frame", nil, parent)
+
+  -- Build the 9 textures. Corners are fixed pixel size; edges stretch
+  -- between corners; center fills what's left. Anchoring guarantees the
+  -- frame redraws cleanly on resize -- no manual recalc needed.
+  local function makeTex(layer, coords)
+    local t = f:CreateTexture(nil, layer)
+    t:SetTexture(tex)
+    t:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+    return t
+  end
+
+  local tl = makeTex("BORDER", SLICE.tl)
+  tl:SetSize(cornerSize, cornerSize)
+  tl:SetPoint("TOPLEFT", f, "TOPLEFT")
+
+  local tr = makeTex("BORDER", SLICE.tr)
+  tr:SetSize(cornerSize, cornerSize)
+  tr:SetPoint("TOPRIGHT", f, "TOPRIGHT")
+
+  local bl = makeTex("BORDER", SLICE.bl)
+  bl:SetSize(cornerSize, cornerSize)
+  bl:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT")
+
+  local br = makeTex("BORDER", SLICE.br)
+  br:SetSize(cornerSize, cornerSize)
+  br:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT")
+
+  local top = makeTex("BORDER", SLICE.top)
+  top:SetHeight(cornerSize)
+  top:SetPoint("TOPLEFT", tl, "TOPRIGHT")
+  top:SetPoint("TOPRIGHT", tr, "TOPLEFT")
+
+  local bottom = makeTex("BORDER", SLICE.bottom)
+  bottom:SetHeight(cornerSize)
+  bottom:SetPoint("BOTTOMLEFT", bl, "BOTTOMRIGHT")
+  bottom:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT")
+
+  local left = makeTex("BORDER", SLICE.left)
+  left:SetWidth(cornerSize)
+  left:SetPoint("TOPLEFT", tl, "BOTTOMLEFT")
+  left:SetPoint("BOTTOMLEFT", bl, "TOPLEFT")
+
+  local right = makeTex("BORDER", SLICE.right)
+  right:SetWidth(cornerSize)
+  right:SetPoint("TOPRIGHT", tr, "BOTTOMRIGHT")
+  right:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT")
+
+  local center = makeTex("BACKGROUND", SLICE.center)
+  center:SetPoint("TOPLEFT", tl, "BOTTOMRIGHT")
+  center:SetPoint("BOTTOMRIGHT", br, "TOPLEFT")
+
+  -- Content child: pre-inset so callers anchor their children here and
+  -- never crowd the gold line.
+  local content = CreateFrame("Frame", nil, f)
+  content:SetPoint("TOPLEFT", f, "TOPLEFT", cornerSize + padding, -(cornerSize + padding))
+  content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(cornerSize + padding), cornerSize + padding)
+  f.content = content
+
+  return f
+end
+
+------------------------------------------------------------------------
 -- Text helpers -- consistent type scale + colour, all in one place.
 ------------------------------------------------------------------------
 

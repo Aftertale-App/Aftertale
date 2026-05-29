@@ -4009,3 +4009,32 @@ button.at-sheet-pill:focus-visible {
 .at-chronicle-modebar-spacer {
   flex: 1 1 auto;
 }
+
+/* ---------------------------------------------------------------------------
+   AftertaleFrame — the brand's 9-slice gold-on-violet ornament. Source asset
+   is /frame/aftertale-9slice-frame.png (1024x1024, 64px slice on every side,
+   `fill` so the center violet renders as the panel background). Until the
+   PNG is in /public/frame/ the border-image is a silent no-op and the inner
+   padding still keeps layout sane.
+   --------------------------------------------------------------------------- */
+
+.at-aftertale-frame {
+  --at-frame-thickness: 32px;
+  --at-frame-pad: 16px;
+  /* The "border" is invisible; border-image paints over it. Setting it
+     transparent reserves the layout space for the corners+edges. */
+  border: var(--at-frame-thickness) solid transparent;
+  border-image-source: url('/frame/aftertale-9slice-frame.png');
+  border-image-slice: 64 fill;
+  border-image-width: var(--at-frame-thickness);
+  border-image-repeat: stretch;
+  background-color: #1a0e2e; /* fallback while the PNG loads / if it 404s */
+  border-radius: 6px;        /* hint of softness on the transparent corners */
+  padding: 0;
+}
+
+.at-aftertale-frame-content {
+  /* Inner breathing room so children don't crowd the gold line. */
+  padding: var(--at-frame-pad);
+  min-height: 100%;
+}

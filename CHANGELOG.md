@@ -7,6 +7,32 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — AftertaleFrame: the brand's 9-slice ornament *(2026-05-29)*
+
+A gold-on-violet 9-slice frame becomes the brand's signature framing device
+across both surfaces. Source: a 1024×1024 PNG with 64px slice on every side,
+star-sigil corners + diamond edge midpoints. Asset itself ships separately;
+the helpers are wired with safe fallbacks until the file lands at
+`public/frame/aftertale-9slice-frame.png` (web) and
+`addon/Aftertale/Art/Frame/aftertale-9slice-frame.png` (addon).
+
+- **Web: `<AftertaleFrame>`** component (`src/components/AftertaleFrame.tsx`)
+  + `.at-aftertale-frame` CSS class using `border-image: url(...) 64 fill /
+  32px stretch`. Fallback violet background renders if the PNG is missing,
+  so layout doesn't break before the asset is in place. Configurable
+  thickness via prop.
+- **Addon: `Style.CreateFramedPanel(parent, opts)`** in `UI/Style.lua`.
+  Builds the 9 anchored textures from the source PNG using normalized
+  texcoords (0.0625 / 0.9375). Returns a frame with a `.content` child
+  pre-inset by `cornerSize + padding` so callers anchor their children
+  there and never crowd the gold filigree. `S.FRAME_PNG_READY = false`
+  switches to the existing flat-panel fallback until the texture is
+  dropped in; same `.content` API both ways.
+
+No placements yet — the helpers are ready, the surfaces (Chronicle Reader,
+hero card, Magnus exhibit) get wrapped in follow-up commits once the PNG is
+in the repo.
+
 ### Changed — Addon reframe: "Presence, not prose" *(2026-05-29)*
 
 The addon stops trying to be a reader. The web is where you read; the addon
