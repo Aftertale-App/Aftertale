@@ -7,6 +7,26 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — Cross-device sync: hero not appearing after sign-in *(2026-05-29)*
+
+Signing in on a second device showed the "✓ Backed up" pill but the
+account's hero didn't appear. Two bugs, both in the cloud-pull path:
+
+- **Active pointer stuck on an abandoned scratch hero.** A fresh sign-in
+  often happens while a throwaway anonymous hero is the active one. Sync
+  correctly tombstones that hero (it's un-owned scratch, not the account's
+  work) and pulls the cloud hero down — but never moved the *active*
+  pointer, so the app kept showing the abandoned hero. `hydrate()` now
+  re-points the active hero to the most-recently-modified cloud hero
+  whenever the active one is tombstoned/missing — in **both** the
+  fresh-sign-in and continuity/upgrade paths. (`src/lib/cloudSync.ts`)
+- **Stale character dropdown.** `CharacterSelector` listened to
+  `at:bible-updated` + `storage` but **not** `at:bible-roster-updated` —
+  the event fired when a non-active hero arrives from cloud sync. So a
+  pulled hero didn't show in the dropdown until an unrelated re-render.
+  Added the listener. (`src/components/CharacterSelector.tsx`)
+
+
 ### Changed — Auth modal redesign *(2026-05-29)*
 
 - **The auth modal got a proper face.** It was borrowing the utilitarian

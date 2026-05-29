@@ -32,7 +32,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from './supabase';
 import type { Database, Json } from '../types/supabase';
 import type { CharacterBible } from '../types';
-import { listBibles, getBibleByKey, putBibleFromCloud } from './bibleStore';
+import { listBibles, getBibleByKey, putBibleFromCloud, setActiveBible } from './bibleStore';
 import {
   loadEnrichments,
   saveEnrichments,
@@ -545,6 +545,30 @@ async function hydrate(uid: string): Promise<void> {
         if (!c || localMod > c.mod) {
           const ok = await pushCharacter(supabase, uid, key, localBible, charmap, localMod);
           if (!ok) hadError = true;
+        }
+      }
+    }
+
+    // Land the user on a real cloud hero. Both paths can leave the active
+    // pointer on an abandoned (tombstoned) scratch hero: a fresh sign-in
+    // happens while a throwaway anonymous hero is active, that hero gets
+    // tombstoned, but the active pointer never moves — so the app shows an
+    // empty/abandoned hero instead of the account's chronicle. If the active
+    // hero is tombstoned (or there's none), re-point to the most-recently-
+    // modified cloud hero. The active pointer isn't synced, and suppressPush
+    // keeps the resulting store events from bouncing back as an upload.
+    if (cloud.size > 0) {
+      const tombs = readTombstones();
+      const activeNow = listBibles().find((e) => e.isActive);
+      if (!activeNow || tombs[activeNow.key]) {
+        let bestKey: string | null = null;
+        let bestMod = -1;
+        for (const [key, c] of cloud) {
+          if (c.mod >= bestMod) { bestMod = c.mod; bestKey = key; }
+        }
+        if (bestKey) {
+          suppressPush = true;
+          try { setActiveBible(bestKey); } finally { suppressPush = false; }
         }
       }
     }
