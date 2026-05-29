@@ -14,10 +14,16 @@ export function CharacterSelector() {
 
   useEffect(() => {
     const refresh = () => setRoster(listBibles());
+    // roster-updated fires when a hero is added/removed/switched OR pulled from
+    // cloud sync (e.g. a non-active hero arriving on sign-in). Without it the
+    // dropdown goes stale until an unrelated re-render. bible-updated covers
+    // content edits to the active hero; storage covers other tabs.
     window.addEventListener('at:bible-updated', refresh);
+    window.addEventListener('at:bible-roster-updated', refresh);
     window.addEventListener('storage', refresh);
     return () => {
       window.removeEventListener('at:bible-updated', refresh);
+      window.removeEventListener('at:bible-roster-updated', refresh);
       window.removeEventListener('storage', refresh);
     };
   }, []);
