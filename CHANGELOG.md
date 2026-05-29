@@ -7,6 +7,49 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — Addon reframe: "Presence, not prose" *(2026-05-29)*
+
+The addon stops trying to be a reader. The web is where you read; the addon
+is the quiet artifact that watches your session. This commit is the persona
+shift — the rest (mark-the-moment context window, ambient lines, idle
+suppression, capture log) follows in narrower commits.
+
+- **New: `UI/MinimapPopover.lua` — the front door.** Clicking the minimap
+  button now opens a two-column panel: left = live `PlayerModel` of your
+  character with a violet halo, gold Cinzel name, race · class · faction in
+  letter-spaced caps; right = the live session ("Tonight's Vigil" kicker,
+  place · hh:mm, *Beats remembered: N*, *Held in memory: N*, *The watch began
+  Nm ago*). Two real buttons: **Hold this moment** (the marked-moment verb)
+  and **Pause the watch** (private mode). State feedback per option B —
+  pressing a button brief-pulses a one-line confirmation in the artifact's
+  voice (*"Held."*, *"Sealed for now."*, *"The vigil resumes."*). Paused
+  state dims the portrait and the halo. ESC closes. No web CTAs, no chapter
+  prose, no settings — those have their own surfaces.
+- **Minimap button click → popover, not the book.** Tooltip de-advertises
+  the website and the `/at sync` shortcut; right-click stays Settings. The
+  shift+right-click "open the web URL" popup is gone — Blizzard addon
+  policy makes in-client CTAs to the paid service a no-go.
+- **Chronicle book → hidden behind `db.config.enableInGameBook` (default
+  off).** The code stays for Companion-tier where the in-game reader might
+  earn its place; in Phase A the book is dead code. `/at book` falls back
+  to opening the popover when the flag is off.
+- **`NS.MarkHeldMoment()` / `NS.IsPaused()` / `NS.SetPaused()`.** First
+  pass — the held moment lands a small `db.marked` stamp (time, zone,
+  subzone) so the popover counter means something today. Full context-window
+  capture (t-2min / t+60s / location / nearby / recent quest activity) is
+  the next commit; this lands the verb so the button isn't a lie.
+- **Dev-only config flag `captureBlizzardText` (default off).** Reserved
+  for the next commit — when on, the addon captures verbatim Blizzard quest
+  text / gossip alongside the metadata so we can A/B prose quality with vs.
+  without. Never advertised in the user surface, never shipped on; the web
+  side will strip the field before sending to OpenRouter on any paid tier.
+  IP-risky for any commercial pipeline.
+- **`db.config.paused` (default off).** Per-session toggle; cleared on
+  logout. Captures keep flowing structurally so the popover counters
+  update, but events get tagged `paused = true` and the web filters them
+  out of the chapter pipeline. The wiring of the tag onto captured events
+  is in the next commit.
+
 ### Changed — Chronicle book reskinned flat + on-brand *(2026-05-29)*
 
 - **The in-game book now matches the website.** Rebuilt `UI/ChronicleBook.lua`

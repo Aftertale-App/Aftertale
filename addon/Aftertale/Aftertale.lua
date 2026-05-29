@@ -110,6 +110,21 @@ local function ensureDB()
   if c.storyCardDuration  == nil then c.storyCardDuration  = 5.0 end
   if c.minimapAngle       == nil then c.minimapAngle       = 215  end
   c.webAppUrl = c.webAppUrl or "https://aftertale.gg/"
+  -- Phase A: capture-first identity. The in-game chronicle book exists as
+  -- dead code behind this flag so Companion-tier can flip it back on later;
+  -- the addon's job for the cohort is silent capture + the minimap popover.
+  if c.enableInGameBook   == nil then c.enableInGameBook   = false end
+  -- Dev-only: when true, the addon captures verbatim Blizzard text snippets
+  -- (quest objectives, gossip lines) alongside metadata so we can test prose
+  -- quality with vs. without. NEVER advertised in the user surface; NEVER
+  -- shipped on by default. IP-risky for any commercial pipeline -- the web
+  -- side must strip these fields before sending to OpenRouter on paid tiers.
+  if c.captureBlizzardText == nil then c.captureBlizzardText = false end
+  -- The watch can be paused for a session (private RP, alt farming, PvP).
+  -- Captures keep flowing structurally so the popover counters update, but
+  -- the events are tagged paused = true and the web companion filters them
+  -- out of the chapter pipeline. Cleared at logout.
+  if c.paused             == nil then c.paused             = false end
   -- Phase 2: ring buffer cap. FIFO trim oldest events when the buffer
   -- overflows. Bounds SavedVariables file size on long sessions. Tune
   -- with /aftertale max <N>; minimum 100, no hard upper limit.
@@ -840,7 +855,35 @@ NS.session = {
   npcs = 0,
   levelsGained = 0,
   lastZone = nil,
+  held = 0, -- moments the player has held (popover's "Hold this moment" button)
 }
+
+-- Mark a moment. The full context-window capture (t-2min / t+60s, location,
+-- nearby, recent activity) is the next commit; this lands the verb today so
+-- the popover button means something. Returns the new held count.
+function NS.MarkHeldMoment()
+  local db = ensureDB()
+  db.marked = db.marked or {}
+  local stamp = {
+    t = GetTime and GetTime() or 0,
+    ts = (date and date("!%Y-%m-%dT%H:%M:%SZ")) or "",
+    zone = GetZoneText and GetZoneText() or "",
+    subzone = GetSubZoneText and GetSubZoneText() or "",
+    player = UnitName and UnitName("player") or "",
+  }
+  table.insert(db.marked, stamp)
+  NS.session.held = (NS.session.held or 0) + 1
+  return NS.session.held
+end
+
+function NS.IsPaused()
+  return ensureDB().config.paused == true
+end
+
+function NS.SetPaused(paused)
+  ensureDB().config.paused = paused and true or false
+  return ensureDB().config.paused
+end
 
 function NS.GetDB()
   return ensureDB()
@@ -1236,7 +1279,12 @@ SlashCmdList.Aftertale = function(msg)
   msg = msg or ""
   local cmd, arg = msg:match("^(%S*)%s*(.-)$")
   cmd = (cmd or ""):lower()
-  if cmd == "" or cmd == "help" then cmdHelp()
+  if cmd == "" then
+    -- Bare /at opens the popover (the addon's front door). Use /at help for
+    -- the full command list.
+    if NS and NS.OpenPopover then NS.OpenPopover()
+    else cmdHelp() end
+  elseif cmd == "help" then cmdHelp()
   elseif cmd == "count" then cmdCount()
   elseif cmd == "tail" then cmdTail(arg)
   elseif cmd == "clear" then cmdClear()
@@ -1257,8 +1305,11 @@ SlashCmdList.Aftertale = function(msg)
     if NS and NS.PreviewStoryCard then NS.PreviewStoryCard()
     else print(CHAT_TAG .. " preview not available yet -- /reload and retry.") end
   elseif cmd == "book" or cmd == "chronicle" or cmd == "journal" then
-    if NS and NS.OpenBook then NS.OpenBook()
-    else print(CHAT_TAG .. " Chronicle book not loaded yet -- /reload and retry.") end
+    -- The in-game book is dead code behind a flag for Phase A; the popover
+    -- is the front door. Flip enableInGameBook on to wake the book back up.
+    if NS.GetConfig().enableInGameBook and NS and NS.OpenBook then NS.OpenBook()
+    elseif NS and NS.OpenPopover then NS.OpenPopover()
+    else print(CHAT_TAG .. " UI not loaded yet -- /reload and retry.") end
   elseif cmd == "sync" or cmd == "import" then
     if NS and NS.OpenSync then NS.OpenSync()
     else print(CHAT_TAG .. " sync dialog not loaded yet -- /reload and retry.") end
