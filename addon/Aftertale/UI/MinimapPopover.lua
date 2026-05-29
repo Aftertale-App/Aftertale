@@ -104,23 +104,27 @@ end
 local popover
 
 local function buildLeftPortrait(parent, x, y, w, h)
-  local frame = S.CreatePanel(parent, { fill = "inset", border = "border", borderAlpha = 0.6 })
+  -- The brand 9-slice frame wraps the portrait. cornerSize 28 gives the gold
+  -- star a visible-but-not-dominant footprint; padding 0 lets the model fill
+  -- the inner area right up to the gold edge.
+  local frame = S.CreateFramedPanel(parent, { cornerSize = 28, padding = 0 })
   frame:SetSize(w, h)
   frame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
 
-  -- Violet halo behind the portrait frame.
+  -- Soft violet halo behind the frame -- adds to the frame's own inner glow,
+  -- and is the element we dim when the watch is paused.
   local halo = parent:CreateTexture(nil, "BACKGROUND")
-  halo:SetColorTexture(S.rgba("accent", 0.18))
-  halo:SetPoint("TOPLEFT", frame, "TOPLEFT", -8, 8)
-  halo:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 8, -8)
+  halo:SetColorTexture(S.rgba("accent", 0.12))
+  halo:SetPoint("TOPLEFT", frame, "TOPLEFT", -10, 10)
+  halo:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 10, -10)
   frame.halo = halo
 
-  -- The live PlayerModel. Hidden until popover opens (PlayerModel is
-  -- relatively heavy to draw -- only render when visible).
-  local model = CreateFrame("PlayerModel", nil, frame)
-  model:SetPoint("TOPLEFT", frame, "TOPLEFT", 2, -2)
-  model:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
-  local bg = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
+  -- The live PlayerModel. Anchored to frame.content (the framed-panel inner
+  -- child) so it never overlaps the gold edge. Hidden until popover opens
+  -- -- PlayerModel is relatively heavy; only render when visible.
+  local model = CreateFrame("PlayerModel", nil, frame.content)
+  model:SetAllPoints(frame.content)
+  local bg = frame.content:CreateTexture(nil, "BACKGROUND", nil, 1)
   bg:SetAllPoints(model)
   bg:SetColorTexture(0.04, 0.02, 0.08, 1)
   frame.model = model

@@ -8,6 +8,7 @@ import {
 } from '../lib/enrichmentStore';
 import { buildChronicleSessions } from '../lib/sessionHistory';
 import { Reveal } from './Reveal';
+import { AftertaleFrame } from './AftertaleFrame';
 import ManualEntryDialog from './ManualEntryDialog';
 import type { CharacterBible, HistoryEntry } from '../types';
 
@@ -281,6 +282,7 @@ export function ChronicleReader() {
                 <div className="at-chronicle-chapters">
                   {visibleChapters.map((chapter, i) => (
                     <Reveal key={chapter.id}>
+                      <AftertaleFrame>
                       <article
                         className="at-chronicle-chapter"
                         data-chapter-id={chapter.id}
@@ -313,6 +315,7 @@ export function ChronicleReader() {
                           ))}
                         </ol>
                       </article>
+                      </AftertaleFrame>
                     </Reveal>
                   ))}
                 </div>

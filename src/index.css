@@ -2028,11 +2028,9 @@ button.at-sheet-pill:focus-visible {
 }
 
 .at-chronicle-chapter {
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background:
-    radial-gradient(ellipse at top left, rgba(212, 163, 115, 0.07), transparent 50%),
-    var(--bg-inset);
+  /* Visual framing (border / radius / background) is provided by the wrapping
+     <AftertaleFrame> — the brand 9-slice gold-on-violet ornament. The
+     article keeps just the layout role. */
   overflow: hidden;
 }
 
