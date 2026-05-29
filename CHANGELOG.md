@@ -7,6 +7,21 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — Addon design system (`UI/Style.lua`) *(2026-05-29)*
+
+- **The in-client equivalent of `index.css`.** One module owning the addon's
+  palette (web brand tokens — deep-violet ground, gold display, violet accent),
+  font wiring, and flat-panel / heading / kicker / body / muted helpers.
+  Direction is flat + modern (no skeuomorphic leather/parchment/Blizzard
+  chrome), built to render identically on every flavor (avoids retail-only
+  backdrop APIs). Wired into all six TOCs ahead of the UI files.
+- **Cinzel-ready.** `Fonts/` is staged with a README; `Style.UseDisplayFont`
+  points headings at `Fonts/Cinzel-Bold.ttf` and **falls back to WoW's default
+  font when the file is absent**, so the addon never errors on a missing font
+  and auto-upgrades to Cinzel the moment the `.ttf` is dropped in. Body text
+  stays on the default font for small-size readability (same display/body split
+  as the web app).
+
 ### Added — Opt-in OpenRouter key sync *(2026-05-29)*
 
 - **"Sync this key to my devices"** checkbox in Settings → API Keys (off by
