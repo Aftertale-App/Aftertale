@@ -7,6 +7,25 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — AftertaleFrame goes live on web + in-game *(2026-05-29)*
+
+With the PNG in the repo, both surfaces pick up the brand frame:
+
+- **Web Chronicle Reader**: every chapter card is now wrapped in
+  `<AftertaleFrame>` — the brand 9-slice gold-on-violet ornament. The
+  `.at-chronicle-chapter` article keeps its layout role but drops its own
+  border / radius / radial-gradient background (the frame owns visual framing
+  now). Same frame signature appears around every chapter you read.
+- **Addon minimap popover (hero card)**: the portrait panel swapped from
+  `S.CreatePanel` to `S.CreateFramedPanel` — the brand frame wraps your
+  live PlayerModel. The violet halo behind it stays as the
+  paused-state dimming surface. `S.FRAME_PNG_READY` flipped to `true`;
+  asset path corrected to `addon/Aftertale/Art/frame/` (lowercase
+  matching how the file landed).
+
+Same frame on both surfaces is the moment the brand becomes recognizable
+across the product — chapter on the web, hero in-game, identical signature.
+
 ### Added — AftertaleFrame: the brand's 9-slice ornament *(2026-05-29)*
 
 A gold-on-violet 9-slice frame becomes the brand's signature framing device

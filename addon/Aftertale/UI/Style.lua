@@ -150,10 +150,10 @@ end
 -- crowds the gold filigree).
 ------------------------------------------------------------------------
 
-local FRAME_ART = "Art\\Frame\\aftertale-9slice-frame"
--- Flip to true once addon/Aftertale/Art/Frame/aftertale-9slice-frame.png
+local FRAME_ART = "Art\\frame\\aftertale-9slice-frame"
+-- Flip to true once addon/Aftertale/Art/frame/aftertale-9slice-frame.png
 -- (or .tga) is in the repo. Until then the framed panel falls back to flat.
-S.FRAME_PNG_READY = false
+S.FRAME_PNG_READY = true
 
 -- Normalized texcoords: slice is 64/1024 = 0.0625, inner band is 960/1024 = 0.9375
 local SC = 0.0625
