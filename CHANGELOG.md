@@ -7,6 +7,45 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — Auth modal redesign *(2026-05-29)*
+
+- **The auth modal got a proper face.** It was borrowing the utilitarian
+  settings-row (cramped input-beside-button) and dumping raw Supabase
+  errors as a bare red line — read like a generic web form. Now it has its
+  own centered, vertical treatment: a `✦ AFTERTALE` kicker + Cinzel title +
+  ornament rhythm (matching the app hero), a full-width field with a
+  full-width button beneath it, and a warm parchment **notice chip**
+  (left-accent bar, ⚠ glyph) in place of the red slab. New `.at-auth-*`
+  classes in `index.css`.
+- **Humanized auth errors.** Raw strings like *"For security purposes, you
+  can only request this after 38 seconds."* are translated in `auth.ts`
+  (`humanizeAuthError`) to the app's plainer voice — *"Easy — you can
+  request another code in 38s."* Covers rate-limit, expiry, and
+  no-such-account cases.
+
+### Changed — OTP length 6 *(2026-05-29)*
+
+- **6-digit email code** (down from an interim 8). Shorter to type; the
+  flow now works end to end. `OTP_LENGTH = 6` in `auth.ts` drives
+  validation, the segmented input, and the copy. *(Tried 6-char
+  alphanumeric for more entropy, but Supabase's email OTP is numeric-only
+  — no charset option in the dashboard or Management API — so digits it
+  is.)*
+
+### Changed — Auth modal redesign *(2026-05-29)*
+
+- **Auth could never verify.** The project emits **8-digit** email codes but
+  the app validated for 6 (`/^\d{6}$/` in `auth.ts`, `maxLength={6}` in the
+  modal), so every verification was rejected before reaching Supabase. Length
+  is now a single shared constant `OTP_LENGTH` (`src/lib/auth.ts`) that drives
+  validation, the input, and the copy — one-line change if the Supabase OTP
+  setting ever moves.
+- **Segmented code input** (`src/components/OtpInput.tsx`). The verify step is
+  now N single-character boxes that auto-advance on type, backspace to the
+  previous box, accept a pasted code, support arrow-key nav, and auto-submit
+  when the last digit lands. Digits only; gold-on-dark with a focus glow that
+  matches the app's palette. Replaces the single free-text field.
+
 ### Added — Addon: the Scribe persona *(2026-05-28)*
 
 - **The in-game journal now speaks in the Scribe's voice.** The addon

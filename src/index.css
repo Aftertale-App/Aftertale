@@ -2929,6 +2929,149 @@ button.at-sheet-pill:focus-visible {
   border-top: 1px solid var(--border);
 }
 
+/* ---------------------------------------------------------------------------
+   Auth modal — the "save your chronicle" / "welcome back" moment. Gets its own
+   centered, vertical treatment instead of borrowing the utilitarian
+   settings-row, so it reads as a considered screen, not a 2007 web form.
+   --------------------------------------------------------------------------- */
+
+.at-auth-modal {
+  position: relative;
+  max-width: 460px;
+  padding: 2.25rem 2.25rem 1.75rem;
+  text-align: center;
+}
+
+.at-auth-modal .at-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.at-auth-kicker {
+  margin: 0 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+
+.at-auth-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 4vw, 32px);
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--gold-bright);
+}
+
+.at-auth-ornament {
+  margin: 0.9rem auto 0;
+  width: fit-content;
+  color: var(--at-accent);
+  font-size: 13px;
+  letter-spacing: 0.4em;
+  opacity: 0.7;
+}
+
+.at-auth-blurb {
+  margin: 1.1rem auto 0;
+  max-width: 38ch;
+  font-family: var(--font-body);
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+
+.at-auth-blurb strong { color: var(--fg); font-weight: 600; }
+
+.at-auth-body { margin-top: 1.5rem; }
+
+/* Full-width field, generous height — no more cramped input+button row. */
+.at-auth-input.at-input {
+  width: 100%;
+  height: 50px;
+  padding: 0 1rem;
+  font-size: 15px;
+  text-align: center;
+}
+
+.at-auth-input.at-input::placeholder {
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+.at-auth-btn {
+  width: 100%;
+  margin-top: 0.8rem;
+  height: 48px;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+/* Humanized notice chip — replaces the bare red error line. Warm parchment
+   tone with a left accent bar; never an alarm-red slab. */
+.at-auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 1rem auto 0;
+  max-width: 40ch;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: rgba(232, 93, 77, 0.08);
+  border: 1px solid rgba(232, 93, 77, 0.28);
+  border-left-width: 3px;
+  border-radius: 5px;
+}
+
+.at-auth-notice-glyph {
+  flex: none;
+  color: var(--danger);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.at-auth-notice a,
+.at-auth-notice button {
+  color: var(--gold-bright);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.at-auth-meta {
+  margin: 1.15rem auto 0;
+  max-width: 40ch;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+
+.at-auth-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--gold-bright);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.at-auth-link[disabled] {
+  color: var(--fg-muted);
+  text-decoration: none;
+  cursor: default;
+}
+
 .at-settings-section {
   margin-top: 1rem;
   padding: 0.9rem 1rem;

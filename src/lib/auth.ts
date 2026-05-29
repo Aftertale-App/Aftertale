@@ -28,6 +28,41 @@ import { getSupabase, isSupabaseConfigured } from './supabase';
 
 const USER_ID_KEY = 'at.user_id';
 
+// Length of the emailed one-time code. MUST match the Supabase project's
+// "Email OTP length" setting (Auth → Sign In/Providers → Email). Supabase's
+// email OTP is numeric-only — there's no alphanumeric option in the dashboard
+// or the Management API — so this stays digits.
+export const OTP_LENGTH = 6;
+
+const OTP_RE = new RegExp(`^\\d{${OTP_LENGTH}}$`);
+
+/** Normalize a code: strip everything but digits, cap at OTP_LENGTH. */
+export function normalizeOtp(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, OTP_LENGTH);
+}
+
+// Supabase auth errors come back as raw, slightly clinical strings
+// ("For security purposes, you can only request this after 38 seconds.").
+// Translate the ones a user can actually hit into the app's plainer voice.
+function humanizeAuthError(raw: string): string {
+  if (!raw) return 'Something went wrong. Try again in a moment.';
+  const rate = raw.match(/after (\d+) seconds?/i);
+  if (rate) {
+    const s = rate[1];
+    return `Easy — you can request another code in ${s}s.`;
+  }
+  if (/rate limit|too many/i.test(raw)) {
+    return 'Too many requests just now. Give it a minute, then try again.';
+  }
+  if (/expired/i.test(raw)) {
+    return 'That code expired. Request a fresh one.';
+  }
+  if (/signups? not allowed|not authorized/i.test(raw)) {
+    return 'We couldn’t find a chronicle for that email. Save one first, or check the address.';
+  }
+  return raw;
+}
+
 function cacheUserId(id: string | null): void {
   try {
     if (id) window.localStorage.setItem(USER_ID_KEY, id);
@@ -125,7 +160,7 @@ export async function saveChronicle(email: string): Promise<{ error: string | nu
       // cloud-authoritative hydrate and tombstone this device's scratch heroes.
       return { error: 'That email already has a chronicle.', conflict: true };
     }
-    return { error: raw };
+    return { error: humanizeAuthError(raw) };
   }
   return { error: null };
 }
@@ -138,12 +173,12 @@ export async function signIn(email: string): Promise<{ error: string | null; con
     email: email.trim(),
     options: { shouldCreateUser: false },
   });
-  return { error: error?.message ?? null };
+  return { error: error ? humanizeAuthError(error.message) : null };
 }
 
 /**
- * Verify the 6-digit code from the email. `mode` selects the OTP type:
- * 'save' = anonymous→account upgrade (email_change), 'signin' = returning user.
+ * Verify the emailed one-time code (OTP_LENGTH digits). `mode` selects the OTP
+ * type: 'save' = anonymous→account upgrade (email_change), 'signin' = returning user.
  */
 export async function verifyCode(
   email: string,
@@ -152,8 +187,8 @@ export async function verifyCode(
 ): Promise<{ error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { error: 'Cloud accounts are not available in this build.' };
-  const code = token.trim();
-  if (!/^\d{6}$/.test(code)) return { error: 'Enter the 6-digit code from your email.' };
+  const code = normalizeOtp(token);
+  if (!OTP_RE.test(code)) return { error: `Enter the ${OTP_LENGTH}-digit code from your email.` };
 
   if (mode === 'save') {
     // Continuity guard: the session must still be the same anonymous user we
