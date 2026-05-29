@@ -49,7 +49,11 @@ end
 
 -- Letter-spaced small-caps heading helper. Used for chapter kickers and
 -- section labels so they read as "chapter headings" instead of body text.
+-- Mirror of NS.Scribe.Kicker (we keep a local copy so this file stays
+-- defensive against load-order surprises -- Scribe.lua may not be loaded
+-- in older flavor TOCs that haven't been re-installed yet).
 local function formatKicker(s)
+  if NS.Scribe and NS.Scribe.Kicker then return NS.Scribe.Kicker(s) end
   if not s or s == "" then return "" end
   s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
   s = s:gsub("^%s*%-+%s*", ""):gsub("%s*%-+%s*$", "")
@@ -62,6 +66,37 @@ local function formatKicker(s)
     table.insert(out, table.concat(letters, " "))
   end
   return table.concat(out, "   ")
+end
+
+-- Pull the hour:minute out of an ISO timestamp like "2026-05-28T09:42:00Z"
+-- for the scribe's-note "Westfall, 09:42" header line. Falls back to the
+-- raw ts string if we can't parse it.
+local function shortTime(ts)
+  if not ts or ts == "" then return nil end
+  local hh, mm = ts:match("T(%d%d):(%d%d)")
+  if hh then return hh .. ":" .. mm end
+  return ts
+end
+
+-- Compose the body text for an unenriched event rendered as a scribe's
+-- note. Two stanzas: "place, time" header, then the Preview()-derived
+-- sentence describing what happened. Voice stays observational; never
+-- claims authorship.
+local function buildScribesNoteBody(entry, charName)
+  local enr = entry.enrichment or {}
+  local resolveZone = NS.Templates and NS.Templates.ResolveZone
+  local place = (resolveZone and resolveZone(enr)) or enr.zoneText or "an unnamed place"
+  local time  = shortTime(entry.ts)
+
+  local header = place
+  if time and time ~= "" then header = header .. ", " .. time end
+
+  local deed = NS.Templates and NS.Templates.Preview and NS.Templates.Preview(entry, charName) or ""
+  if deed == "" then deed = entry.event or "" end
+  -- Make the Preview line read like a complete sentence with a period.
+  if not deed:find("[%.%!%?]$") then deed = deed .. "." end
+
+  return header .. "\n\n" .. deed
 end
 
 ------------------------------------------------------------------------
@@ -231,10 +266,29 @@ local function buildRightPage(parent)
   empty:SetWidth(RIGHT_PAGE.w - CARD_INSET.left - CARD_INSET.right - 60)
   empty:SetJustifyH("CENTER")
   empty:SetTextColor(0.45, 0.30, 0.16, 1)
-  empty:SetText("Select a chapter from the list.")
+  empty:SetText((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.rightPageEmpty)
+    or "Choose a beat from the journal to read it.")
   page.empty = empty
 
   return page
+end
+
+-- Color helpers for the two render states. We mutate the FontStrings'
+-- color in place rather than maintaining parallel FontStrings -- one
+-- card frame, two visual states, less code to keep aligned.
+local INK         = { 0.18, 0.10, 0.04, 1 }   -- existing body ink (brown)
+local INK_DIM     = { 0.45, 0.30, 0.16, 1 }   -- existing dim brown (chapter/footer)
+local INK_FAINT   = { 0.30, 0.18, 0.06, 1 }
+local SCRIBE_VIO  = { 0.72, 0.62, 1.00, 1 }   -- --magic #b89eff (scribe kicker)
+
+local function showPolaroid(page)
+  if page.paper then page.paper:Show() end
+  if page.pin then page.pin:Show() end
+end
+
+local function hidePolaroid(page)
+  if page.paper then page.paper:Hide() end
+  if page.pin then page.pin:Hide() end
 end
 
 local function renderEntry(page, row)
@@ -244,12 +298,20 @@ local function renderEntry(page, row)
     page.body:SetText("")
     page.footer:SetText("")
     if page.pin then page.pin:SetTexture(nil) end
+    showPolaroid(page)
+    if NS.Scribe and NS.Scribe.Voice then
+      page.empty:SetText(NS.Scribe.Voice.rightPageEmpty)
+    end
     page.empty:Show()
     return
   end
   page.empty:Hide()
+  -- Default: the chapter kicker is dim-brown. Scribe's-note rendering
+  -- below overrides this to violet.
+  page.chapter:SetTextColor(unpack(INK_DIM))
 
   if row.kind == "bible" then
+    showPolaroid(page)
     local db = NS.GetDB and NS.GetDB() or AftertaleDB
     local char = NS.GetCurrentCharacter and select(1, NS.GetCurrentCharacter()) or nil
     local name = (char and char.identity and char.identity.name) or "the traveler"
@@ -260,11 +322,13 @@ local function renderEntry(page, row)
       raceCls = (r .. " " .. c):gsub("^%s+", ""):gsub("%s+$", "")
     end
     page.pin:SetTexture(art("Pin1.tga"))
-    page.chapter:SetText(formatKicker("Title Page"))
+    local bibleKicker = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bibleKicker) or "Title Page"
+    page.chapter:SetText(formatKicker(bibleKicker))
     page.title:SetText("The Chronicle of " .. name)
     local body = db.bible or ""
     if body == "" then
-      body = "No bible yet. Roll your hero in the web companion and use /aftertale sync to fill this page."
+      body = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bibleEmpty)
+        or "No bible yet. Visit aftertale.gg, then drop the AftertaleRestore.lua file into your SavedVariables folder."
     end
     page.body:SetText(body)
     page.footer:SetText(raceCls and raceCls ~= "" and raceCls or "")
@@ -272,21 +336,31 @@ local function renderEntry(page, row)
   end
 
   if row.kind == "chapter" then
+    showPolaroid(page)
     page.pin:SetTexture(art("Pin2.tga"))
     page.chapter:SetText(formatKicker("Chapter " .. (row.index or "")))
     page.title:SetText(row.zone or "Unknown Lands")
-    page.body:SetText(string.format(
-      "This chapter holds %d entr%s from %s.\n\nSelect an entry from the list to read it.",
-      row.count, row.count == 1 and "y" or "ies", row.zone or "an unknown place"))
+    local summary = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.chapterSummary
+                     and NS.Scribe.Voice.chapterSummary(row.count, row.zone))
+                 or string.format(
+                      "This chapter holds %d entr%s from %s.\n\nSelect an entry from the list to read it.",
+                      row.count, row.count == 1 and "y" or "ies", row.zone or "an unknown place")
+    page.body:SetText(summary)
     page.footer:SetText("")
     return
   end
 
+  -- Event row. Two states:
+  --   * enriched -> the chronicler has inked this beat. Render the prose
+  --     on the polaroid card, as before.
+  --   * not enriched -> render a scribe's note on the flat parchment
+  --     page (polaroid hidden). Clearly placeholder; points the player
+  --     at the chronicler.
   local entry = row.entry
-  local pinStyle = ((NS.Templates.EntryID(entry):byte(1) or 0) % 3) + 1
-  page.pin:SetTexture(art("Pin" .. pinStyle .. ".tga"))
+  local char  = NS.GetCurrentCharacter and select(1, NS.GetCurrentCharacter()) or nil
+  local name  = (char and char.identity and char.identity.name) or "the traveler"
 
-  local enr = entry.enrichment or {}
+  local enr  = entry.enrichment or {}
   local args = entry.args or {}
   local title
   if entry.event == "QUEST_ACCEPTED" or entry.event == "QUEST_TURNED_IN" then
@@ -307,24 +381,45 @@ local function renderEntry(page, row)
   end
   page.title:SetText(title)
 
-  local kickerText = "A Chapter in the Chronicle"
-  if row.chapterIndex then
-    kickerText = "Chapter " .. row.chapterIndex .. "   " .. (row.chapterZone or "")
-  end
-  page.chapter:SetText(formatKicker(kickerText))
-
   local narration, isEnriched = getNarrationFor(entry)
-  page.body:SetText(narration)
 
-  local zone = enr.zoneText or "the road"
-  local ts   = entry.ts or ""
-  local lvl  = (enr.level or (entry.event == "PLAYER_LEVEL_UP" and args[1])) or nil
-  lvl = lvl and ("level " .. lvl) or ""
-  local badge = isEnriched and "  |cFFB8860B(enriched)|r" or ""
-  local parts = { zone }
-  if lvl ~= "" then table.insert(parts, lvl) end
-  if ts  ~= "" then table.insert(parts, ts) end
-  page.footer:SetText(table.concat(parts, "   -   ") .. badge)
+  if isEnriched then
+    -- Chronicler's chapter: polaroid + prose, as before.
+    showPolaroid(page)
+    local pinStyle = ((NS.Templates.EntryID(entry):byte(1) or 0) % 3) + 1
+    page.pin:SetTexture(art("Pin" .. pinStyle .. ".tga"))
+
+    local kickerText = "A Chapter in the Chronicle"
+    if row.chapterIndex then
+      kickerText = "Chapter " .. row.chapterIndex .. "   " .. (row.chapterZone or "")
+    end
+    page.chapter:SetText(formatKicker(kickerText))
+
+    page.body:SetText(narration)
+
+    local zone = enr.zoneText or "the road"
+    local ts   = entry.ts or ""
+    local lvl  = (enr.level or (entry.event == "PLAYER_LEVEL_UP" and args[1])) or nil
+    lvl = lvl and ("level " .. lvl) or ""
+    local parts = { zone }
+    if lvl ~= "" then table.insert(parts, lvl) end
+    if ts  ~= "" then table.insert(parts, ts) end
+    page.footer:SetText(table.concat(parts, "   -   "))
+  else
+    -- Scribe's note: hide the polaroid, render on flat parchment. The
+    -- kicker shifts to brand violet so the player feels the two states
+    -- are different at a glance.
+    hidePolaroid(page)
+    local noteKicker = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.noteKicker) or "Scribe's Note"
+    page.chapter:SetText(formatKicker(noteKicker))
+    page.chapter:SetTextColor(unpack(SCRIBE_VIO))
+
+    page.body:SetText(buildScribesNoteBody(entry, name))
+
+    local footer = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.noteFooter)
+                or "The chronicler awaits at aftertale.gg."
+    page.footer:SetText(footer)
+  end
 end
 
 ------------------------------------------------------------------------
@@ -680,7 +775,8 @@ local function buildBook()
   hint:SetJustifyH("CENTER")
   hint:SetSpacing(4)
   hint:SetTextColor(0.30, 0.20, 0.10, 1)
-  hint:SetText("No chapters yet.\n\nGo play. Accept a quest, level up, see a new place.\nThe Chronicle writes itself.")
+  hint:SetText((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bookEmpty)
+    or "I have nothing to note yet.\n\nGo play, hero. Take a quest. Cross a border. Fall in battle.\nI will be watching, quill in hand.")
   hint:Hide()
   book.emptyHint = hint
 

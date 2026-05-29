@@ -7,6 +7,43 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — Addon: the Scribe persona *(2026-05-28)*
+
+- **The in-game journal now speaks in the Scribe's voice.** The addon
+  has a second narrative voice (the Chronicler being the first — the LLM
+  in the web companion that turns notes into prose). The Scribe is the
+  in-character watcher who takes notes during play; never claims
+  authorship; always points the player at the Chronicler when a deed
+  deserves more than a note.
+- **New `addon/Aftertale/Lore/Scribe.lua`** — single home for the
+  persona's voice copy + brand colour escapes (gold + violet, mirrored
+  from the web app's `--gold` / `--magic` palette). Wired into all six
+  flavour TOCs.
+- **Chronicle book: two clearly-different states.**
+  - *Chronicler's chapter* (event has been enriched via the round-trip
+    through aftertale.gg) → unchanged. Polaroid card with prose, as
+    before.
+  - *Scribe's note* (event not yet enriched) → polaroid hidden,
+    rendered on flat parchment with a violet `SCRIBE'S NOTE` kicker, a
+    place/time header, a single sentence describing the deed, and a
+    footer pointing at the Chronicler. **Clearly placeholder** — no
+    longer shows the templated fallback prose that blurred the line
+    between "I have notes" and "I have a chapter."
+- **Better left-page previews when enrichment is missing.** Old fallback
+  `"Accepted: a quest"` → new fallback `"Took on a task from a local
+  hand"` (and similar per event type). The Scribe notes what happened
+  without claiming to know its name.
+- **Empty-state copy throughout the book** now reads in the Scribe's
+  voice — *"I have nothing to note yet. Go play, hero..."* instead of
+  the old utilitarian *"No chapters yet. Go play."*
+- **Bible page** stops referring to the deprecated `/aftertale sync`
+  EditBox flow; points at the `AftertaleRestore.lua` SavedVariables drop
+  instead.
+
+Deferred to follow-on PRs: first-run welcome + logout nudge + in-play
+toasts (signals), slash-command consolidation, README + addon header
+truth-up, Cinzel font shipping, broader violet accent rollout.
+
 ### Changed — Launch strategy: phased ladder, not coordinated launch *(2026-05-28)*
 
 - **New doc: [`docs/LAUNCH-PLAN.md`](docs/LAUNCH-PLAN.md).** Replaces the

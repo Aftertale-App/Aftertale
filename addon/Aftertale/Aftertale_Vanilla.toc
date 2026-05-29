@@ -13,6 +13,7 @@ Aftertale.lua
 Data\DB2_UiMap.lua
 Data\DB2_Achievement.lua
 Lore\Templates.lua
+Lore\Scribe.lua
 UI\StoryCard.lua
 UI\MinimapButton.lua
 UI\SessionRecap.lua

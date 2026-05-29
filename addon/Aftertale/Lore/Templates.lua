@@ -304,29 +304,52 @@ end
 
 -- Brief one-line preview for the left-page entry list. Keeps the list
 -- scannable without overwhelming each row.
+--
+-- When enrichment hasn't resolved a name (no quest title, no zone, etc.),
+-- we fall back to a scribe-voiced phrase from Lore/Scribe.lua instead of
+-- the brittle "Accepted: a quest". The scribe notes what happened without
+-- claiming to know its name yet -- that's truer to the round-trip story.
 function T.Preview(entry, charName)
   local enr  = entry.enrichment or {}
   local args = entry.args or {}
   local e = entry.event or ""
+  local Scribe = NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.previewFallback
+
   if e == "QUEST_ACCEPTED" then
-    return "Accepted: " .. (resolveQuestTitle(enr, args) or "a quest")
+    local title = resolveQuestTitle(enr, args)
+    if title then return "Accepted: " .. title end
+    return (Scribe and Scribe.QUEST_ACCEPTED) or "Accepted a task"
   elseif e == "QUEST_TURNED_IN" then
-    return "Finished: " .. (resolveQuestTitle(enr, args) or "a quest")
+    local title = resolveQuestTitle(enr, args)
+    if title then return "Finished: " .. title end
+    return (Scribe and Scribe.QUEST_TURNED_IN) or "Made good on a task"
   elseif e == "PLAYER_LEVEL_UP" then
-    return "Reached level " .. tostring(enr.level or args[1] or "?")
+    local lvl = enr.level or args[1]
+    if lvl then return "Reached level " .. tostring(lvl) end
+    return "Grew stronger"
   elseif e == "ZONE_CHANGED_NEW_AREA" then
-    return "Entered " .. (resolveZone(enr) or "new ground")
+    local zone = resolveZone(enr)
+    if zone then return "Entered " .. zone end
+    return (Scribe and Scribe.ZONE_CHANGED_NEW_AREA) or "Crossed into new ground"
   elseif e == "PLAYER_DEAD" then
-    return "Fell in " .. (resolveZone(enr) or "battle")
+    local zone = resolveZone(enr)
+    if zone then return "Fell in " .. zone end
+    return (Scribe and Scribe.PLAYER_DEAD) or "Fell in the field"
   elseif e == "ACHIEVEMENT_EARNED" then
-    return "Earned: " .. (resolveAchievementName(enr, args) or "an achievement")
+    local name = resolveAchievementName(enr, args)
+    if name then return "Earned: " .. name end
+    return (Scribe and Scribe.ACHIEVEMENT_EARNED) or "Earned a quiet honor"
   elseif e == "ENCOUNTER_END" then
-    return "Encounter: " .. (resolveEncounter(enr, args) or "a fight")
+    local name = resolveEncounter(enr, args)
+    if name then return "Encounter: " .. name end
+    return (Scribe and Scribe.ENCOUNTER_END) or "Saw a hard fight to its end"
   elseif e == "BOSS_KILL" then
-    return "Defeated: " .. (resolveEncounter(enr, args) or "a boss")
+    local name = resolveEncounter(enr, args)
+    if name then return "Defeated: " .. name end
+    return (Scribe and Scribe.BOSS_KILL) or "Put down a great foe"
   elseif e == "LOOT_OPENED" then
     local items = pickLootItems(enr)
-    if #items == 0 then return "Found loot" end
+    if #items == 0 then return (Scribe and Scribe.LOOT_OPENED) or "Pocketed something" end
     if #items == 1 then return "Found: " .. items[1] end
     return "Found: " .. items[1] .. " (+" .. tostring(#items - 1) .. " more)"
   end
