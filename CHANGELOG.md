@@ -7,6 +7,20 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — Chronicle book reskinned flat + on-brand *(2026-05-29)*
+
+- **The in-game book now matches the website.** Rebuilt `UI/ChronicleBook.lua`
+  on `UI/Style.lua`: deep-violet ground, inset panels with thin gold borders, a
+  header band (violet `✦ AFTERTALE` kicker + gold Cinzel "The Chronicle" + a
+  violet rule), gold Cinzel headings, light readable body text, a styled `✕`
+  close. Retired the leather/parchment/polaroid/pushpin art (Peterodox album) —
+  every beat now renders flat on the detail panel: enriched beats show the
+  chronicler's prose, un-enriched beats show a clean Scribe's Note (violet
+  kicker, place·time, one-line deed, "the chronicler awaits at aftertale.gg").
+  All data/grouping/refresh logic unchanged; only the visual layer was
+  rewritten. (The old Art/Album/* files are now unused but left in place until
+  the other surfaces are reskinned.)
+
 ### Added — Addon design system (`UI/Style.lua`) *(2026-05-29)*
 
 - **The in-client equivalent of `index.css`.** One module owning the addon's

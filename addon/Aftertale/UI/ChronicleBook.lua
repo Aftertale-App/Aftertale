@@ -1,76 +1,45 @@
--- UI/ChronicleBook.lua -- the Phase 1.7 hero feature.
+-- UI/ChronicleBook.lua -- the in-game reader.
 --
--- A leather adventure-album frame that opens when the player clicks
--- the minimap button. Left page = scrollable list of narrative events
--- (quest accepts/turn-ins, level-ups, zone changes). Right page = the
--- selected entry rendered as a polaroid pinned to paper, with the
--- narrator paragraph as caption.
+-- Two-pane book opened from the minimap button / slash command. Left pane is a
+-- scrollable list of narrative beats (quests, level-ups, zones, deaths, …);
+-- right pane shows the selected beat. A beat reads one of two ways:
+--   * Chronicler's chapter -- enriched prose round-tripped from aftertale.gg
+--     (db.enriched[EntryID]).
+--   * Scribe's note -- a clean placeholder for a beat not yet enriched,
+--     pointing the player at the chronicler. (NS.Templates.Narrate is no longer
+--     shown here -- a note should read as a note, not as fake prose.)
 --
--- Narration source priority:
---   1. db.enriched[EntryID] -- paragraphs from the web companion,
---      imported via /aftertale sync.
---   2. NS.Templates.Narrate(entry) -- the always-works fallback.
---
--- Visual aesthetic: black leather album, polaroid cards w/ pushpins.
--- Adapted from Peterodox's retired Azeroth Adventure Album with
--- permission. See ATTRIBUTION.md.
+-- Visual system: flat + modern on NS.Style (the addon's index.css) -- deep
+-- violet ground, gold Cinzel headings, violet accents. No leather/parchment/
+-- polaroid (the old Peterodox album art is retired). Works on every flavor.
 
 local ADDON_NAME, NS = ...
+local S = NS.Style
 
 local FRAME_W = 798
 local FRAME_H = 505
 
--- Leather panel from JournalElements.png — the dark book chrome.
-local BG_TEXCOORD = { 0, 0.51953125, 0, 0.6572265625 }
-
--- Parchment.png is a 1024x2048 atlas; this crop is the clean middle of
--- the scroll body (no torn edges) so it tiles as a flat page surface.
-local PAGE_TEXCOORD = { 0.18, 0.82, 0.10, 0.42 }
-
--- Layout inside the book frame.
---   leather margin   | left page | spine | right page | leather margin
---        30          |    360    |  22   |     356    |      30
-local LEFT_PAGE  = { x =  30, y = -55, w = 360, h = 405 }
-local SPINE      = { x = 388, y = -55, w =  22, h = 405 }
-local RIGHT_PAGE = { x = 412, y = -55, w = 356, h = 405 }
-
--- Polaroid card lives INSIDE the right page with comfortable margins so
--- the torn edges of CardPaper.tga don't get clipped by the page rect.
-local CARD_INSET = { left = 14, top = 8, right = 14, bottom = 14 }
+-- Flat two-pane layout: header band across the top, list + detail below.
+--   pad | left pane | gap | right pane | pad
+local PAD       = 16
+local HEADER_H  = 70
+local GAP       = 16
+local LEFT_PAGE  = { x = PAD,                 y = -HEADER_H, w = 360, h = FRAME_H - HEADER_H - PAD }
+local RIGHT_PAGE = { x = PAD + 360 + GAP,     y = -HEADER_H, w = 390, h = FRAME_H - HEADER_H - PAD }
 
 local book          -- cached top-level frame
-local entryButtons  -- table of left-page row buttons (pooled)
-local currentList   -- table of row descriptors currently shown
+local entryButtons  -- pooled left-pane row buttons
+local currentList   -- row descriptors currently shown
 local selectedIdx
 
-local function art(rel)
-  return NS.ADDON_PATH .. "\\Art\\Album\\" .. rel
-end
-
--- Letter-spaced small-caps heading helper. Used for chapter kickers and
--- section labels so they read as "chapter headings" instead of body text.
--- Mirror of NS.Scribe.Kicker (we keep a local copy so this file stays
--- defensive against load-order surprises -- Scribe.lua may not be loaded
--- in older flavor TOCs that haven't been re-installed yet).
+-- Kicker (letter-spaced caps). Prefer the shared Style/Scribe helper.
 local function formatKicker(s)
+  if S and S.Kicker then return S.Kicker(s) end
   if NS.Scribe and NS.Scribe.Kicker then return NS.Scribe.Kicker(s) end
-  if not s or s == "" then return "" end
-  s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-  s = s:gsub("^%s*%-+%s*", ""):gsub("%s*%-+%s*$", "")
-  s = s:gsub("^%s+", ""):gsub("%s+$", "")
-  s = s:upper()
-  local out = {}
-  for word in s:gmatch("%S+") do
-    local letters = {}
-    for ch in word:gmatch(".") do table.insert(letters, ch) end
-    table.insert(out, table.concat(letters, " "))
-  end
-  return table.concat(out, "   ")
+  return (s or ""):upper()
 end
 
--- Pull the hour:minute out of an ISO timestamp like "2026-05-28T09:42:00Z"
--- for the scribe's-note "Westfall, 09:42" header line. Falls back to the
--- raw ts string if we can't parse it.
+-- hh:mm out of an ISO timestamp for the scribe-note "Westfall · 09:42" line.
 local function shortTime(ts)
   if not ts or ts == "" then return nil end
   local hh, mm = ts:match("T(%d%d):(%d%d)")
@@ -78,29 +47,22 @@ local function shortTime(ts)
   return ts
 end
 
--- Compose the body text for an unenriched event rendered as a scribe's
--- note. Two stanzas: "place, time" header, then the Preview()-derived
--- sentence describing what happened. Voice stays observational; never
--- claims authorship.
+-- Body for an unenriched beat: "place · time" header + a one-line deed.
 local function buildScribesNoteBody(entry, charName)
   local enr = entry.enrichment or {}
   local resolveZone = NS.Templates and NS.Templates.ResolveZone
   local place = (resolveZone and resolveZone(enr)) or enr.zoneText or "an unnamed place"
   local time  = shortTime(entry.ts)
-
-  local header = place
-  if time and time ~= "" then header = header .. ", " .. time end
+  local header = time and (place .. "  ·  " .. time) or place
 
   local deed = NS.Templates and NS.Templates.Preview and NS.Templates.Preview(entry, charName) or ""
   if deed == "" then deed = entry.event or "" end
-  -- Make the Preview line read like a complete sentence with a period.
   if not deed:find("[%.%!%?]$") then deed = deed .. "." end
-
   return header .. "\n\n" .. deed
 end
 
 ------------------------------------------------------------------------
--- Helpers: collect narrative events from db.events, newest-first.
+-- Data: collect narrative beats, newest-first, grouped into zone "chapters".
 ------------------------------------------------------------------------
 
 local function zoneOf(ev)
@@ -112,14 +74,6 @@ local function zoneOf(ev)
   return (ev.enrichment and ev.enrichment.zoneText) or "Unknown Lands"
 end
 
--- Returns a flat row list newest-first, composed of three row kinds:
---   { kind = "bible" }                          (only when db.bible set)
---   { kind = "chapter", index, zone, count }    (header row above a run)
---   { kind = "event",   entry, idx }
---
--- Chapter numbers are assigned oldest -> newest, so the most recent visit
--- has the highest Roman numeral. Re-entries to a zone get their own
--- chapter ("Return to Westfall" idea, even if we don't render that yet).
 local function collectRows()
   local db = NS.GetDB and NS.GetDB() or AftertaleDB
   if not db or not db.events then return {} end
@@ -132,8 +86,6 @@ local function collectRows()
   end
   table.sort(oldestFirst, function(a, b) return (a.entry.t or 0) < (b.entry.t or 0) end)
 
-  -- Walk oldest -> newest, group consecutive same-zone runs into chapters.
-  -- Each "chapter" carries its own ordered event list.
   local chapters = {}
   local curZone, curChap = nil, nil
   for _, item in ipairs(oldestFirst) do
@@ -146,28 +98,18 @@ local function collectRows()
     table.insert(curChap.events, item)
   end
 
-  -- Render newest-first: iterate chapters in reverse, events within each
-  -- chapter also newest-first.
   local rows = {}
   if db.bible and db.bible ~= "" then
     table.insert(rows, { kind = "bible" })
   end
   for c = #chapters, 1, -1 do
     local ch = chapters[c]
-    table.insert(rows, {
-      kind  = "chapter",
-      index = ch.index,
-      zone  = ch.zone,
-      count = #ch.events,
-    })
+    table.insert(rows, { kind = "chapter", index = ch.index, zone = ch.zone, count = #ch.events })
     for e = #ch.events, 1, -1 do
       local item = ch.events[e]
       table.insert(rows, {
-        kind  = "event",
-        entry = item.entry,
-        idx   = item.idx,
-        chapterIndex = ch.index,
-        chapterZone  = ch.zone,
+        kind = "event", entry = item.entry, idx = item.idx,
+        chapterIndex = ch.index, chapterZone = ch.zone,
       })
     end
   end
@@ -185,87 +127,57 @@ local function getNarrationFor(entry)
 end
 
 ------------------------------------------------------------------------
--- Right page: polaroid card showing the selected entry's narration.
+-- Right pane: the selected beat, rendered flat on the detail panel.
 ------------------------------------------------------------------------
 
 local function buildRightPage(parent)
-  -- The right page itself: a parchment-textured panel inside the leather
-  -- frame. The polaroid card lives INSIDE this with comfortable margins.
-  local page = CreateFrame("Frame", nil, parent)
+  local page = S.CreatePanel(parent, { fill = "inset", border = "border", borderAlpha = 0.45 })
   page:SetSize(RIGHT_PAGE.w, RIGHT_PAGE.h)
   page:SetPoint("TOPLEFT", parent, "TOPLEFT", RIGHT_PAGE.x, RIGHT_PAGE.y)
 
-  local parchment = page:CreateTexture(nil, "BACKGROUND")
-  parchment:SetTexture(NS.ADDON_PATH .. "\\Art\\Parchment.png")
-  parchment:SetTexCoord(unpack(PAGE_TEXCOORD))
-  parchment:SetAllPoints(page)
+  local INNER = 22
+  local width = RIGHT_PAGE.w - INNER * 2
 
-  -- The polaroid card -- inset so its torn edges aren't clipped.
-  local card = CreateFrame("Frame", nil, page)
-  card:SetPoint("TOPLEFT",     page, "TOPLEFT",      CARD_INSET.left,  -CARD_INSET.top)
-  card:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -CARD_INSET.right,  CARD_INSET.bottom)
-  page.card = card
+  -- kicker (chapter label / SCRIBE'S NOTE) — violet caps
+  local kicker = S.AddKicker(page, "")
+  kicker:SetPoint("TOPLEFT", page, "TOPLEFT", INNER, -INNER)
+  kicker:SetWidth(width)
+  kicker:SetJustifyH("LEFT")
+  page.kicker = kicker
 
-  local paper = card:CreateTexture(nil, "BACKGROUND")
-  paper:SetTexture(art("CardPaper.tga"))
-  paper:SetAllPoints(card)
-  page.paper = paper
-
-  -- Pin centered at the top, fully INSIDE the polaroid (was floating
-  -- outside in 0.5.1 -- see Phase 1.8 screenshot).
-  local pin = card:CreateTexture(nil, "OVERLAY")
-  pin:SetSize(38, 38)
-  pin:SetPoint("TOP", card, "TOP", 0, -14)
-  page.pin = pin
-
-  -- Chapter kicker: small letter-spaced caps under the pin.
-  local chapter = card:CreateFontString(nil, "OVERLAY")
-  chapter:SetFont(GameFontNormalLarge:GetFont(), 11, "")
-  chapter:SetPoint("TOP", card, "TOP", 0, -56)
-  chapter:SetWidth(RIGHT_PAGE.w - CARD_INSET.left - CARD_INSET.right - 40)
-  chapter:SetJustifyH("CENTER")
-  chapter:SetTextColor(0.45, 0.30, 0.16, 1)
-  page.chapter = chapter
-
-  -- Title for the entry (quest name / level / zone / etc).
-  local title = card:CreateFontString(nil, "OVERLAY")
-  title:SetFont(GameFontNormalLarge:GetFont(), 16, "")
-  title:SetPoint("TOP", chapter, "BOTTOM", 0, -6)
-  title:SetWidth(RIGHT_PAGE.w - CARD_INSET.left - CARD_INSET.right - 40)
-  title:SetJustifyH("CENTER")
-  title:SetTextColor(0.18, 0.10, 0.04, 1)
+  -- title — gold Cinzel
+  local title = S.AddHeading(page, "", 21)
+  title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -8)
+  title:SetWidth(width)
+  title:SetJustifyH("LEFT")
+  title:SetWordWrap(true)
   page.title = title
 
-  -- Narration body. Anchored to a SAFE interior so it never crashes the
-  -- torn edges of the polaroid.
-  local body = card:CreateFontString(nil, "OVERLAY")
-  body:SetFont(GameFontNormalLarge:GetFont(), 13, "")
-  body:SetPoint("TOPLEFT",     card, "TOPLEFT",      30, -110)
-  body:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -30,  38)
-  body:SetJustifyH("LEFT")
-  body:SetJustifyV("TOP")
-  body:SetSpacing(4)
-  body:SetTextColor(0.20, 0.12, 0.04, 1)
-  body:SetWordWrap(true)
+  -- thin violet rule under the title
+  local rule = S.CreateRule(page, "accent", 0.35)
+  rule:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+  rule:SetWidth(width)
+  page.rule = rule
+
+  -- body — readable fg text
+  local body = S.AddBody(page, "", 14)
+  body:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, -14)
+  body:SetWidth(width)
+  body:SetPoint("BOTTOM", page, "BOTTOM", 0, 44)
   page.body = body
 
-  -- Footer: zone / timestamp / source badge. Lives at the bottom of the
-  -- card, well inside the torn edge.
-  local footer = card:CreateFontString(nil, "OVERLAY")
-  footer:SetFont(GameFontNormalSmall:GetFont(), 11, "")
-  footer:SetPoint("BOTTOM", card, "BOTTOM", 0, 16)
-  footer:SetWidth(RIGHT_PAGE.w - CARD_INSET.left - CARD_INSET.right - 50)
-  footer:SetJustifyH("CENTER")
-  footer:SetTextColor(0.45, 0.30, 0.16, 1)
+  -- footer — muted, pinned to the bottom
+  local footer = S.AddMuted(page, "", 12)
+  footer:SetPoint("BOTTOMLEFT", page, "BOTTOMLEFT", INNER, 16)
+  footer:SetWidth(width)
+  footer:SetJustifyH("LEFT")
   page.footer = footer
 
-  -- Empty state
-  local empty = card:CreateFontString(nil, "OVERLAY")
-  empty:SetFont(GameFontNormalSmall:GetFont(), 11, "")
-  empty:SetPoint("CENTER", card, "CENTER", 0, 0)
-  empty:SetWidth(RIGHT_PAGE.w - CARD_INSET.left - CARD_INSET.right - 60)
+  -- empty / no-selection state, centered
+  local empty = S.AddMuted(page, "", 13)
+  empty:SetPoint("CENTER", page, "CENTER", 0, 0)
+  empty:SetWidth(width - 20)
   empty:SetJustifyH("CENTER")
-  empty:SetTextColor(0.45, 0.30, 0.16, 1)
   empty:SetText((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.rightPageEmpty)
     or "Choose a beat from the journal to read it.")
   page.empty = empty
@@ -273,62 +185,41 @@ local function buildRightPage(parent)
   return page
 end
 
--- Color helpers for the two render states. We mutate the FontStrings'
--- color in place rather than maintaining parallel FontStrings -- one
--- card frame, two visual states, less code to keep aligned.
-local INK         = { 0.18, 0.10, 0.04, 1 }   -- existing body ink (brown)
-local INK_DIM     = { 0.45, 0.30, 0.16, 1 }   -- existing dim brown (chapter/footer)
-local INK_FAINT   = { 0.30, 0.18, 0.06, 1 }
-local SCRIBE_VIO  = { 0.72, 0.62, 1.00, 1 }   -- --magic #b89eff (scribe kicker)
-
-local function showPolaroid(page)
-  if page.paper then page.paper:Show() end
-  if page.pin then page.pin:Show() end
-end
-
-local function hidePolaroid(page)
-  if page.paper then page.paper:Hide() end
-  if page.pin then page.pin:Hide() end
+local function clearDetail(page)
+  page.kicker:SetText("")
+  page.title:SetText("")
+  page.body:SetText("")
+  page.footer:SetText("")
+  page.rule:Hide()
 end
 
 local function renderEntry(page, row)
   if not row or not row.kind then
-    page.chapter:SetText("")
-    page.title:SetText("")
-    page.body:SetText("")
-    page.footer:SetText("")
-    if page.pin then page.pin:SetTexture(nil) end
-    showPolaroid(page)
-    if NS.Scribe and NS.Scribe.Voice then
-      page.empty:SetText(NS.Scribe.Voice.rightPageEmpty)
-    end
+    clearDetail(page)
+    if NS.Scribe and NS.Scribe.Voice then page.empty:SetText(NS.Scribe.Voice.rightPageEmpty) end
     page.empty:Show()
     return
   end
   page.empty:Hide()
-  -- Default: the chapter kicker is dim-brown. Scribe's-note rendering
-  -- below overrides this to violet.
-  page.chapter:SetTextColor(unpack(INK_DIM))
+  page.rule:Show()
+  -- default kicker tint is violet (AddKicker sets it); chapter/bible override.
+  page.kicker:SetTextColor(S.rgba("accent"))
 
   if row.kind == "bible" then
-    showPolaroid(page)
     local db = NS.GetDB and NS.GetDB() or AftertaleDB
     local char = NS.GetCurrentCharacter and select(1, NS.GetCurrentCharacter()) or nil
     local name = (char and char.identity and char.identity.name) or "the traveler"
     local raceCls
     if char and char.identity then
-      local r = char.identity.race or ""
-      local c = char.identity.class or ""
-      raceCls = (r .. " " .. c):gsub("^%s+", ""):gsub("%s+$", "")
+      raceCls = ((char.identity.race or "") .. " " .. (char.identity.class or "")):gsub("^%s+", ""):gsub("%s+$", "")
     end
-    page.pin:SetTexture(art("Pin1.tga"))
-    local bibleKicker = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bibleKicker) or "Title Page"
-    page.chapter:SetText(formatKicker(bibleKicker))
+    page.kicker:SetText(formatKicker((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bibleKicker) or "The Hero's Truth"))
+    page.kicker:SetTextColor(S.rgba("goldDeep"))
     page.title:SetText("The Chronicle of " .. name)
     local body = db.bible or ""
     if body == "" then
       body = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bibleEmpty)
-        or "No bible yet. Visit aftertale.gg, then drop the AftertaleRestore.lua file into your SavedVariables folder."
+        or "No bible yet. Roll your hero at aftertale.gg, then drop the AftertaleRestore.lua file into your SavedVariables folder."
     end
     page.body:SetText(body)
     page.footer:SetText(raceCls and raceCls ~= "" and raceCls or "")
@@ -336,37 +227,24 @@ local function renderEntry(page, row)
   end
 
   if row.kind == "chapter" then
-    showPolaroid(page)
-    page.pin:SetTexture(art("Pin2.tga"))
-    page.chapter:SetText(formatKicker("Chapter " .. (row.index or "")))
+    page.kicker:SetText(formatKicker("Chapter " .. (row.index or "")))
+    page.kicker:SetTextColor(S.rgba("goldDeep"))
     page.title:SetText(row.zone or "Unknown Lands")
-    local summary = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.chapterSummary
-                     and NS.Scribe.Voice.chapterSummary(row.count, row.zone))
-                 or string.format(
-                      "This chapter holds %d entr%s from %s.\n\nSelect an entry from the list to read it.",
-                      row.count, row.count == 1 and "y" or "ies", row.zone or "an unknown place")
-    page.body:SetText(summary)
+    page.body:SetText((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.chapterSummary
+                       and NS.Scribe.Voice.chapterSummary(row.count, row.zone))
+                   or string.format("This chapter holds %d beat%s from %s.\n\nChoose one from the journal to read it.",
+                        row.count, row.count == 1 and "" or "s", row.zone or "an unknown place"))
     page.footer:SetText("")
     return
   end
 
-  -- Event row. Two states:
-  --   * enriched -> the chronicler has inked this beat. Render the prose
-  --     on the polaroid card, as before.
-  --   * not enriched -> render a scribe's note on the flat parchment
-  --     page (polaroid hidden). Clearly placeholder; points the player
-  --     at the chronicler.
+  -- event beat
   local entry = row.entry
-  local char  = NS.GetCurrentCharacter and select(1, NS.GetCurrentCharacter()) or nil
-  local name  = (char and char.identity and char.identity.name) or "the traveler"
-
   local enr  = entry.enrichment or {}
   local args = entry.args or {}
   local title
   if entry.event == "QUEST_ACCEPTED" or entry.event == "QUEST_TURNED_IN" then
-    title = enr.questTitle
-        or (args[2] and ("Quest #" .. tostring(args[2])))
-        or "An unnamed quest"
+    title = enr.questTitle or (args[2] and ("Quest #" .. tostring(args[2]))) or "An unnamed quest"
   elseif entry.event == "PLAYER_LEVEL_UP" then
     local lvl = enr.level or args[1]
     title = lvl and ("Level " .. tostring(lvl)) or "A new level"
@@ -382,93 +260,68 @@ local function renderEntry(page, row)
   page.title:SetText(title)
 
   local narration, isEnriched = getNarrationFor(entry)
-
   if isEnriched then
-    -- Chronicler's chapter: polaroid + prose, as before.
-    showPolaroid(page)
-    local pinStyle = ((NS.Templates.EntryID(entry):byte(1) or 0) % 3) + 1
-    page.pin:SetTexture(art("Pin" .. pinStyle .. ".tga"))
-
-    local kickerText = "A Chapter in the Chronicle"
-    if row.chapterIndex then
-      kickerText = "Chapter " .. row.chapterIndex .. "   " .. (row.chapterZone or "")
-    end
-    page.chapter:SetText(formatKicker(kickerText))
-
+    local kickerText = row.chapterIndex
+      and ("Chapter " .. row.chapterIndex .. "   " .. (row.chapterZone or ""))
+      or "A Chapter in the Chronicle"
+    page.kicker:SetText(formatKicker(kickerText))
+    page.kicker:SetTextColor(S.rgba("goldDeep"))
     page.body:SetText(narration)
-
     local zone = enr.zoneText or "the road"
     local ts   = entry.ts or ""
     local lvl  = (enr.level or (entry.event == "PLAYER_LEVEL_UP" and args[1])) or nil
-    lvl = lvl and ("level " .. lvl) or ""
     local parts = { zone }
-    if lvl ~= "" then table.insert(parts, lvl) end
-    if ts  ~= "" then table.insert(parts, ts) end
-    page.footer:SetText(table.concat(parts, "   -   "))
+    if lvl then table.insert(parts, "level " .. lvl) end
+    if ts ~= "" then table.insert(parts, ts) end
+    page.footer:SetText(table.concat(parts, "   ·   "))
   else
-    -- Scribe's note: hide the polaroid, render on flat parchment. The
-    -- kicker shifts to brand violet so the player feels the two states
-    -- are different at a glance.
-    hidePolaroid(page)
-    local noteKicker = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.noteKicker) or "Scribe's Note"
-    page.chapter:SetText(formatKicker(noteKicker))
-    page.chapter:SetTextColor(unpack(SCRIBE_VIO))
-
-    page.body:SetText(buildScribesNoteBody(entry, name))
-
-    local footer = (NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.noteFooter)
-                or "The chronicler awaits at aftertale.gg."
-    page.footer:SetText(footer)
+    -- Scribe's note: violet kicker, clearly a placeholder, points at the chronicler.
+    page.kicker:SetText(formatKicker((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.noteKicker) or "Scribe's Note"))
+    -- (kicker already violet)
+    page.body:SetText(buildScribesNoteBody(entry, nil))
+    page.footer:SetText((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.noteFooter)
+      or "The chronicler awaits at aftertale.gg.")
   end
 end
 
 ------------------------------------------------------------------------
--- Left page: scrollable entry list. Each row is a simple button with
--- the preview line + relative date.
+-- Left pane: scrollable beat list.
 ------------------------------------------------------------------------
 
-local ROW_HEIGHT_EVENT   = 28
-local ROW_HEIGHT_HEADER  = 22
-local ROW_HEIGHT_BIBLE   = 36
+local ROW_HEIGHT_EVENT  = 30
+local ROW_HEIGHT_HEADER = 24
+local ROW_HEIGHT_BIBLE  = 36
 
 local function styleRowAsBible(row)
   row.icon:SetText("✦")
-  row.icon:SetTextColor(0.55, 0.32, 0.08, 1)
-  row.label:SetText(formatKicker("The Hero's Bible"))
-  row.label:SetFont(GameFontNormalLarge:GetFont(), 11, "")
-  row.label:SetTextColor(0.18, 0.10, 0.04, 1)
-  row.meta:SetText("title page")
-  row.meta:SetTextColor(0.45, 0.30, 0.16, 0.9)
-  row.divider:Hide()
+  row.icon:SetTextColor(S.rgba("accent"))
+  row.label:SetText(formatKicker("The Hero's Truth"))
+  S.UseDisplayFont(row.label, 11, "")
+  row.label:SetTextColor(S.rgba("goldBright"))
+  row.meta:SetText("")
 end
 
 local function styleRowAsChapter(row, chapter)
   row.icon:SetText("")
-  -- Roman numeral + zone, letter-spaced so it reads like a real chapter
-  -- heading instead of body text.
-  local heading = "Chapter " .. (chapter.index or "") .. "   " .. (chapter.zone or "")
-  row.label:SetText(formatKicker(heading))
-  row.label:SetFont(GameFontNormalLarge:GetFont(), 10, "")
-  row.label:SetTextColor(0.30, 0.18, 0.06, 1)
+  S.UseDisplayFont(row.label, 11, "")
+  row.label:SetText(formatKicker("Chapter " .. (chapter.index or "") .. "   " .. (chapter.zone or "")))
+  row.label:SetTextColor(S.rgba("goldDeep"))
   row.meta:SetText(tostring(chapter.count))
-  row.meta:SetTextColor(0.45, 0.30, 0.16, 0.85)
-  row.divider:Show()
+  row.meta:SetTextColor(S.rgba("fgFaint"))
 end
 
-local function styleRowAsEvent(row, entry, isSelected)
+local function styleRowAsEvent(row, entry)
   row.icon:SetText("")
-  local char = NS.GetCurrentCharacter and select(1, NS.GetCurrentCharacter()) or nil
-  local name = (char and char.identity and char.identity.name) or "Traveler"
-  row.label:SetFont(GameFontNormalLarge:GetFont(), 12, "")
-  row.label:SetText(NS.Templates.Preview(entry, name))
-  row.label:SetTextColor(0.18, 0.10, 0.04, 1)
+  local fbody = (GameFontHighlight or GameFontNormal):GetFont()
+  row.label:SetFont(fbody, 13, "")
+  row.label:SetText(NS.Templates.Preview(entry, nil))
+  -- enriched beats read brighter; un-enriched (scribe notes) sit muted.
+  local _, isEnriched = getNarrationFor(entry)
+  row.label:SetTextColor(S.rgba(isEnriched and "fg" or "fgMuted"))
   local lvl = entry.enrichment and entry.enrichment.level
-  if not lvl and entry.event == "PLAYER_LEVEL_UP" and entry.args then
-    lvl = entry.args[1]
-  end
+  if not lvl and entry.event == "PLAYER_LEVEL_UP" and entry.args then lvl = entry.args[1] end
   row.meta:SetText(lvl and ("lvl " .. lvl) or "")
-  row.meta:SetTextColor(0.45, 0.30, 0.16, 0.9)
-  row.divider:Hide()
+  row.meta:SetTextColor(S.rgba("fgFaint"))
 end
 
 local function buildEntryRow(parent)
@@ -477,53 +330,45 @@ local function buildEntryRow(parent)
 
   local hl = row:CreateTexture(nil, "BACKGROUND")
   hl:SetAllPoints(row)
-  hl:SetColorTexture(0.55, 0.38, 0.16, 0)
+  hl:SetColorTexture(S.rgba("accent", 0)) -- alpha animated on hover/select
   row.hl = hl
 
-  local icon = row:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  icon:SetPoint("LEFT", row, "LEFT", 6, 0)
-  icon:SetWidth(18)
+  local icon = row:CreateFontString(nil, "OVERLAY")
+  S.UseDisplayFont(icon, 12, "")
+  icon:SetPoint("LEFT", row, "LEFT", 8, 0)
+  icon:SetWidth(16)
   icon:SetJustifyH("CENTER")
   row.icon = icon
 
   local label = row:CreateFontString(nil, "OVERLAY")
-  label:SetFont(GameFontNormalLarge:GetFont(), 12, "")
-  label:SetPoint("LEFT", icon, "RIGHT", 4, 0)
-  label:SetPoint("RIGHT", row, "RIGHT", -52, 0)
+  local fbody = (GameFontHighlight or GameFontNormal):GetFont()
+  label:SetFont(fbody, 13, "")
+  label:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+  label:SetPoint("RIGHT", row, "RIGHT", -46, 0)
   label:SetJustifyH("LEFT")
   label:SetWordWrap(false)
-  label:SetTextColor(0.18, 0.10, 0.04, 1)
   row.label = label
 
-  local meta = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  meta:SetPoint("RIGHT", row, "RIGHT", -8, 0)
-  meta:SetTextColor(0.45, 0.30, 0.16, 0.9)
+  local meta = row:CreateFontString(nil, "OVERLAY")
+  local fmeta = (GameFontDisable or GameFontNormalSmall):GetFont()
+  meta:SetFont(fmeta, 11, "")
+  meta:SetPoint("RIGHT", row, "RIGHT", -10, 0)
   row.meta = meta
 
-  local divider = row:CreateTexture(nil, "ARTWORK")
-  divider:SetColorTexture(0.40, 0.26, 0.10, 0.50)
-  divider:SetPoint("BOTTOMLEFT",  row, "BOTTOMLEFT",   16, 1)
-  divider:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -16, 1)
-  divider:SetHeight(1)
-  divider:Hide()
-  row.divider = divider
-
   row:SetScript("OnEnter", function()
-    if row._selected then return end
-    if row._clickable then hl:SetColorTexture(0.55, 0.38, 0.16, 0.18) end
+    if row._selected or not row._clickable then return end
+    hl:SetColorTexture(S.rgba("accent", 0.12))
   end)
   row:SetScript("OnLeave", function()
     if row._selected then return end
-    hl:SetColorTexture(0.55, 0.38, 0.16, 0)
+    hl:SetColorTexture(S.rgba("accent", 0))
   end)
-
   return row
 end
 
 local function refreshList()
   if not book then return end
   currentList = collectRows()
-
   entryButtons = entryButtons or {}
   local scrollChild = book.scrollChild
 
@@ -536,71 +381,46 @@ local function refreshList()
     end
     rowFrame:Show()
     rowFrame:ClearAllPoints()
-    rowFrame:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 6, y)
-    rowFrame:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", -6, y)
+    rowFrame:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, y)
+    rowFrame:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", -4, y)
 
     local h = ROW_HEIGHT_EVENT
     if row.kind == "bible" then
-      h = ROW_HEIGHT_BIBLE
-      rowFrame:SetHeight(h)
-      styleRowAsBible(rowFrame)
-      rowFrame._clickable = true
+      h = ROW_HEIGHT_BIBLE; rowFrame:SetHeight(h); styleRowAsBible(rowFrame); rowFrame._clickable = true
     elseif row.kind == "chapter" then
-      h = ROW_HEIGHT_HEADER
-      rowFrame:SetHeight(h)
-      styleRowAsChapter(rowFrame, row)
-      rowFrame._clickable = true   -- clicking a chapter header shows its summary
+      h = ROW_HEIGHT_HEADER; rowFrame:SetHeight(h); styleRowAsChapter(rowFrame, row); rowFrame._clickable = true
     else
-      h = ROW_HEIGHT_EVENT
-      rowFrame:SetHeight(h)
-      styleRowAsEvent(rowFrame, row.entry, i == selectedIdx)
-      rowFrame._clickable = true
+      h = ROW_HEIGHT_EVENT; rowFrame:SetHeight(h); styleRowAsEvent(rowFrame, row.entry); rowFrame._clickable = true
     end
 
     rowFrame._selected = (i == selectedIdx)
-    rowFrame.hl:SetColorTexture(0.55, 0.38, 0.16, rowFrame._selected and 0.30 or 0)
+    rowFrame.hl:SetColorTexture(S.rgba("accent", rowFrame._selected and 0.22 or 0))
 
     local rowIndex = i
     rowFrame:SetScript("OnClick", function()
       selectedIdx = rowIndex
       renderEntry(book.rightPage, currentList[rowIndex])
-      if PlaySound and SOUNDKIT then
-        pcall(PlaySound, SOUNDKIT.IG_QUEST_LIST_SELECT)
-      end
+      if PlaySound and SOUNDKIT then pcall(PlaySound, SOUNDKIT.IG_QUEST_LIST_SELECT) end
       refreshList()
     end)
 
     y = y - h - 2
   end
 
-  for i = #currentList + 1, #entryButtons do
-    entryButtons[i]:Hide()
-  end
-
+  for i = #currentList + 1, #entryButtons do entryButtons[i]:Hide() end
   scrollChild:SetHeight(math.max(1, -y + 4))
-
-  -- Update custom scrollbar thumb after list rebuild.
   if book.updateThumb then book.updateThumb() end
 
-  -- Default selection. If no selection yet, prefer the first event row
-  -- (the most recent entry); fall back to bible if no events exist.
   if not selectedIdx then
     local fallback
-    for i, row in ipairs(currentList) do
-      if row.kind == "event" then fallback = i; break end
-    end
+    for i, row in ipairs(currentList) do if row.kind == "event" then fallback = i; break end end
     if not fallback then
-      for i, row in ipairs(currentList) do
-        if row.kind == "bible" then fallback = i; break end
-      end
+      for i, row in ipairs(currentList) do if row.kind == "bible" then fallback = i; break end end
     end
     selectedIdx = fallback
-    if selectedIdx then
-      renderEntry(book.rightPage, currentList[selectedIdx])
-    end
+    if selectedIdx then renderEntry(book.rightPage, currentList[selectedIdx]) end
   end
 
-  -- Empty hint when there's literally nothing to show (no bible, no events).
   if #currentList == 0 then
     renderEntry(book.rightPage, nil)
     book.emptyHint:Show()
@@ -616,7 +436,7 @@ end
 local function buildBook()
   if book then return book end
 
-  book = CreateFrame("Frame", "ChroniclesBookFrame", UIParent)
+  book = S.CreatePanel(UIParent, { fill = "bg", border = "border", borderAlpha = 0.7 })
   book:SetSize(FRAME_W, FRAME_H)
   book:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   book:SetFrameStrata("DIALOG")
@@ -627,165 +447,97 @@ local function buildBook()
   book:SetScript("OnDragStop", book.StopMovingOrSizing)
   book:Hide()
 
-  -- Leather background from AAA's JournalElements atlas. This is the
-  -- outer chrome (frame border + spine area).
-  local bg = book:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints(book)
-  bg:SetTexture(art("JournalElements.png"))
-  bg:SetTexCoord(unpack(BG_TEXCOORD))
+  -- Header band: kicker + title, with a violet rule beneath.
+  local kicker = S.AddKicker(book, "Aftertale")
+  kicker:SetPoint("TOPLEFT", book, "TOPLEFT", PAD + 4, -16)
 
-  ----------------------------------------------------------------------
-  -- Left page parchment
-  ----------------------------------------------------------------------
-  local leftPage = CreateFrame("Frame", nil, book)
-  leftPage:SetSize(LEFT_PAGE.w, LEFT_PAGE.h)
-  leftPage:SetPoint("TOPLEFT", book, "TOPLEFT", LEFT_PAGE.x, LEFT_PAGE.y)
-  do
-    local p = leftPage:CreateTexture(nil, "BACKGROUND")
-    p:SetTexture(NS.ADDON_PATH .. "\\Art\\Parchment.png")
-    p:SetTexCoord(unpack(PAGE_TEXCOORD))
-    p:SetAllPoints(leftPage)
-  end
-  book.leftPage = leftPage
-
-  ----------------------------------------------------------------------
-  -- Spine: a dark vertical strip between the two pages.
-  ----------------------------------------------------------------------
-  do
-    local spine = book:CreateTexture(nil, "ARTWORK")
-    spine:SetPoint("TOPLEFT",     book, "TOPLEFT", SPINE.x, SPINE.y)
-    spine:SetSize(SPINE.w, SPINE.h)
-    spine:SetColorTexture(0.06, 0.04, 0.02, 0.85)
-
-    -- Subtle highlight stripe down the centre of the spine.
-    local highlight = book:CreateTexture(nil, "OVERLAY")
-    highlight:SetPoint("TOPLEFT",     book, "TOPLEFT", SPINE.x + SPINE.w/2 - 1, SPINE.y)
-    highlight:SetSize(2, SPINE.h)
-    highlight:SetColorTexture(0.30, 0.20, 0.10, 0.6)
-  end
-
-  ----------------------------------------------------------------------
-  -- Title: across the top leather, above the pages.
-  ----------------------------------------------------------------------
-  local title = book:CreateFontString(nil, "OVERLAY")
-  title:SetFont(GameFontNormalLarge:GetFont(), 22, "")
-  title:SetPoint("TOP", book, "TOP", 0, -18)
-  title:SetTextColor(0.92, 0.78, 0.46, 1)
-  title:SetShadowColor(0, 0, 0, 0.7)
-  title:SetShadowOffset(1, -1)
-  title:SetText("The Chronicle")
+  local title = S.AddHeading(book, "The Chronicle", 24)
+  title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -4)
   book.title = title
 
-  ----------------------------------------------------------------------
-  -- Close button (top-right of frame).
-  ----------------------------------------------------------------------
+  local headRule = S.CreateRule(book, "accent", 0.4)
+  headRule:SetPoint("TOPLEFT", book, "TOPLEFT", PAD, -(HEADER_H - 8))
+  headRule:SetPoint("TOPRIGHT", book, "TOPRIGHT", -PAD, -(HEADER_H - 8))
+
+  -- Close button: a styled "✕" (no more Blizzard texture).
   local close = CreateFrame("Button", nil, book)
-  close:SetSize(22, 22)
-  close:SetPoint("TOPRIGHT", book, "TOPRIGHT", -16, -16)
-  local closeNormal = close:CreateTexture(nil, "ARTWORK")
-  closeNormal:SetAllPoints(close)
-  closeNormal:SetTexture(art("CloseButton.tga"))
-  close:SetNormalTexture(closeNormal)
-  local closeHL = close:CreateTexture(nil, "HIGHLIGHT")
-  closeHL:SetAllPoints(close)
-  closeHL:SetTexture(art("CloseButton-Highlight.tga"))
-  closeHL:SetBlendMode("ADD")
-  close:SetHighlightTexture(closeHL)
+  close:SetSize(26, 26)
+  close:SetPoint("TOPRIGHT", book, "TOPRIGHT", -12, -12)
+  local x = close:CreateFontString(nil, "OVERLAY")
+  S.UseDisplayFont(x, 16, "")
+  x:SetPoint("CENTER")
+  x:SetText("✕")
+  x:SetTextColor(S.rgba("fgMuted"))
+  close:SetScript("OnEnter", function() x:SetTextColor(S.rgba("goldBright")) end)
+  close:SetScript("OnLeave", function() x:SetTextColor(S.rgba("fgMuted")) end)
   close:SetScript("OnClick", function()
     book:Hide()
-    if PlaySound and SOUNDKIT then
-      pcall(PlaySound, SOUNDKIT.IG_QUEST_LIST_CLOSE)
-    end
+    if PlaySound and SOUNDKIT then pcall(PlaySound, SOUNDKIT.IG_QUEST_LIST_CLOSE) end
   end)
 
-  ----------------------------------------------------------------------
-  -- Left page scroll area. Plain ScrollFrame + mousewheel + thin
-  -- custom thumb (UIPanelScrollFrameTemplate's chrome looks awful
-  -- against parchment -- bug from 0.5.1 screenshot).
-  ----------------------------------------------------------------------
-  local LIST_PAD_X = 18
-  local LIST_PAD_Y = 16
+  -- Left pane: an inset panel holding the scroll list.
+  local leftPage = S.CreatePanel(book, { fill = "inset", border = "border", borderAlpha = 0.45 })
+  leftPage:SetSize(LEFT_PAGE.w, LEFT_PAGE.h)
+  leftPage:SetPoint("TOPLEFT", book, "TOPLEFT", LEFT_PAGE.x, LEFT_PAGE.y)
+  book.leftPage = leftPage
+
+  local LIST_PAD = 12
   local scroll = CreateFrame("ScrollFrame", nil, leftPage)
-  scroll:SetPoint("TOPLEFT",     leftPage, "TOPLEFT",      LIST_PAD_X,        -LIST_PAD_Y)
-  scroll:SetPoint("BOTTOMRIGHT", leftPage, "BOTTOMRIGHT", -(LIST_PAD_X + 10),  LIST_PAD_Y)
+  scroll:SetPoint("TOPLEFT", leftPage, "TOPLEFT", LIST_PAD, -LIST_PAD)
+  scroll:SetPoint("BOTTOMRIGHT", leftPage, "BOTTOMRIGHT", -(LIST_PAD + 8), LIST_PAD)
   scroll:EnableMouseWheel(true)
   book.scroll = scroll
 
   local scrollChild = CreateFrame("Frame", nil, scroll)
-  scrollChild:SetSize(LEFT_PAGE.w - 2 * LIST_PAD_X - 10, 10)
+  scrollChild:SetSize(LEFT_PAGE.w - 2 * LIST_PAD - 8, 10)
   scroll:SetScrollChild(scrollChild)
   book.scrollChild = scrollChild
 
-  -- Custom thin scrollbar track + thumb. Hidden when content fits.
+  -- Thin custom scrollbar (gold thumb on a faint track).
   local track = leftPage:CreateTexture(nil, "ARTWORK")
-  track:SetPoint("TOPRIGHT",    leftPage, "TOPRIGHT",    -8,  -LIST_PAD_Y)
-  track:SetPoint("BOTTOMRIGHT", leftPage, "BOTTOMRIGHT", -8,   LIST_PAD_Y)
+  track:SetPoint("TOPRIGHT", leftPage, "TOPRIGHT", -6, -LIST_PAD)
+  track:SetPoint("BOTTOMRIGHT", leftPage, "BOTTOMRIGHT", -6, LIST_PAD)
   track:SetWidth(3)
-  track:SetColorTexture(0.30, 0.20, 0.10, 0.35)
+  track:SetColorTexture(S.rgba("goldDeep", 0.3))
 
   local thumb = leftPage:CreateTexture(nil, "OVERLAY")
-  thumb:SetPoint("TOP", track, "TOP", 0, 0)
-  thumb:SetWidth(5)
+  thumb:SetWidth(3)
   thumb:SetHeight(40)
-  thumb:SetPoint("LEFT", track, "LEFT", -1, 0)
-  thumb:SetColorTexture(0.55, 0.38, 0.18, 0.85)
+  thumb:SetPoint("TOP", track, "TOP", 0, 0)
+  thumb:SetColorTexture(S.rgba("gold", 0.8))
 
   local function updateThumb()
-    local childH = scrollChild:GetHeight()
-    local viewH  = scroll:GetHeight()
-    local trackH = track:GetHeight()
-    if childH <= viewH + 1 then
-      track:Hide(); thumb:Hide()
-      return
-    end
+    local childH, viewH, trackH = scrollChild:GetHeight(), scroll:GetHeight(), track:GetHeight()
+    if childH <= viewH + 1 then track:Hide(); thumb:Hide(); return end
     track:Show(); thumb:Show()
     local thumbH = math.max(20, trackH * (viewH / childH))
     thumb:SetHeight(thumbH)
     local maxScroll = childH - viewH
-    local s = scroll:GetVerticalScroll() or 0
-    local pos = (maxScroll > 0) and (s / maxScroll) or 0
+    local pos = (maxScroll > 0) and ((scroll:GetVerticalScroll() or 0) / maxScroll) or 0
     thumb:ClearAllPoints()
-    thumb:SetPoint("LEFT", track, "LEFT", -1, 0)
-    thumb:SetPoint("TOP",  track, "TOP",   0, -(trackH - thumbH) * pos)
+    thumb:SetPoint("TOP", track, "TOP", 0, -(trackH - thumbH) * pos)
   end
   book.updateThumb = updateThumb
-
-  scroll:SetScript("OnVerticalScroll", function(self, _) updateThumb() end)
-  scroll:SetScript("OnSizeChanged",    function(self, _, _) updateThumb() end)
+  scroll:SetScript("OnVerticalScroll", updateThumb)
+  scroll:SetScript("OnSizeChanged", updateThumb)
   scroll:SetScript("OnMouseWheel", function(self, delta)
-    local step = 36
     local s = self:GetVerticalScroll() or 0
     local maxS = math.max(0, scrollChild:GetHeight() - self:GetHeight())
-    s = math.max(0, math.min(maxS, s - delta * step))
-    self:SetVerticalScroll(s)
+    self:SetVerticalScroll(math.max(0, math.min(maxS, s - delta * 38)))
   end)
 
-  ----------------------------------------------------------------------
-  -- Right page (parchment + polaroid). buildRightPage handles the rest.
-  ----------------------------------------------------------------------
+  -- Right pane (detail).
   book.rightPage = buildRightPage(book)
 
-  ----------------------------------------------------------------------
-  -- Empty hint when no narrative events captured yet.
-  ----------------------------------------------------------------------
-  local hint = book:CreateFontString(nil, "OVERLAY")
-  hint:SetFont(GameFontNormalLarge:GetFont(), 13, "")
+  -- Empty hint, centered over the left pane when there are no beats.
+  local hint = S.AddMuted(book, "", 13)
   hint:SetPoint("CENTER", leftPage, "CENTER", 0, 0)
-  hint:SetWidth(LEFT_PAGE.w - 60)
+  hint:SetWidth(LEFT_PAGE.w - 48)
   hint:SetJustifyH("CENTER")
-  hint:SetSpacing(4)
-  hint:SetTextColor(0.30, 0.20, 0.10, 1)
   hint:SetText((NS.Scribe and NS.Scribe.Voice and NS.Scribe.Voice.bookEmpty)
-    or "I have nothing to note yet.\n\nGo play, hero. Take a quest. Cross a border. Fall in battle.\nI will be watching, quill in hand.")
+    or "I have nothing to note yet.\n\nGo play, hero. Take a quest. Cross a border.\nI will be watching, quill in hand.")
   hint:Hide()
   book.emptyHint = hint
-
-  -- Footer / attribution -- tiny, dim, on the leather bottom strip.
-  local attr = book:CreateFontString(nil, "OVERLAY")
-  attr:SetFont(GameFontNormalSmall:GetFont(), 8, "")
-  attr:SetPoint("BOTTOM", book, "BOTTOM", 0, 6)
-  attr:SetTextColor(0.55, 0.42, 0.22, 0.85)
-  attr:SetText("Album chrome adapted from Azeroth Adventure Album by Peterodox.")
 
   return book
 end
@@ -796,32 +548,22 @@ end
 
 NS.OpenBook = function()
   local b = buildBook()
-  if b:IsShown() then
-    b:Hide()
-    return
-  end
+  if b:IsShown() then b:Hide(); return end
   refreshList()
   b:Show()
-  if PlaySound and SOUNDKIT then
-    pcall(PlaySound, SOUNDKIT.IG_QUEST_LIST_OPEN)
-  end
-  NS.PlaySound("page-turn.mp3")
+  if PlaySound and SOUNDKIT then pcall(PlaySound, SOUNDKIT.IG_QUEST_LIST_OPEN) end
+  if NS.PlaySound then NS.PlaySound("page-turn.mp3") end
 end
 
 NS.RefreshBook = function()
   if book and book:IsShown() then refreshList() end
 end
 
--- Live updates: when a new narrative event lands, refresh the list if
--- the book happens to be open. (Doesn't auto-open; that would be rude.)
+-- Live updates: refresh the list if a new narrative beat lands while open.
 if NS.On then
   for _, evt in ipairs({
-    "QUEST_ACCEPTED",
-    "QUEST_TURNED_IN",
-    "PLAYER_LEVEL_UP",
-    "ZONE_CHANGED_NEW_AREA",
-    "PLAYER_DEAD",
-    "ACHIEVEMENT_EARNED",
+    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP",
+    "ZONE_CHANGED_NEW_AREA", "PLAYER_DEAD", "ACHIEVEMENT_EARNED",
   }) do
     NS.On(evt, function() if book and book:IsShown() then refreshList() end end)
   end
