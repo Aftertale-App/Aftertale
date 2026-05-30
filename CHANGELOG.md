@@ -7,6 +7,21 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — settings panel adopts the brand 9-slice *(2026-05-29)*
+
+The config panel wore Peterodox's YUI parchment (GenericFrame.png + Divider.png
++ parchment buttons + attribution footer). Replaced it wholesale with Aftertale's
+own visual ID — the same `S.CreateFramedPanel` 9-slice the popover uses, Cinzel
+headings, violet kicker, accent rule, and the popover's primary/secondary brand
+buttons. Settings now looks like it belongs to the addon, not borrowed.
+
+- Dropped `applyParchmentBackground`, `makeParchmentButton`, the Divider texture,
+  the YUI attribution footer, and the `page-turn` open sound.
+- Removed the **"Story card hold" duration slider** — defunct now that notes are
+  instant chat lines, not timed parchment cards (`storyCardDuration` is dead).
+- Reworded toggles to match the new behavior ("Whisper a chat note when…") and
+  added a plain footer naming aftertale.gg as where the chronicle is read.
+
 ### Changed — narrator moved from parchment popups to chat *(2026-05-29)*
 
 The quest/level "story cards" were intrusive parchment toasts fading in at
