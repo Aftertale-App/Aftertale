@@ -7,6 +7,30 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — minimap popover tofu boxes + UI polish pass *(2026-05-29)*
+
+The hero-meta line rendered `ORC □□□ ROGUE □□□ HORDE` — not a missing font
+glyph, but a **byte-splitting bug** in the kicker letter-spacer. `Scribe.Kicker`
+(and the `Style.Kicker` fallback) walked each *byte* with `gmatch(".")`, which
+shredded the multibyte em-dash separator (`—`, 3 UTF-8 bytes) into three raw
+bytes that rendered as tofu. Both now split per UTF-8 codepoint, so any
+multibyte char survives the letter-spacing treatment.
+
+Same pass, polishing the popover the frame fix exposed:
+
+- **Typography:** the right-column place line (zone + time) is now a gold Cinzel
+  heading instead of default-font body, so it stops clashing with the rest of
+  the branded type and anchors the column the way the hero name anchors the left.
+- **Buttons:** primary/secondary split — `Hold this moment` is the default verb
+  (lifted fill + faint gold wash + brighter border, `goldBright` label),
+  `Pause the watch` stays a quiet recessed well. Dropped two leftover zero-size
+  border textures from the old button builder.
+- **Portrait:** softened the violet halo (spread 8→5px, alpha 0.18→0.12) and the
+  container border (0.55→0.28) so it stops reading as a second frame competing
+  with the gold 9-slice.
+- **Spacing:** nudged the right block down so it reads vertically centred between
+  the frame top and the buttons, trimming the mid-column void.
+
 ### Fixed — real frame asset replaces the spec-sheet mockup *(2026-05-29)*
 
 The PNG at both frame paths was the **annotation/spec-sheet** export

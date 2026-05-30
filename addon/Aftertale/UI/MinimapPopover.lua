@@ -117,14 +117,16 @@ local function buildLeftPortrait(parent, x, y, w, h)
   -- Simple inset panel for the portrait. The brand 9-slice frame wraps the
   -- whole popover (built in build()); the portrait just gets a thin-bordered
   -- container for the 3D model. Halo behind it is the paused-state dimmer.
-  local frame = S.CreatePanel(parent, { fill = "inset", border = "border", borderAlpha = 0.55 })
+  local frame = S.CreatePanel(parent, { fill = "inset", border = "border", borderAlpha = 0.28 })
   frame:SetSize(w, h)
   frame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
 
+  -- A soft violet bloom behind the portrait. Kept tight (5px) and low-alpha so
+  -- it reads as a halo, not a second frame competing with the gold 9-slice.
   local halo = parent:CreateTexture(nil, "BACKGROUND")
-  halo:SetColorTexture(S.rgba("accent", 0.14))
-  halo:SetPoint("TOPLEFT", frame, "TOPLEFT", -8, 8)
-  halo:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 8, -8)
+  halo:SetColorTexture(S.rgba("accent", 0.10))
+  halo:SetPoint("TOPLEFT", frame, "TOPLEFT", -5, 5)
+  halo:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 5, -5)
   frame.halo = halo
 
   -- Live PlayerModel filling the panel interior. PlayerModel is relatively
@@ -153,7 +155,7 @@ local function refreshModel(panel, opts)
   m:SetAlpha(dim)
   if panel.portrait.halo then
     local r, g, b = S.rgba("accent")
-    panel.portrait.halo:SetColorTexture(r, g, b, (opts and opts.paused) and 0.07 or 0.18)
+    panel.portrait.halo:SetColorTexture(r, g, b, (opts and opts.paused) and 0.05 or 0.12)
   end
 end
 
@@ -216,47 +218,47 @@ end
 -- doesn't earn its own Style helper yet.
 ------------------------------------------------------------------------
 
-local function makeButton(parent, w, h, text)
+local function makeButton(parent, w, h, text, primary)
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(w, h)
+
+  -- Primary (the default verb) reads heavier: lifted fill + faint gold wash +
+  -- a brighter border. Secondary stays a quiet recessed well.
+  local baseFill = primary and "panel" or "inset"
   local bg = b:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints(b)
-  bg:SetColorTexture(S.rgba("inset"))
+  bg:SetColorTexture(S.rgba(baseFill))
   b.bg = bg
-  local border = {}
-  local function edge(point, opx, opy, w_, h_)
+
+  if primary then
+    local wash = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+    wash:SetAllPoints(b)
+    wash:SetColorTexture(S.rgba("gold", 0.08))
+  end
+
+  local borderAlpha = primary and 0.9 or 0.4
+  local function edge(p1, p2, vertical)
     local t = b:CreateTexture(nil, "BORDER")
-    t:SetColorTexture(S.rgba("border", 0.55))
-    t:SetPoint(point, b, point, opx or 0, opy or 0)
-    if w_ then t:SetWidth(w_) end
-    if h_ then t:SetHeight(h_) end
+    t:SetColorTexture(S.rgba("border", borderAlpha))
+    t:SetPoint(p1); t:SetPoint(p2)
+    if vertical then t:SetWidth(1) else t:SetHeight(1) end
     return t
   end
-  edge("TOPLEFT", 0, 0); edge("TOPRIGHT", 0, 0)
-  local top = b:CreateTexture(nil, "BORDER")
-  top:SetColorTexture(S.rgba("border", 0.55))
-  top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT"); top:SetHeight(1)
-  local bot = b:CreateTexture(nil, "BORDER")
-  bot:SetColorTexture(S.rgba("border", 0.55))
-  bot:SetPoint("BOTTOMLEFT"); bot:SetPoint("BOTTOMRIGHT"); bot:SetHeight(1)
-  local left = b:CreateTexture(nil, "BORDER")
-  left:SetColorTexture(S.rgba("border", 0.55))
-  left:SetPoint("TOPLEFT"); left:SetPoint("BOTTOMLEFT"); left:SetWidth(1)
-  local right = b:CreateTexture(nil, "BORDER")
-  right:SetColorTexture(S.rgba("border", 0.55))
-  right:SetPoint("TOPRIGHT"); right:SetPoint("BOTTOMRIGHT"); right:SetWidth(1)
-  border.top, border.bot, border.left, border.right = top, bot, left, right
-  b.border = border
+  edge("TOPLEFT", "TOPRIGHT", false)
+  edge("BOTTOMLEFT", "BOTTOMRIGHT", false)
+  edge("TOPLEFT", "BOTTOMLEFT", true)
+  edge("TOPRIGHT", "BOTTOMRIGHT", true)
 
   local label = b:CreateFontString(nil, "OVERLAY")
   S.UseDisplayFont(label, 13, "")
   label:SetPoint("CENTER")
   label:SetText(S.Kicker(text or ""))
-  label:SetTextColor(S.rgba("goldBright"))
+  label:SetTextColor(S.rgba(primary and "goldBright" or "gold"))
   b.label = label
 
-  b:SetScript("OnEnter", function() bg:SetColorTexture(S.rgba("accent", 0.10)) end)
-  b:SetScript("OnLeave", function() bg:SetColorTexture(S.rgba("inset")) end)
+  local hoverR, hoverG, hoverB, hoverA = S.rgba(primary and "gold" or "accent", primary and 0.16 or 0.10)
+  b:SetScript("OnEnter", function() bg:SetColorTexture(hoverR, hoverG, hoverB, hoverA) end)
+  b:SetScript("OnLeave", function() bg:SetColorTexture(S.rgba(baseFill)) end)
   return b
 end
 
@@ -323,7 +325,9 @@ local function build()
 
   -- RIGHT COLUMN: kicker + live session lines + divider + pulse.
   local rightX = PAD + LEFT_W + 12
-  local rightTopY = -PAD - 6
+  -- Nudge the right block down a touch so it reads as vertically centred
+  -- between the frame top and the two bottom buttons (less mid-column void).
+  local rightTopY = -PAD - 20
 
   local sectKicker = S.AddKicker(C_AREA, C.sectionKicker)
   sectKicker:SetPoint("TOPLEFT", C_AREA, "TOPLEFT", rightX, rightTopY)
@@ -331,7 +335,9 @@ local function build()
   sectKicker:SetJustifyH("LEFT")
   sectKicker:SetTextColor(S.rgba("accent"))
 
-  local place = S.AddBody(C_AREA, "", 15)
+  -- The column's title: zone + time, gold Cinzel display so it anchors the
+  -- right side the way the hero name anchors the left (no default-font clash).
+  local place = S.AddHeading(C_AREA, "", 18)
   place:SetPoint("TOPLEFT", sectKicker, "BOTTOMLEFT", 0, -10)
   place:SetWidth(RIGHT_W)
   place:SetJustifyH("LEFT")
@@ -369,8 +375,8 @@ local function build()
   popover.pulse:Hide()
 
   -- BUTTONS, anchored to the bottom of the right column.
-  local BTN_H = 32
-  popover.holdBtn = makeButton(C_AREA, RIGHT_W, BTN_H, C.holdBtn)
+  local BTN_H = 34
+  popover.holdBtn = makeButton(C_AREA, RIGHT_W, BTN_H, C.holdBtn, true)
   popover.holdBtn:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, PAD + BTN_H + 8)
   popover.holdBtn:SetScript("OnClick", function()
     if NS.MarkHeldMoment then NS.MarkHeldMoment() end
@@ -378,7 +384,7 @@ local function build()
     showPulse(popover, S.Kicker(C.heldPulse), { S.rgba("accent") })
   end)
 
-  popover.pauseBtn = makeButton(C_AREA, RIGHT_W, BTN_H, C.pauseBtn)
+  popover.pauseBtn = makeButton(C_AREA, RIGHT_W, BTN_H, C.pauseBtn, false)
   popover.pauseBtn:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, PAD)
   popover.pauseBtn:SetScript("OnClick", function()
     local nowPaused = not (NS.IsPaused and NS.IsPaused())

@@ -152,7 +152,10 @@ function S.Kicker(s)
   local out = {}
   for word in s:gmatch("%S+") do
     local letters = {}
-    for ch in word:gmatch(".") do table.insert(letters, ch) end
+    -- Split per UTF-8 codepoint, not per byte. A byte-wise split shreds any
+    -- multibyte char (e.g. the em-dash separator "—", 3 bytes) into raw bytes
+    -- that render as tofu boxes. This pattern matches one full codepoint.
+    for ch in word:gmatch("[%z\1-\127\194-\244][\128-\191]*") do table.insert(letters, ch) end
     table.insert(out, table.concat(letters, " "))
   end
   return table.concat(out, "   ")

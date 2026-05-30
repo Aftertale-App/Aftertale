@@ -77,7 +77,9 @@ end
 function S.Kicker(text)
   if NS.Scribe and NS.Scribe.Kicker then return NS.Scribe.Kicker(text) end
   if not text or text == "" then return "" end
-  return (text:upper():gsub("(.)", "%1 "):gsub("%s+$", ""))
+  -- Letter-space per UTF-8 codepoint (not per byte) so multibyte separators
+  -- like "—" survive instead of shredding into tofu boxes.
+  return (text:upper():gsub("[%z\1-\127\194-\244][\128-\191]*", "%0 "):gsub("%s+$", ""))
 end
 
 ------------------------------------------------------------------------
