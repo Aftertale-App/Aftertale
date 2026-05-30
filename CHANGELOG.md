@@ -7,6 +7,28 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed / Changed — Hub: glyph escapes, tile labels, drop shadow + bloom + scrim *(2026-05-30)*
+
+First in-game screenshot of the Hub surfaced four issues — all fixed in this pass.
+
+- **Glyph literals** rendered as `xE2x9CxA6` instead of ✦ because WoW's Lua 5.1
+  doesn't support `\xNN` hex escapes. Dropped the placeholder Unicode icons from
+  stat tiles and Recent Moments rows (Cinzel's restricted glyph set made them
+  unreliable anyway) and switched the close × to the decimal escape `"\195\151"`
+  that the popover already uses.
+- **Tile labels** ("ACHIEVEMENTS EARNED", "DUNGEONS COMPLETED") overflowed the
+  130px tiles when letter-spaced. Replaced kicker treatment with plain wrap-
+  enabled caps so wide labels lay out as two clean lines.
+- **Recent Moments rows** had timestamps bleeding into long quest titles. Re-
+  anchored the label's right edge to the timestamp's left so they never collide.
+- **Softening pass.** `Style.lua` gained three helpers — `AddDropShadow`,
+  `AddInnerBloom`, and `AddModalScrim` — and `CreateFramedPanel` now takes
+  `shadow` / `bloom` opts. The Hub gets all three: a 32px drop shadow, a violet
+  inner bloom inside the gold edge, and a 40% modal scrim that dims the world
+  behind it (click-outside-to-close). The Minimap Popover gets the lighter
+  shadow + bloom but no scrim — it's a hover surface, not a modal. Falls back
+  cleanly on older flavors where `SetGradient` isn't present.
+
 ### Added — Hub window: the addon's main surface *(2026-05-30)*
 
 A new full-window UI behind `/at hub` (and `/at open`). One 9-slice gold-on-violet
