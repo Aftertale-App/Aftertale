@@ -7,6 +7,20 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — narrator moved from parchment popups to chat *(2026-05-29)*
+
+The quest/level "story cards" were intrusive parchment toasts fading in at
+top-center — off-brand (old YUI parchment) and easy to read as spam. Replaced
+the whole card machinery with a **single on-brand violet chat line** (`#b89eff`)
+behind the gold `[Aftertale]` tag. Same narrator copy, far quieter footprint:
+the watch whispers "I noticed" and the real prose stays on aftertale.gg.
+
+- Dropped the `ChroniclesStoryCard` frame, 9-slice parchment bg, divider, fade
+  state machine, and the `paper-collect` sound on emit.
+- `QUEST_ACCEPTED` / `QUEST_TURNED_IN` / `PLAYER_LEVEL_UP` and the
+  `/aftertale preview` entry now print instead of presenting a card. Config
+  gating (`showStoryCards`, `showLevelCards`) unchanged.
+
 ### Changed — popover stat digest + clearer value prop *(2026-05-29)*
 
 The right column was opaque: "Beats remembered / Held in memory / The watch
