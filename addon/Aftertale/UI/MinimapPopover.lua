@@ -351,6 +351,13 @@ local function build()
   _G["AftertaleMinimapPopover"] = popover
   table.insert(UISpecialFrames, "AftertaleMinimapPopover") -- ESC closes
 
+  -- Floating compass-star sigil straddling the top gold border, same as
+  -- the Hub. Sized down because the popover is smaller than the Hub.
+  local sigil = popover:CreateTexture(nil, "OVERLAY")
+  sigil:SetTexture((NS.ADDON_PATH or "Interface\\AddOns\\Aftertale") .. "\\Art\\sigil-header.png")
+  sigil:SetSize(56, 56)
+  sigil:SetPoint("CENTER", popover, "TOP", 0, 0)
+
   local C_AREA = popover.content -- shorthand; everything below anchors here
 
   -- Close button -- inside the frame, top-right of the content area, so it

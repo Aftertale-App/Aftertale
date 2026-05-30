@@ -7,6 +7,31 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — illustrated icon set wired in (1-13) *(2026-05-30)*
+
+The AI-generated heraldic icon set landed (commit `bc72e46`) as `1.png`..`13.png`
+in `addon/Aftertale/Art/`. This pass processes and wires them:
+
+- **`tools/prep-icon-set.py`** — one-shot processor that chroma-keys the magenta
+  AI background to transparent (with spill-suppression to kill the pink halo),
+  resizes everything to power-of-two (1024² or 512²) for Classic compatibility,
+  and renames/relocates to descriptive paths:
+  - `frame/aftertale-9slice-frame.png` (rounded-corner replacement)
+  - `sigil-header.png` (floating top-center ornament)
+  - `icons/{moments,time,zones,quests,feats,dungeons,character,level,death,items}.png`
+  - `book.png` (large illustration for the future Chronicle Preview screen)
+- **Frame asset replaced** with the rounded-corner version. Slice re-measured at
+  the same 80px so no Lua / CSS slice changes needed.
+- **Hub stat tiles** now show the 6 illustrated icons (Moments / Time / Zones /
+  Quests / Achievements / Dungeons). Tile dimensions bumped to 140×140 to give
+  the 56px icons proper breathing room.
+- **Hub Recent Moments rows** now show a per-event icon on the left (scroll for
+  quests, helm for level-up, compass rose for zones, etc.).
+- **Floating sigil ornament** straddles the top gold border on both the Hub
+  (72px) and the Minimap Popover (56px), matching the mockup.
+- Numbered originals (`1.png`..`13.png`) cleaned up. Frame + book + sigil
+  mirrored into `public/` for the web side.
+
 ### Fixed / Changed — Hub: glyph escapes, tile labels, drop shadow + bloom + scrim *(2026-05-30)*
 
 First in-game screenshot of the Hub surfaced four issues — all fixed in this pass.

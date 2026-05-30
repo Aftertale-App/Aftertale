@@ -17,6 +17,36 @@ local HUB_W, HUB_H = 960, 620
 local CORNER       = 36
 local PADDING      = 14
 
+-- Art paths. NS.ADDON_PATH is "Interface\\AddOns\\Aftertale" at runtime.
+local function artPath(rel)
+  return (NS.ADDON_PATH or "Interface\\AddOns\\Aftertale") .. "\\Art\\" .. rel
+end
+
+local ICON = {
+  moments   = artPath("icons\\moments.png"),
+  time      = artPath("icons\\time.png"),
+  zones     = artPath("icons\\zones.png"),
+  quests    = artPath("icons\\quests.png"),
+  feats     = artPath("icons\\feats.png"),
+  dungeons  = artPath("icons\\dungeons.png"),
+  character = artPath("icons\\character.png"),
+  level     = artPath("icons\\level.png"),
+  death     = artPath("icons\\death.png"),
+  items     = artPath("icons\\items.png"),
+}
+local SIGIL_HEADER = artPath("sigil-header.png")
+
+-- Per-event icon for the Recent Moments rows.
+local EVENT_ICON = {
+  QUEST_ACCEPTED        = ICON.quests,
+  QUEST_TURNED_IN       = ICON.quests,
+  PLAYER_LEVEL_UP       = ICON.level,
+  ZONE_CHANGED_NEW_AREA = ICON.zones,
+  ACHIEVEMENT_EARNED    = ICON.feats,
+  ENCOUNTER_END         = ICON.dungeons,
+  PLAYER_DEAD           = ICON.death,
+}
+
 ------------------------------------------------------------------------
 -- Tabs
 ------------------------------------------------------------------------
@@ -118,29 +148,32 @@ local function makeTab(parent, label, onClick)
   return t
 end
 
--- A single stat tile: big gold number on top, two-line caps label beneath.
--- No icon glyph in v1 -- placeholder Unicode symbols looked like tofu on
--- Cinzel's restricted glyph set; real illustrated icons land in a follow-up
--- art pass and slot back in here.
-local function makeStatTile(parent, w, h, label)
+-- A single stat tile: illustrated icon up top, big gold number, two-line
+-- caps label beneath. Icons are 512px sources downscaled to 56px here.
+local function makeStatTile(parent, w, h, iconPath, label)
   local tile = S.CreatePanel(parent, { fill = "inset", border = "border", borderAlpha = 0.35 })
   tile:SetSize(w, h)
 
+  if iconPath then
+    local icon = tile:CreateTexture(nil, "ARTWORK")
+    icon:SetTexture(iconPath)
+    icon:SetSize(56, 56)
+    icon:SetPoint("TOP", tile, "TOP", 0, -10)
+    tile.icon = icon
+  end
+
   local value = tile:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(value, 28, "")
+  S.UseDisplayFont(value, 22, "")
   value:SetText("0")
-  value:SetPoint("TOP", tile, "TOP", 0, -18)
+  value:SetPoint("TOP", tile, "TOP", 0, -68)
   value:SetTextColor(S.rgba("goldBright"))
   tile.value = value
 
-  -- Plain caps (not letter-spaced), wrap-enabled, two-line allowance. Wider
-  -- labels like "ACHIEVEMENTS / EARNED" wrap cleanly to two lines instead
-  -- of overflowing the tile horizontally as letter-spaced kicker did.
   local lbl = tile:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(lbl, 10, "")
+  S.UseDisplayFont(lbl, 9, "")
   lbl:SetText((label or ""):upper())
-  lbl:SetPoint("BOTTOMLEFT",  tile, "BOTTOMLEFT",   4, 10)
-  lbl:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", -4, 10)
+  lbl:SetPoint("BOTTOMLEFT",  tile, "BOTTOMLEFT",   4, 8)
+  lbl:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", -4, 8)
   lbl:SetJustifyH("CENTER")
   lbl:SetJustifyV("BOTTOM")
   lbl:SetWordWrap(true)
@@ -150,12 +183,17 @@ local function makeStatTile(parent, w, h, label)
   return tile
 end
 
--- A single row in the Recent Moments list: label on the left, timestamp
--- right-aligned. Label anchors to the timestamp's LEFT so it never bleeds
--- under the time when copy gets long.
+-- A single row in the Recent Moments list: per-event illustrated icon on
+-- the left, label in the middle, timestamp right-aligned. Label anchors
+-- to the timestamp's LEFT so it never bleeds under the time.
 local function makeMomentRow(parent, w)
   local row = CreateFrame("Frame", nil, parent)
-  row:SetSize(w, 28)
+  row:SetSize(w, 32)
+
+  local icon = row:CreateTexture(nil, "ARTWORK")
+  icon:SetSize(24, 24)
+  icon:SetPoint("LEFT", row, "LEFT", 2, 0)
+  row.icon = icon
 
   local when = row:CreateFontString(nil, "OVERLAY")
   local f = (GameFontDisable or GameFontNormalSmall):GetFont()
@@ -166,7 +204,7 @@ local function makeMomentRow(parent, w)
   row.when = when
 
   local label = S.AddBody(row, "", 13)
-  label:SetPoint("LEFT", row, "LEFT", 4, 0)
+  label:SetPoint("LEFT", icon, "RIGHT", 8, 0)
   label:SetPoint("RIGHT", when, "LEFT", -12, 0)
   label:SetJustifyH("LEFT")
   label:SetWordWrap(false)
@@ -336,12 +374,12 @@ end
 ------------------------------------------------------------------------
 
 local STATS_LAYOUT = {
-  { key = "moments",     label = "Moments Captured"    },
-  { key = "recordedSec", label = "Time Recorded"       },
-  { key = "zones",       label = "Zones Visited"       },
-  { key = "quests",      label = "Quests Completed"    },
-  { key = "feats",       label = "Achievements Earned" },
-  { key = "dungeons",    label = "Dungeons Completed"  },
+  { key = "moments",     icon = ICON.moments,  label = "Moments Captured"    },
+  { key = "recordedSec", icon = ICON.time,     label = "Time Recorded"       },
+  { key = "zones",       icon = ICON.zones,    label = "Zones Visited"       },
+  { key = "quests",      icon = ICON.quests,   label = "Quests Completed"    },
+  { key = "feats",       icon = ICON.feats,    label = "Achievements Earned" },
+  { key = "dungeons",    icon = ICON.dungeons, label = "Dungeons Completed"  },
 }
 
 local function buildOverviewTab(parent)
@@ -352,13 +390,13 @@ local function buildOverviewTab(parent)
   local kicker = S.AddKicker(tab, "Story at a Glance")
   kicker:SetPoint("TOPLEFT", tab, "TOPLEFT", 4, -4)
 
-  local TILE_W, TILE_H, GAP = 130, 110, 10
+  local TILE_W, TILE_H, GAP = 140, 140, 12
   local gridX, gridY = 0, -28
   tab.tiles = {}
   for i, def in ipairs(STATS_LAYOUT) do
     local col = (i - 1) % 3
     local row = math.floor((i - 1) / 3)
-    local tile = makeStatTile(tab, TILE_W, TILE_H, def.label)
+    local tile = makeStatTile(tab, TILE_W, TILE_H, def.icon, def.label)
     tile:SetPoint("TOPLEFT", tab, "TOPLEFT",
       gridX + col * (TILE_W + GAP),
       gridY - row * (TILE_H + GAP))
@@ -426,6 +464,8 @@ local function buildOverviewTab(parent)
     for i, row in ipairs(self.rows) do
       local e = stats.recentEvents[i]
       if e then
+        local icon = EVENT_ICON[e.event] or ICON.moments
+        row.icon:SetTexture(icon)
         row.label:SetText(e.label)
         row.when:SetText(formatWhen(e.when))
         row:Show()
@@ -498,11 +538,21 @@ local function build()
   _G["AftertaleHub"] = hub
   table.insert(UISpecialFrames, "AftertaleHub") -- ESC closes
 
+  -- Floating compass-star sigil straddling the top gold border. Anchored to
+  -- the outer frame (not the inset content child) so it can overlap the gold
+  -- edge the way the mockup does. OVERLAY layer puts it above the BORDER
+  -- 9-slice textures.
+  local sigil = hub:CreateTexture(nil, "OVERLAY")
+  sigil:SetTexture(SIGIL_HEADER)
+  sigil:SetSize(72, 72)
+  sigil:SetPoint("CENTER", hub, "TOP", 0, 0)
+
   local C_AREA = hub.content
 
-  -- HEADER: gold Cinzel title + close X.
+  -- HEADER: gold Cinzel title + close X. Title nudged down a touch to clear
+  -- the sigil that now overlaps the top frame edge.
   local title = S.AddHeading(C_AREA, "Aftertale", 26)
-  title:SetPoint("TOP", C_AREA, "TOP", 0, -2)
+  title:SetPoint("TOP", C_AREA, "TOP", 0, -10)
 
   local close = CreateFrame("Button", nil, C_AREA)
   close:SetSize(24, 24)
