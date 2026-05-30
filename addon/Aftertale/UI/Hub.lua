@@ -118,50 +118,44 @@ local function makeTab(parent, label, onClick)
   return t
 end
 
--- A single stat tile: icon glyph + big gold number + small label.
-local function makeStatTile(parent, w, h, iconGlyph, label)
+-- A single stat tile: big gold number on top, two-line caps label beneath.
+-- No icon glyph in v1 -- placeholder Unicode symbols looked like tofu on
+-- Cinzel's restricted glyph set; real illustrated icons land in a follow-up
+-- art pass and slot back in here.
+local function makeStatTile(parent, w, h, label)
   local tile = S.CreatePanel(parent, { fill = "inset", border = "border", borderAlpha = 0.35 })
   tile:SetSize(w, h)
 
-  local icon = tile:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(icon, 22, "")
-  icon:SetText(iconGlyph or "")
-  icon:SetPoint("TOP", tile, "TOP", 0, -12)
-  icon:SetTextColor(S.rgba("accent"))
-
   local value = tile:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(value, 26, "")
+  S.UseDisplayFont(value, 28, "")
   value:SetText("0")
-  value:SetPoint("CENTER", tile, "CENTER", 0, 2)
+  value:SetPoint("TOP", tile, "TOP", 0, -18)
   value:SetTextColor(S.rgba("goldBright"))
   tile.value = value
 
+  -- Plain caps (not letter-spaced), wrap-enabled, two-line allowance. Wider
+  -- labels like "ACHIEVEMENTS / EARNED" wrap cleanly to two lines instead
+  -- of overflowing the tile horizontally as letter-spaced kicker did.
   local lbl = tile:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(lbl, 9, "")
-  lbl:SetText(S.Kicker(label or ""))
-  lbl:SetPoint("BOTTOM", tile, "BOTTOM", 0, 10)
+  S.UseDisplayFont(lbl, 10, "")
+  lbl:SetText((label or ""):upper())
+  lbl:SetPoint("BOTTOMLEFT",  tile, "BOTTOMLEFT",   4, 10)
+  lbl:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", -4, 10)
+  lbl:SetJustifyH("CENTER")
+  lbl:SetJustifyV("BOTTOM")
+  lbl:SetWordWrap(true)
+  lbl:SetSpacing(1)
   lbl:SetTextColor(S.rgba("fgMuted"))
 
   return tile
 end
 
--- A single row in the Recent Moments list: glyph + label + right-aligned time.
+-- A single row in the Recent Moments list: label on the left, timestamp
+-- right-aligned. Label anchors to the timestamp's LEFT so it never bleeds
+-- under the time when copy gets long.
 local function makeMomentRow(parent, w)
   local row = CreateFrame("Frame", nil, parent)
   row:SetSize(w, 28)
-
-  local icon = row:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(icon, 13, "")
-  icon:SetPoint("LEFT", row, "LEFT", 4, 0)
-  icon:SetTextColor(S.rgba("accent"))
-  row.icon = icon
-
-  local label = S.AddBody(row, "", 13)
-  label:SetPoint("LEFT", icon, "RIGHT", 10, 0)
-  label:SetPoint("RIGHT", row, "RIGHT", -90, 0)
-  label:SetJustifyH("LEFT")
-  label:SetWordWrap(false)
-  row.label = label
 
   local when = row:CreateFontString(nil, "OVERLAY")
   local f = (GameFontDisable or GameFontNormalSmall):GetFont()
@@ -170,6 +164,14 @@ local function makeMomentRow(parent, w)
   when:SetJustifyH("RIGHT")
   when:SetTextColor(S.rgba("fgFaint"))
   row.when = when
+
+  local label = S.AddBody(row, "", 13)
+  label:SetPoint("LEFT", row, "LEFT", 4, 0)
+  label:SetPoint("RIGHT", when, "LEFT", -12, 0)
+  label:SetJustifyH("LEFT")
+  label:SetWordWrap(false)
+  label:SetNonSpaceWrap(false)
+  row.label = label
 
   row:Hide()
   return row
@@ -334,12 +336,12 @@ end
 ------------------------------------------------------------------------
 
 local STATS_LAYOUT = {
-  { key = "moments",  glyph = "\xE2\x9C\xA6", label = "Moments Captured"   }, -- ✦
-  { key = "recordedSec", glyph = "\xE2\x97\x8B", label = "Time Recorded"   }, -- ○
-  { key = "zones",    glyph = "\xE2\x9C\xA7", label = "Zones Visited"      }, -- ✧
-  { key = "quests",   glyph = "\xE2\x9D\x96", label = "Quests Completed"   }, -- ❖
-  { key = "feats",    glyph = "\xE2\x9A\x9C", label = "Achievements Earned"}, -- ⚜
-  { key = "dungeons", glyph = "\xE2\x99\x9C", label = "Dungeons Completed" }, -- ♜
+  { key = "moments",     label = "Moments Captured"    },
+  { key = "recordedSec", label = "Time Recorded"       },
+  { key = "zones",       label = "Zones Visited"       },
+  { key = "quests",      label = "Quests Completed"    },
+  { key = "feats",       label = "Achievements Earned" },
+  { key = "dungeons",    label = "Dungeons Completed"  },
 }
 
 local function buildOverviewTab(parent)
@@ -356,7 +358,7 @@ local function buildOverviewTab(parent)
   for i, def in ipairs(STATS_LAYOUT) do
     local col = (i - 1) % 3
     local row = math.floor((i - 1) / 3)
-    local tile = makeStatTile(tab, TILE_W, TILE_H, def.glyph, def.label)
+    local tile = makeStatTile(tab, TILE_W, TILE_H, def.label)
     tile:SetPoint("TOPLEFT", tab, "TOPLEFT",
       gridX + col * (TILE_W + GAP),
       gridY - row * (TILE_H + GAP))
@@ -424,7 +426,6 @@ local function buildOverviewTab(parent)
     for i, row in ipairs(self.rows) do
       local e = stats.recentEvents[i]
       if e then
-        row.icon:SetText("\xE2\x9C\xA6") -- ✦ -- per-event glyphs land in v2
         row.label:SetText(e.label)
         row.when:SetText(formatWhen(e.when))
         row:Show()
@@ -470,8 +471,15 @@ local hub
 local function build()
   if hub then return hub end
 
-  -- 9-slice framed panel. Children anchor to hub.content; never to hub.
-  hub = S.CreateFramedPanel(UIParent, { cornerSize = CORNER, padding = PADDING })
+  -- 9-slice framed panel with shadow + inner bloom enabled. Children anchor
+  -- to hub.content; never to hub. The Hub is the addon's most visually
+  -- prominent surface so it earns the heavier shadow depth.
+  hub = S.CreateFramedPanel(UIParent, {
+    cornerSize = CORNER,
+    padding    = PADDING,
+    shadow     = { depth = 32, alpha = 0.6 },
+    bloom      = { depth = 16, alpha = 0.20 },
+  })
   hub:SetSize(HUB_W, HUB_H)
   hub:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   hub:SetFrameStrata("DIALOG")
@@ -481,6 +489,11 @@ local function build()
   hub:SetScript("OnDragStart", hub.StartMoving)
   hub:SetScript("OnDragStop",  hub.StopMovingOrSizing)
   hub:Hide()
+
+  -- Modal scrim: dims the game world behind the Hub so the panel's gold
+  -- corners stop fighting the busy in-world background. Click-outside-to-
+  -- close + tracks Show/Hide automatically.
+  S.AddModalScrim(hub, { alpha = 0.40 })
 
   _G["AftertaleHub"] = hub
   table.insert(UISpecialFrames, "AftertaleHub") -- ESC closes
@@ -497,7 +510,7 @@ local function build()
   local x = close:CreateFontString(nil, "OVERLAY")
   x:SetFont((GameFontNormalLarge or GameFontNormal):GetFont(), 18, "")
   x:SetPoint("CENTER", 0, 0)
-  x:SetText("\xC3\x97") -- ×
+  x:SetText("\195\151") -- × (decimal escape -- WoW Lua 5.1 has no \xNN)
   x:SetTextColor(S.rgba("fgMuted"))
   close:SetScript("OnEnter", function() x:SetTextColor(S.rgba("goldBright")) end)
   close:SetScript("OnLeave", function() x:SetTextColor(S.rgba("fgMuted")) end)

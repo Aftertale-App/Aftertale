@@ -140,6 +140,153 @@ function S.CreateRule(parent, colorName, alpha)
 end
 
 ------------------------------------------------------------------------
+-- Gradient helper -- modern WoW uses Texture:SetGradient(orientation,
+-- ColorMixin, ColorMixin); older flavors use SetGradientAlpha(orientation,
+-- r1,g1,b1,a1, r2,g2,b2,a2). We try the new API first and silently fall
+-- back. If neither exists the texture stays a solid color, which is the
+-- acceptable degraded mode (still reads as a shadow / bloom).
+------------------------------------------------------------------------
+
+local function setLinearGradient(tex, direction, c1, c2)
+  if tex.SetGradient and CreateColor then
+    local ok = pcall(tex.SetGradient, tex, direction,
+      CreateColor(c1[1], c1[2], c1[3], c1[4]),
+      CreateColor(c2[1], c2[2], c2[3], c2[4]))
+    if ok then return end
+  end
+  if tex.SetGradientAlpha then
+    pcall(tex.SetGradientAlpha, tex, direction,
+      c1[1], c1[2], c1[3], c1[4],
+      c2[1], c2[2], c2[3], c2[4])
+  end
+end
+
+------------------------------------------------------------------------
+-- Drop shadow -- 4 black strips around the frame, each fading from
+-- partially-opaque at the frame edge to transparent at the outer extent.
+-- Corners overlap (which reads as slightly darker corner shadow -- correct
+-- for a real drop shadow).
+------------------------------------------------------------------------
+
+function S.AddDropShadow(frame, depth, alpha)
+  depth = depth or 24
+  alpha = alpha or 0.5
+  local solid = { 0, 0, 0, alpha }
+  local clear = { 0, 0, 0, 0 }
+
+  -- Top: vertical gradient, transparent at top -> dark at bottom (frame edge)
+  local top = frame:CreateTexture(nil, "BACKGROUND", nil, -2)
+  top:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", -depth, 0)
+  top:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", depth, 0)
+  top:SetHeight(depth)
+  setLinearGradient(top, "VERTICAL", solid, clear)
+
+  -- Bottom: vertical gradient, dark at top (frame edge) -> transparent at bottom
+  local bot = frame:CreateTexture(nil, "BACKGROUND", nil, -2)
+  bot:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", -depth, 0)
+  bot:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", depth, 0)
+  bot:SetHeight(depth)
+  setLinearGradient(bot, "VERTICAL", clear, solid)
+
+  -- Left: horizontal gradient, transparent at left -> dark at right (frame edge)
+  local left = frame:CreateTexture(nil, "BACKGROUND", nil, -2)
+  left:SetPoint("TOPRIGHT", frame, "TOPLEFT", 0, depth)
+  left:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", 0, -depth)
+  left:SetWidth(depth)
+  setLinearGradient(left, "HORIZONTAL", clear, solid)
+
+  -- Right: horizontal gradient, dark at left (frame edge) -> transparent at right
+  local right = frame:CreateTexture(nil, "BACKGROUND", nil, -2)
+  right:SetPoint("TOPLEFT", frame, "TOPRIGHT", 0, depth)
+  right:SetPoint("BOTTOMLEFT", frame, "BOTTOMRIGHT", 0, -depth)
+  right:SetWidth(depth)
+  setLinearGradient(right, "HORIZONTAL", solid, clear)
+end
+
+------------------------------------------------------------------------
+-- Inner bloom -- 4 violet-accent strips just inside the gold border,
+-- fading from accent at the border toward transparent at the panel
+-- interior. The visual goal: the gold reads as emerging from the violet
+-- body rather than being stamped on top.
+--
+-- `cornerInset` keeps the bloom strips clear of the gold corner sigils
+-- so they fade into the edge bands, not under the corner art.
+------------------------------------------------------------------------
+
+function S.AddInnerBloom(frame, cornerInset, depth, alpha)
+  cornerInset = cornerInset or 28
+  depth = depth or 14
+  alpha = alpha or 0.22
+  local r, g, b = S.rgba("accent")
+  local solid = { r, g, b, alpha }
+  local clear = { r, g, b, 0     }
+
+  -- Top edge: anchor along the top, extend `depth` downward, fade down.
+  local top = frame:CreateTexture(nil, "ARTWORK", nil, -1)
+  top:SetPoint("TOPLEFT", frame, "TOPLEFT", cornerInset, -2)
+  top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -cornerInset, -2)
+  top:SetHeight(depth)
+  setLinearGradient(top, "VERTICAL", clear, solid) -- bottom solid -> top clear
+
+  local bot = frame:CreateTexture(nil, "ARTWORK", nil, -1)
+  bot:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", cornerInset, 2)
+  bot:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -cornerInset, 2)
+  bot:SetHeight(depth)
+  setLinearGradient(bot, "VERTICAL", solid, clear) -- bottom clear -> top solid
+
+  local left = frame:CreateTexture(nil, "ARTWORK", nil, -1)
+  left:SetPoint("TOPLEFT", frame, "TOPLEFT", 2, -cornerInset)
+  left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 2, cornerInset)
+  left:SetWidth(depth)
+  setLinearGradient(left, "HORIZONTAL", solid, clear)
+
+  local right = frame:CreateTexture(nil, "ARTWORK", nil, -1)
+  right:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -2, -cornerInset)
+  right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, cornerInset)
+  right:SetWidth(depth)
+  setLinearGradient(right, "HORIZONTAL", clear, solid)
+end
+
+------------------------------------------------------------------------
+-- Modal scrim -- a low-alpha black full-screen Frame that dims the game
+-- behind a dialog. Standard modal pattern: caller passes the dialog frame,
+-- the scrim attaches itself just below it on the same strata, and binds
+-- to the dialog's Show / Hide so it tracks state without further glue.
+-- Returns the scrim frame so callers can tune alpha or wire click-outside
+-- behavior.
+------------------------------------------------------------------------
+
+function S.AddModalScrim(dialog, opts)
+  opts = opts or {}
+  local alpha = opts.alpha or 0.45
+  local closeOnClick = opts.closeOnClick ~= false  -- default true
+
+  local scrim = CreateFrame("Frame", nil, UIParent)
+  scrim:SetAllPoints(UIParent)
+  scrim:SetFrameStrata(dialog:GetFrameStrata())
+  scrim:SetFrameLevel(math.max(1, (dialog:GetFrameLevel() or 1) - 1))
+  scrim:EnableMouse(true) -- swallow clicks so game UI behind isn't reachable
+  scrim:Hide()
+
+  local tex = scrim:CreateTexture(nil, "BACKGROUND")
+  tex:SetAllPoints(scrim)
+  tex:SetColorTexture(0, 0, 0, alpha)
+
+  if closeOnClick then
+    scrim:SetScript("OnMouseDown", function() dialog:Hide() end)
+  end
+
+  dialog:HookScript("OnShow", function()
+    scrim:SetFrameLevel(math.max(1, (dialog:GetFrameLevel() or 1) - 1))
+    scrim:Show()
+  end)
+  dialog:HookScript("OnHide", function() scrim:Hide() end)
+
+  dialog._scrim = scrim
+  return scrim
+end
+
+------------------------------------------------------------------------
 -- The Aftertale frame: a 9-slice gold-on-violet ornament that wraps any
 -- panel where we want the brand frame instead of the plain border. The
 -- source asset is a 1024x1024 PNG with 64px corners; coords are normalized
@@ -150,6 +297,9 @@ end
 -- Returns the outer frame; attach children to frame.content (a child
 -- frame already inset by the frame thickness + padding so text never
 -- crowds the gold filigree).
+--
+-- opts.shadow / opts.bloom: pass `false` to disable, `true` (or omit) for
+-- defaults, or a table { depth = N, alpha = N } to tune.
 ------------------------------------------------------------------------
 
 -- IMPORTANT: include the explicit ".png" extension. WoW's Texture:SetTexture
@@ -200,6 +350,14 @@ function S.CreateFramedPanel(parent, opts)
 
   local f = CreateFrame("Frame", nil, parent)
 
+  -- Drop shadow goes UNDER the 9-slice. Build it before the slice textures so
+  -- it lands on a lower sublayer.
+  if opts.shadow ~= false then
+    local depth = (type(opts.shadow) == "table" and opts.shadow.depth) or 28
+    local alpha = (type(opts.shadow) == "table" and opts.shadow.alpha) or 0.55
+    S.AddDropShadow(f, depth, alpha)
+  end
+
   -- Build the 9 textures. Corners are fixed pixel size; edges stretch
   -- between corners; center fills what's left. Anchoring guarantees the
   -- frame redraws cleanly on resize -- no manual recalc needed.
@@ -249,6 +407,15 @@ function S.CreateFramedPanel(parent, opts)
   local center = makeTex("BACKGROUND", SLICE.center)
   center:SetPoint("TOPLEFT", tl, "BOTTOMRIGHT")
   center:SetPoint("BOTTOMRIGHT", br, "TOPLEFT")
+
+  -- Inner violet bloom: a soft accent halo just inside the gold border so
+  -- the gold reads as emerging from the violet body, not stamped onto it.
+  -- Drawn on ARTWORK so it sits on top of the center fill but under text.
+  if opts.bloom ~= false then
+    local depth = (type(opts.bloom) == "table" and opts.bloom.depth) or 14
+    local alpha = (type(opts.bloom) == "table" and opts.bloom.alpha) or 0.22
+    S.AddInnerBloom(f, cornerSize, depth, alpha)
+  end
 
   -- Content child: pre-inset so callers anchor their children here and
   -- never crowd the gold line.

@@ -329,8 +329,15 @@ local function build()
   -- The whole popover is wrapped in the brand 9-slice frame. cornerSize 36
   -- gives the gold star sigils a meaningful presence on the outer corners;
   -- padding 10 keeps content from crowding the gold filigree. popover.content
-  -- (the framed-panel inset child) is where every child anchors.
-  popover = S.CreateFramedPanel(UIParent, { cornerSize = 36, padding = 10 })
+  -- (the framed-panel inset child) is where every child anchors. Shadow +
+  -- bloom soften the panel against the live game background; no scrim here
+  -- (the popover is a light-touch hover surface, not a modal).
+  popover = S.CreateFramedPanel(UIParent, {
+    cornerSize = 36,
+    padding    = 10,
+    shadow     = { depth = 22, alpha = 0.5 },
+    bloom      = { depth = 12, alpha = 0.18 },
+  })
   popover:SetSize(W, H)
   popover:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   popover:SetFrameStrata("DIALOG")
