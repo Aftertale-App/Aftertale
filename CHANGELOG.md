@@ -7,6 +7,24 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — popover stat digest + clearer value prop *(2026-05-29)*
+
+The right column was opaque: "Beats remembered / Held in memory / The watch
+began" told a new installer nothing about *why* the addon is running. Replaced
+the cryptic counters with a plain-language **stat sheet** — only the categories
+that have happened, in story order (Quests taken, Levels earned, Places
+discovered, Deaths braved, Moments held, Feats earned), capped at 5 so it stays
+a digest, not a log. Each row is a left label + right-aligned gold count.
+
+- New session counters in `Aftertale.lua`: `deaths`, `zones`, `feats` (wired to
+  `PLAYER_DEAD`, `ZONE_CHANGED_NEW_AREA`, `ACHIEVEMENT_EARNED`).
+- **Empty state**: before anything's captured, one sentence explains what the
+  watch is doing instead of showing `0 / 0`.
+- **Payoff line** names `aftertale.gg` as a feature — the watch records here, the
+  chronicle is *read* there. Sets the expectation that keeps the addon installed.
+- Section retitled "Tonight's Vigil" → **"Tonight's Watch"**, and killed the last
+  "vigil" in the copy (the resume pulse). Less mystique-for-its-own-sake.
+
 ### Fixed — minimap popover tofu boxes + UI polish pass *(2026-05-29)*
 
 The hero-meta line rendered `ORC □□□ ROGUE □□□ HORDE` — not a missing font

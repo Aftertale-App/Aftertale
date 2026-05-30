@@ -814,11 +814,14 @@ frame:SetScript("OnEvent", function(self, event, ...)
     elseif event == "GOSSIP_SHOW" then
       NS.session.npcs = NS.session.npcs + 1
     elseif event == "ZONE_CHANGED_NEW_AREA" then
+      NS.session.zones = NS.session.zones + 1
       NS.session.lastZone = GetZoneText and GetZoneText() or NS.session.lastZone
       NS.Emit("ZONE_CHANGED_NEW_AREA", ...)
     elseif event == "PLAYER_DEAD" then
+      NS.session.deaths = NS.session.deaths + 1
       NS.Emit("PLAYER_DEAD", ...)
     elseif event == "ACHIEVEMENT_EARNED" then
+      NS.session.feats = NS.session.feats + 1
       NS.Emit("ACHIEVEMENT_EARNED", ...)
     elseif event == "PLAYER_LOGOUT" then
       NS.Emit("PLAYER_LOGOUT")
@@ -854,6 +857,9 @@ NS.session = {
   quests = 0,
   npcs = 0,
   levelsGained = 0,
+  deaths = 0,
+  zones = 0,
+  feats = 0,
   lastZone = nil,
   held = 0, -- moments the player has held (popover's "Hold this moment" button)
 }

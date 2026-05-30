@@ -29,17 +29,16 @@ local W, H = 620, 432
 ------------------------------------------------------------------------
 
 local C = {
-  sectionKicker = "Tonight's Vigil",
-  beatsLabel    = "Beats remembered",
-  heldLabel     = "Held in memory",
-  watchLabel    = "The watch began",
+  sectionKicker = "Tonight's Watch",
+  emptyState    = "The watch has just begun. Play on -- every quest, every level, every hard-won death becomes part of your tale.",
+  payoff        = "Your tale, written  \195\151  aftertale.gg",
   pausedLine    = "The watch is paused.",
   holdBtn       = "Hold this moment",
   pauseBtn      = "Pause the watch",
   resumeBtn     = "Resume the watch",
   heldPulse     = "Held.",
   pausedPulse   = "Sealed for now.",
-  resumedPulse  = "The vigil resumes.",
+  resumedPulse  = "The watch resumes.",
 }
 
 ------------------------------------------------------------------------
@@ -174,20 +173,52 @@ local function refreshNameBlock(panel)
   panel.heroMeta:SetText(S.Kicker(table.concat(parts, "  —  ")))
 end
 
+-- The curated stat set, in story-significance order. Only non-zero rows are
+-- shown, and we cap the visible count so the sheet stays a digest, not a log.
+local STAT_CAP = 5
+local function gatherStats(s)
+  local all = {
+    { label = "Quests taken",      n = s.quests       or 0 },
+    { label = "Levels earned",     n = s.levelsGained or 0 },
+    { label = "Places discovered", n = s.zones        or 0 },
+    { label = "Deaths braved",     n = s.deaths       or 0 },
+    { label = "Moments held",      n = s.held         or 0 },
+    { label = "Feats earned",      n = s.feats        or 0 },
+  }
+  local shown = {}
+  for _, st in ipairs(all) do
+    if st.n > 0 then table.insert(shown, st) end
+    if #shown >= STAT_CAP then break end
+  end
+  return shown
+end
+
 local function refreshSessionColumn(panel)
   local s = NS.session or {}
-  local started = s.startedAt or time()
-  local secs = (time and time() or 0) - started
   panel.placeLine:SetText(currentPlace() .. (hourMinute() ~= "" and ("  —  " .. hourMinute()) or ""))
-  panel.beats:SetText(C.beatsLabel  .. ":  " .. (s.events or 0))
-  panel.held:SetText (C.heldLabel   .. ":  " .. (s.held   or 0))
-  -- "The watch began just now." vs "The watch began 8m ago." -- the "ago"
-  -- suffix only reads right when there's a duration in front of it.
-  local dur = formatDuration(secs)
-  local watchText = (dur == "just now")
-    and (C.watchLabel .. " just now.")
-    or  (C.watchLabel .. "  " .. dur .. " ago.")
-  panel.watch:SetText(watchText)
+
+  local stats = gatherStats(s)
+  local rows = panel.statRows
+  for i, row in ipairs(rows) do
+    local st = stats[i]
+    if st then
+      row.label:SetText(st.label)
+      row.value:SetText(tostring(st.n))
+      row:ClearAllPoints()
+      if i == 1 then
+        row:SetPoint("TOPLEFT", panel.statRule, "BOTTOMLEFT", 0, -14)
+      else
+        row:SetPoint("TOPLEFT", rows[i - 1], "BOTTOMLEFT", 0, -7)
+      end
+      row:Show()
+    else
+      row:Hide()
+    end
+  end
+
+  -- Empty state: when nothing has been captured yet, the cryptic "0 / 0" is
+  -- replaced by one plain-language line that says what the watch is doing.
+  if #stats == 0 then panel.emptyState:Show() else panel.emptyState:Hide() end
 end
 
 local function refreshButtons(panel)
@@ -260,6 +291,32 @@ local function makeButton(parent, w, h, text, primary)
   b:SetScript("OnEnter", function() bg:SetColorTexture(hoverR, hoverG, hoverB, hoverA) end)
   b:SetScript("OnLeave", function() bg:SetColorTexture(S.rgba(baseFill)) end)
   return b
+end
+
+------------------------------------------------------------------------
+-- A single stat-sheet row: a left-aligned label and a right-aligned gold
+-- count, both on one baseline. The popover builds a fixed pool of these and
+-- shows/repositions only the non-zero ones on refresh.
+------------------------------------------------------------------------
+
+local function makeStatRow(parent, w)
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetSize(w, 20)
+
+  local label = S.AddBody(row, "", 14)
+  label:SetPoint("LEFT", row, "LEFT", 0, 0)
+  label:SetJustifyH("LEFT")
+  row.label = label
+
+  local value = row:CreateFontString(nil, "OVERLAY")
+  S.UseDisplayFont(value, 16, "")
+  value:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+  value:SetJustifyH("RIGHT")
+  value:SetTextColor(S.rgba("goldBright"))
+  row.value = value
+
+  row:Hide()
+  return row
 end
 
 ------------------------------------------------------------------------
@@ -346,21 +403,33 @@ local function build()
   local rule = S.CreateRule(C_AREA, "accent", 0.35)
   rule:SetPoint("TOPLEFT", place, "BOTTOMLEFT", 0, -14)
   rule:SetWidth(RIGHT_W)
+  popover.statRule = rule
 
-  popover.beats = S.AddBody(C_AREA, "", 14)
-  popover.beats:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, -14)
-  popover.beats:SetWidth(RIGHT_W)
+  -- Stat-sheet rows: a fixed pool, populated top-down with only the non-zero
+  -- categories on refresh (see gatherStats / refreshSessionColumn).
+  popover.statRows = {}
+  for i = 1, STAT_CAP do
+    popover.statRows[i] = makeStatRow(C_AREA, RIGHT_W)
+  end
 
-  popover.held = S.AddBody(C_AREA, "", 14)
-  popover.held:SetPoint("TOPLEFT", popover.beats, "BOTTOMLEFT", 0, -6)
-  popover.held:SetWidth(RIGHT_W)
+  -- Empty state: shown in place of the rows when nothing has been captured.
+  popover.emptyState = S.AddBody(C_AREA, C.emptyState, 13)
+  popover.emptyState:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, -14)
+  popover.emptyState:SetWidth(RIGHT_W)
+  popover.emptyState:SetTextColor(S.rgba("fgMuted"))
+  popover.emptyState:Hide()
 
-  popover.watch = S.AddMuted(C_AREA, "", 12)
-  popover.watch:SetPoint("TOPLEFT", popover.held, "BOTTOMLEFT", 0, -10)
-  popover.watch:SetWidth(RIGHT_W)
+  -- The payoff line: where the captured story actually becomes prose. Quiet,
+  -- always present, sitting just above the buttons. Names aftertale.gg as a
+  -- feature, not a CTA -- the watch records here, the chronicle is read there.
+  popover.payoff = S.AddKicker(C_AREA, C.payoff)
+  popover.payoff:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, 96)
+  popover.payoff:SetWidth(RIGHT_W)
+  popover.payoff:SetJustifyH("LEFT")
+  popover.payoff:SetTextColor(S.rgba("accent"))
 
   popover.pausedLine = S.AddBody(C_AREA, C.pausedLine, 13)
-  popover.pausedLine:SetPoint("TOPLEFT", popover.watch, "BOTTOMLEFT", 0, -10)
+  popover.pausedLine:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, 140)
   popover.pausedLine:SetWidth(RIGHT_W)
   popover.pausedLine:SetTextColor(S.rgba("accent"))
   popover.pausedLine:Hide()
@@ -369,7 +438,7 @@ local function build()
   -- the same column but on its own anchor so it never collides.
   popover.pulse = C_AREA:CreateFontString(nil, "OVERLAY")
   S.UseDisplayFont(popover.pulse, 14, "")
-  popover.pulse:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, 78)
+  popover.pulse:SetPoint("BOTTOMLEFT", C_AREA, "BOTTOMLEFT", rightX, 118)
   popover.pulse:SetWidth(RIGHT_W)
   popover.pulse:SetJustifyH("LEFT")
   popover.pulse:Hide()
