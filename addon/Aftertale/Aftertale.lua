@@ -814,9 +814,17 @@ frame:SetScript("OnEvent", function(self, event, ...)
     elseif event == "GOSSIP_SHOW" then
       NS.session.npcs = NS.session.npcs + 1
     elseif event == "ZONE_CHANGED_NEW_AREA" then
-      NS.session.zones = NS.session.zones + 1
-      NS.session.lastZone = GetZoneText and GetZoneText() or NS.session.lastZone
-      NS.Emit("ZONE_CHANGED_NEW_AREA", ...)
+      -- WoW fires NEW_AREA on loading screens, subzone crossings, and
+      -- minor boundary events within the same zone. Dedup against the
+      -- last-seen zone name so the session counter (and the Recent
+      -- Moments feed) doesn't show "Entered Durotar" five times in a
+      -- row when nothing structurally changed.
+      local newZone = GetZoneText and GetZoneText() or NS.session.lastZone
+      if newZone and newZone ~= "" and newZone ~= NS.session.lastZone then
+        NS.session.zones = NS.session.zones + 1
+        NS.session.lastZone = newZone
+        NS.Emit("ZONE_CHANGED_NEW_AREA", ...)
+      end
     elseif event == "PLAYER_DEAD" then
       NS.session.deaths = NS.session.deaths + 1
       NS.Emit("PLAYER_DEAD", ...)

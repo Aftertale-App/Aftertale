@@ -7,6 +7,40 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — Hub Overview polish pass: separators, pill, dedup *(2026-05-31)*
+
+First in-game screenshot of the Phase 1 re-skin surfaced four issues.
+Fixed in this pass:
+
+- **Sigil + title were sitting below the gold top border** instead of
+  straddling it. Was anchoring to the inset `C_AREA` (50px inside the
+  outer frame); now anchors to the outer `hub` frame so the sigil center
+  lands on the top edge as the mockup shows. Title now anchors to the
+  sigil so they move as a unit.
+- **`sep-horizontal.png` rendered as a fat blurry bar** under the tabs
+  and under "Recent Moments" — the asset has a soft glow baked in that
+  reads as ~20px tall even when set to 8px. Swapped both occurrences
+  back to a 1px `CreateRule` ColorTexture, which renders crisp and
+  matches the mockup's thin underline.
+- **Recording-since pill had a phantom second rounded box** inside it.
+  Cause: `inner-cell.png` is tall (0.69:1) and stretching it to a wide
+  short pill (~8:1) compressed its rounded ends into two visible blobs.
+  Replaced with a flat `CreatePanel` (subtle border, dark plum fill) —
+  clean at any aspect.
+- **ZONE_CHANGED_NEW_AREA double-counting + feed spam.** WoW fires the
+  event on loading screens and subzone crossings, so the Recent Moments
+  feed showed "Entered Durotar" five times in a row and the zones
+  counter incremented every time. Fixed in two places: capture-layer
+  (Aftertale.lua) now compares to `session.lastZone` and only counts
+  genuinely new zones; the UI picker (Hub.lua) dedups consecutive
+  same-label events as a safety net.
+- Buttons + pill given 4px of breathing room from the column bottom
+  edge so they don't sit flush.
+
+Still open: button assets have a faint magenta chroma-key halo around
+their edges — needs a `kill_pink` pass on `button-idle/hover.png` and
+`cta-chronicle-idle/hover.png`, same as the separators got earlier.
+
 ### Changed — Hub Overview re-skinned with new chrome assets *(2026-05-31)*
 
 Phase 1 of the mockup-parity pass. The Hub Overview tab now uses the

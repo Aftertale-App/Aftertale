@@ -276,7 +276,13 @@ local function computeStats(db)
     return string.format("+%d XP", xp)
   end
 
+  -- Dedup consecutive duplicate-labeled events as we walk backward through
+  -- the log. WoW fires ZONE_CHANGED_NEW_AREA repeatedly on loading screens
+  -- and minor boundary crossings within the same zone, so the raw feed
+  -- would spam "Entered Durotar" five times in a row. Capture-layer
+  -- dedup is a separate (deeper) fix; this keeps the demo feed clean.
   local picked = {}
+  local lastPickedLabel = nil
   for i = #db.events, 1, -1 do
     if #picked >= 5 then break end
     local e = db.events[i]
@@ -300,7 +306,10 @@ local function computeStats(db)
       elseif e.event == "ENCOUNTER_END" and enr.encounterName then
         label = (enr.success and "Defeated: " or "Fell to: ") .. enr.encounterName
       end
-      table.insert(picked, { label = label, when = e.ts or "", event = e.event, tag = tag })
+      if label ~= lastPickedLabel then
+        table.insert(picked, { label = label, when = e.ts or "", event = e.event, tag = tag })
+        lastPickedLabel = label
+      end
     end
   end
   s.recentEvents = picked
@@ -407,18 +416,22 @@ local function buildOverviewTab(parent)
     tab.tiles[def.key] = tile
   end
 
-  -- "Recording since ..." pill at the bottom of the left column, with the
-  -- pulsing violet dot indicating the watch is active.
-  tab.recordingPill = S.CreateInnerCell(LC, 280, 32, { padding = 10 })
-  tab.recordingPill:SetPoint("BOTTOMLEFT", LC, "BOTTOMLEFT", 0, 0)
+  -- "Recording since ..." pill at the bottom of the left column. Using
+  -- S.CreatePanel (flat fill + thin border) instead of S.CreateInnerCell:
+  -- the inner-cell.png source is tall (0.69:1), and stretching it to a
+  -- short-wide horizontal pill (~8:1) produces a "double rounded box"
+  -- artifact where the source's rounded ends compress into two visible
+  -- blobs. A flat dark-plum panel reads cleanly at any pill aspect.
+  tab.recordingPill = S.CreatePanel(LC, { fill = "inset", border = "border", borderAlpha = 0.25 })
+  tab.recordingPill:SetSize(240, 30)
+  tab.recordingPill:SetPoint("BOTTOMLEFT", LC, "BOTTOMLEFT", 0, 4)
 
-  local pillContent = tab.recordingPill.content
-  local pillDot = S.AddRecordingDot(pillContent, 8)
-  pillDot:SetPoint("LEFT", pillContent, "LEFT", 0, 0)
+  local pillDot = S.AddRecordingDot(tab.recordingPill, 7)
+  pillDot:SetPoint("LEFT", tab.recordingPill, "LEFT", 12, 0)
 
-  tab.recordingSince = S.AddMuted(pillContent, "", 11)
-  tab.recordingSince:SetPoint("LEFT",  pillDot,      "RIGHT", 8, 0)
-  tab.recordingSince:SetPoint("RIGHT", pillContent,  "RIGHT", 0, 0)
+  tab.recordingSince = S.AddMuted(tab.recordingPill, "", 11)
+  tab.recordingSince:SetPoint("LEFT",  pillDot,            "RIGHT", 8, 0)
+  tab.recordingSince:SetPoint("RIGHT", tab.recordingPill,  "RIGHT", -12, 0)
   tab.recordingSince:SetJustifyH("LEFT")
 
   --------------------------------------------------------------------
@@ -428,9 +441,12 @@ local function buildOverviewTab(parent)
   local rightKicker = S.AddKicker(RC, "Recent Moments")
   rightKicker:SetPoint("TOPLEFT", RC, "TOPLEFT", 0, 0)
 
-  local rightRule = S.AddSeparator(RC, "horizontal")
-  rightRule:SetPoint("TOPLEFT",  rightKicker, "BOTTOMLEFT", 0, -8)
-  rightRule:SetPoint("TOPRIGHT", RC,          "TOPRIGHT",   0, -28)
+  -- Same fix as the tab-strip rule: programmatic 1px line instead of the
+  -- textured separator, which blows out into a fat glowing bar.
+  local rightRule = S.CreateRule(RC, "gold", 0.45)
+  rightRule:SetHeight(1)
+  rightRule:SetPoint("TOPLEFT",  RC, "TOPLEFT",  0, -28)
+  rightRule:SetPoint("TOPRIGHT", RC, "TOPRIGHT", 0, -28)
 
   tab.rows = {}
   for i = 1, 5 do
@@ -452,13 +468,13 @@ local function buildOverviewTab(parent)
   tab.viewMomentsBtn = S.CreateImageButton(RC,
     "frame\\button-idle.png", "frame\\button-hover.png",
     BTN_W, BTN_H, "View All Moments")
-  tab.viewMomentsBtn:SetPoint("BOTTOMLEFT", RC, "BOTTOMLEFT", 0, 0)
+  tab.viewMomentsBtn:SetPoint("BOTTOMLEFT", RC, "BOTTOMLEFT", 0, 4)
   tab.viewMomentsBtn:SetScript("OnClick", function()
     if NS.OpenHubTab then NS.OpenHubTab("moments") end
   end)
 
   tab.openChronicleBtn = S.CreateCTAButton(RC, BTN_W, BTN_H)
-  tab.openChronicleBtn:SetPoint("BOTTOMRIGHT", RC, "BOTTOMRIGHT", 0, 0)
+  tab.openChronicleBtn:SetPoint("BOTTOMRIGHT", RC, "BOTTOMRIGHT", 0, 4)
   tab.openChronicleBtn:SetScript("OnClick", function()
     if NS.ShowChronicleURL then
       NS.ShowChronicleURL()
@@ -576,18 +592,18 @@ local function build()
 
   local C_AREA = hub.content
 
-  -- HEADER (top-left): sigil + "Aftertale" title sit side-by-side at the
-  -- top-left of the panel, matching the mockup. Sigil overhangs the gold
-  -- top border so its center sits on the edge; title anchors next to it.
+  -- HEADER (top-left): sigil straddles the gold top edge of the OUTER hub
+  -- frame (not the inset content child) so its center lands on the border
+  -- the way the mockup does. Title sits to its right at the same baseline.
   local sigil = hub:CreateTexture(nil, "OVERLAY")
   sigil:SetTexture(SIGIL_HEADER)
   sigil:SetSize(64, 64)
-  -- Anchor sigil center to top-left of the CONTENT area (not the outer
-  -- frame) so it lands inside the panel rather than overhanging the corner.
-  sigil:SetPoint("CENTER", C_AREA, "TOPLEFT", 24, 0)
+  sigil:SetPoint("CENTER", hub, "TOPLEFT", 74, 0)
 
   local title = S.AddHeading(C_AREA, "Aftertale", 26)
-  title:SetPoint("LEFT", C_AREA, "TOPLEFT", 64, -10)
+  -- Anchor title to the sigil so they move as a unit and stay vertically
+  -- aligned regardless of the sigil's exact placement on the gold edge.
+  title:SetPoint("LEFT", sigil, "RIGHT", 6, 4)
 
   -- Close X (top-right) using the close icon asset.
   local close = S.AddCloseButton(C_AREA, 22)
@@ -607,8 +623,13 @@ local function build()
   hub.tabButtons = {}
   hub.tabFrames  = {}
 
-  -- Gold separator under the tab strip (replaces the old CreateRule line).
-  local tabsRule = S.AddSeparator(C_AREA, "horizontal")
+  -- Thin gold underline beneath the tab strip. Using CreateRule (a 1px
+  -- ColorTexture) instead of sep-horizontal.png -- the textured separator
+  -- has a soft glow baked in that renders as a fat blurry bar at small
+  -- heights, dominating the layout. A crisp 1px line matches the mockup
+  -- much more closely.
+  local tabsRule = S.CreateRule(C_AREA, "gold", 0.55)
+  tabsRule:SetHeight(1)
   tabsRule:SetPoint("TOPLEFT",  tabStrip, "BOTTOMLEFT",  0, -4)
   tabsRule:SetPoint("TOPRIGHT", tabStrip, "BOTTOMRIGHT", 0, -4)
 
