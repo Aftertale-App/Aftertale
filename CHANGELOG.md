@@ -7,6 +7,23 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — button assets: kill the pink chroma halo *(2026-05-31)*
+
+The four button textures (`button-idle/hover`, `cta-chronicle-idle/hover`)
+shipped with a faint magenta ring at their antialiased edges — the
+standard chroma key handles magenta vs. gold well, but the violet button
+body confused the de-spill and left pink residue in the alpha-feather
+band that WoW samples during bilinear filtering. Visible in-game as a
+pink halo around every button.
+
+`tools/polish-buttons.py` runs a second-pass cleanup targeted at the
+button case: it distinguishes pink residue (red ≈ blue, green much lower)
+from violet body (blue significantly higher than red) and gold (red ≥
+green > blue), then forces the pink-tagged pixels fully transparent and
+re-bleeds opaque colour into the now-larger transparent margin so the
+filter samples real edge colour, not magenta. Cut 12.7k pink pixels off
+`button-idle.png` alone, smaller counts off the others.
+
 ### Fixed — Hub Overview polish pass: separators, pill, dedup *(2026-05-31)*
 
 First in-game screenshot of the Phase 1 re-skin surfaced four issues.
