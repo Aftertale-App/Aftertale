@@ -7,6 +7,22 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — icon art re-rendered at 1024px (anti-pixelation) *(2026-05-30)*
+
+First in-game screenshot of the wired icons showed them as soft / pixelated.
+Root cause: I'd downsampled the 1254px AI sources to 512px to keep file size
+down, which lost detail. The GPU then chose a small mip level for the ~56px
+on-screen display, compounding the softness.
+
+Re-ran `tools/prep-icon-set.py` with icons + sigil bumped from 512 → 1024px
+(power-of-two preserved). 1024 source → 56px display picks a much higher mip
+level so the displayed icon stays crisp. File-size cost is modest (~15MB total
+for the icon set vs ~3MB before; still trivial for a one-time addon download).
+
+No Lua / display-size changes in this pass — just the asset re-render. If the
+icons still feel small after this lands, next step is bumping the in-tile
+display size from 56 → 64 (which the bigger source easily supports).
+
 ### Added — illustrated icon set wired in (1-13) *(2026-05-30)*
 
 The AI-generated heraldic icon set landed (commit `bc72e46`) as `1.png`..`13.png`

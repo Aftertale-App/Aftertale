@@ -27,21 +27,26 @@ ICON_DIR.mkdir(parents=True, exist_ok=True)
 JOBS = [
     # The frame asset replaces the existing one. Keep at 1024 (already POT).
     ("1.png",  "frame/aftertale-9slice-frame.png", (255, 0, 255), 36, 1024),
-    # The floating header sigil. 512 is plenty -- never displayed larger than ~64px.
-    ("2.png",  "sigil-header.png",                  (255, 0, 255), 36, 512),
+    # The floating header sigil. 1024 keeps mip detail crisp at small display
+    # sizes (we render it ~56-72px on screen; the bigger source means the GPU
+    # picks a higher-resolution mip level when sampling).
+    ("2.png",  "sigil-header.png",                  (255, 0, 255), 36, 1024),
     # 3.png has a white background with a purple vignette; key out the white
     # tightly so the vignette survives as part of the art.
-    ("3.png",  "icons/moments.png",                 (255, 255, 255), 24, 512),
-    # Remaining icons all came back on bright magenta -- standard chroma key.
-    ("4.png",  "icons/time.png",                    (255, 0, 255), 36, 512),
-    ("5.png",  "icons/zones.png",                   (255, 0, 255), 36, 512),
-    ("6.png",  "icons/quests.png",                  (255, 0, 255), 36, 512),
-    ("7.png",  "icons/feats.png",                   (255, 0, 255), 36, 512),
-    ("8.png",  "icons/dungeons.png",                (255, 0, 255), 36, 512),
-    ("9.png",  "icons/character.png",               (255, 0, 255), 36, 512),
-    ("10.png", "icons/level.png",                   (255, 0, 255), 36, 512),
-    ("11.png", "icons/death.png",                   (255, 0, 255), 36, 512),
-    ("12.png", "icons/items.png",                   (255, 0, 255), 36, 512),
+    ("3.png",  "icons/moments.png",                 (255, 255, 255), 24, 1024),
+    # Remaining icons all came back on bright magenta. Source size 1024 (up
+    # from 512) -- icons get rendered ~56px on stat tiles and 24px on rows,
+    # and the bigger source eliminates the soft/pixelated look of the first
+    # pass without a meaningful file-size cost (~600KB each, 6MB total).
+    ("4.png",  "icons/time.png",                    (255, 0, 255), 36, 1024),
+    ("5.png",  "icons/zones.png",                   (255, 0, 255), 36, 1024),
+    ("6.png",  "icons/quests.png",                  (255, 0, 255), 36, 1024),
+    ("7.png",  "icons/feats.png",                   (255, 0, 255), 36, 1024),
+    ("8.png",  "icons/dungeons.png",                (255, 0, 255), 36, 1024),
+    ("9.png",  "icons/character.png",               (255, 0, 255), 36, 1024),
+    ("10.png", "icons/level.png",                   (255, 0, 255), 36, 1024),
+    ("11.png", "icons/death.png",                   (255, 0, 255), 36, 1024),
+    ("12.png", "icons/items.png",                   (255, 0, 255), 36, 1024),
     # Book already came back on dark violet -- no chroma key, just resize.
     ("13.png", "book.png",                          None,            0, 1024),
 ]
