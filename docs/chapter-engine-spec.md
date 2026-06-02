@@ -244,8 +244,11 @@ On "generate" for a session:
 - [x] **P2d — Navigation.** "Threads left behind" saga-view surface.
   *(ChronicleReader.)* Arcs-grouping view + thread agency deferred as polish.
 
-Still derived-only / not yet cloud-synced: the arc ledger lives in localStorage
-(regenerable). Wiring it into cloudSync is a small follow-up.
+Durability: the arc ledger is now **cloud-synced** in the per-character bundle
+(alongside bible/enrichments/recaps), folded into the LWW comparator. The thread
+ledger is derived from events (which already sync), so it recomputes on a new
+device. Published chapters live in `bible.history` (synced). Nothing
+story-critical is localStorage-only.
 
 ---
 

@@ -97,9 +97,16 @@ Use **Addon Sim** to make sessions, **Inkwell** to generate.
 
 ---
 
-## Known limits (not bugs)
+## Track F — Durability / cloud sync 🔑 (needs Supabase env + sign-in)
 
-- Arc ledger is **localStorage-only** (not cloud-synced yet) — regenerable.
+| # | Test | Steps | Expected | ✓ |
+|---|---|---|---|---|
+| F1 | Chapters survive | Sign in, publish chapters, sign out + clear localStorage (or new browser), sign back in | Published chapters restore from cloud | ☐ |
+| F2 | Recaps survive | Same, with an unpublished multi-chapter draft | Draft recap (with its chapters) restores | ☐ |
+| F3 | Arc survives | Generate (so arc ledger fills), check `localStorage['at.arc-ledger.<ck>']`, clear + re-sign-in | Arc state restores from cloud | ☐ |
+| F4 | Events survive | Import addon events, clear local, re-sign-in | Events restore → sessions + threads recompute | ☐ |
+
+## Known limits (not bugs)
 - Tier A capture is **enUS** string-parsing for now.
 - Tier B PvP (battlegrounds/arenas/world-PvP) **not built** — pending live-client work.
 - Arcs-grouping nav view + thread "let it go" agency deferred as polish.

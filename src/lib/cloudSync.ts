@@ -46,6 +46,12 @@ import {
   SESSION_RECAPS_UPDATED_EVENT,
   type SessionRecapMap,
 } from './sessionRecapStore';
+import {
+  loadArcState,
+  saveArcState,
+  ARC_LEDGER_UPDATED_EVENT,
+  type ArcState,
+} from './arcLedger';
 import { pushEvents, pullEvents, hasUnpushedEvents } from './eventSync';
 
 const ADDON_EVENTS_UPDATED_EVENT = 'at:addon-events-updated';
@@ -74,6 +80,8 @@ interface CloudBundle {
   bible: CharacterBible;
   enrichments: EnrichmentMap;
   sessionRecaps: SessionRecapMap;
+  // Character-arc state (P2c). Optional for back-compat with pre-arc bundles.
+  arc?: ArcState | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -252,7 +260,10 @@ function effectiveModifiedAt(
     counts[key] = count;
     writeNumMap(COUNT_KEY, counts);
   }
-  return Math.max(base, hwm[key] ?? 0);
+  // Fold the arc ledger's own save time in so an arc-only change (no
+  // bible/enrichment/recap edit) still bumps this hero's LWW and pushes up.
+  const arcMod = loadArcState(key)?.updatedAt ?? 0;
+  return Math.max(base, hwm[key] ?? 0, arcMod);
 }
 
 /** Adopt a cloud bundle's modifiedAt into the local marks (post-hydrate) so a
@@ -280,6 +291,7 @@ function buildBundle(key: string, bible: CharacterBible, modifiedAt: number): Cl
     bible,
     enrichments: loadEnrichments(key),
     sessionRecaps: loadSessionRecaps(key),
+    arc: loadArcState(key),
   };
 }
 
@@ -417,6 +429,7 @@ function applyCloudBundle(key: string, bundle: CloudBundle): void {
     if (bundle.bible) putBibleFromCloud(bundle.bible);
     saveEnrichments(key, bundle.enrichments ?? {});
     replaceSessionRecaps(key, bundle.sessionRecaps ?? {});
+    if (bundle.arc) saveArcState(key, bundle.arc);
     adoptCloudMarks(key, bundle);
   } finally {
     suppressPush = false;
@@ -813,6 +826,7 @@ export function initCloudSync(): void {
   window.addEventListener('at:bible-roster-updated', onLocalChange);
   window.addEventListener(ENRICHMENTS_UPDATED_EVENT, onLocalChange);
   window.addEventListener(SESSION_RECAPS_UPDATED_EVENT, onLocalChange);
+  window.addEventListener(ARC_LEDGER_UPDATED_EVENT, onLocalChange); // character-arc state
   window.addEventListener(ADDON_EVENTS_UPDATED_EVENT, onLocalChange); // import -> back up events
 }
 
