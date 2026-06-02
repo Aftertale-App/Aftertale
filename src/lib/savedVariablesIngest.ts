@@ -19,6 +19,9 @@ import type {
   QuestObjective,
   QuestRewards,
   QuestRichText,
+  ProfessionDetail,
+  WealthDetail,
+  PvpDetail,
 } from './addonEvents';
 import { parseSavedVariables, type LuaValue, type ParsedSavedVariables } from './luaSavedVariables';
 
@@ -169,6 +172,42 @@ function extractLoot(enrichment: { [k: string]: LuaValue } | undefined): LootIte
   return out.length > 0 ? out : undefined;
 }
 
+// Capture-expansion detail extractors — read the addon's profession/wealth/pvp
+// enrichment subtables on AT_* beat records into typed detail.
+function extractProfession(enr: { [k: string]: LuaValue } | undefined): ProfessionDetail | undefined {
+  if (!enr || !isObj(enr.profession)) return undefined;
+  const p = enr.profession;
+  const out: ProfessionDetail = {};
+  const skill = asString(p.skill); if (skill) out.skill = skill;
+  const from = asNumber(p.from); if (from !== undefined) out.from = from;
+  const to = asNumber(p.to); if (to !== undefined) out.to = to;
+  const rank = asString(p.rank); if (rank) out.rank = rank;
+  const recipe = asString(p.recipe); if (recipe) out.recipe = recipe;
+  const itemName = asString(p.itemName); if (itemName) out.itemName = itemName;
+  return Object.keys(out).length ? out : undefined;
+}
+
+function extractWealth(enr: { [k: string]: LuaValue } | undefined): WealthDetail | undefined {
+  if (!enr || !isObj(enr.wealth)) return undefined;
+  const w = enr.wealth;
+  const out: WealthDetail = {};
+  const copper = asNumber(w.copper); if (copper !== undefined) out.copper = copper;
+  const threshold = asNumber(w.thresholdCopper); if (threshold !== undefined) out.thresholdCopper = threshold;
+  const aspiration = asString(w.aspiration); if (aspiration) out.aspiration = aspiration;
+  return Object.keys(out).length ? out : undefined;
+}
+
+function extractPvp(enr: { [k: string]: LuaValue } | undefined): PvpDetail | undefined {
+  if (!enr || !isObj(enr.pvp)) return undefined;
+  const p = enr.pvp;
+  const out: PvpDetail = {};
+  const opponentName = asString(p.opponentName); if (opponentName) out.opponentName = opponentName;
+  const opponentClass = asString(p.opponentClass); if (opponentClass) out.opponentClass = opponentClass;
+  if (typeof p.won === 'boolean') out.won = p.won;
+  // Battleground / arena / world-pvp fields land here as Tier B is wired.
+  return Object.keys(out).length ? out : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // ts parsing — the addon writes `date("%Y-%m-%dT%H:%M:%S")` which is local
 // time, no timezone suffix, second precision. We parse it as local time so
@@ -227,6 +266,19 @@ function mapKind(wowEvent: string): AddonEventKind {
     case 'ENCOUNTER_END':
     case 'BOSS_KILL':
       return 'unit_kill';
+    // Capture-expansion Tier A synthetic beats (addon-aggregated).
+    case 'AT_PROFESSION_FIRST':
+      return 'profession_first';
+    case 'AT_PROFESSION_RANK':
+      return 'profession_rank';
+    case 'AT_PROFESSION_SESSION':
+      return 'profession_session';
+    case 'AT_RECIPE_LEARNED':
+      return 'recipe_learned';
+    case 'AT_WEALTH_MILESTONE':
+      return 'wealth_milestone';
+    case 'AT_DUEL':
+      return 'duel';
     default:
       // Anything we don't recognise (TIME_PLAYED_MSG, PLAYER_LOGIN, combat
       // log spam, etc.) gets the neutral 'unknown' kind. Crucially this is
@@ -285,6 +337,8 @@ function summarize(wowEvent: string, args: string[], enrichment: { [k: string]: 
       return `Found: ${preview}${more}${zone ? ` in ${zone}` : ''}.`;
     }
     default:
+      // Capture-expansion AT_* beats carry their human summary in args[0].
+      if (wowEvent.startsWith('AT_') && args[0]) return args[0];
       return `${wowEvent}${args.length ? ` (${args.join(', ')})` : ''}`;
   }
 }
@@ -371,6 +425,9 @@ function rowToEvent(
     playerLevel,
     unitName,
     loot,
+    profession: extractProfession(enrichment),
+    wealth: extractWealth(enrichment),
+    pvp: extractPvp(enrichment),
     summary: summarize(wowEvent, rawArgs, enrichment),
   };
 }

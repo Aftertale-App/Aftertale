@@ -233,6 +233,13 @@ local EVENTS = {
   "CHAT_MSG_LOOT",
   "CHAT_MSG_MONEY",
 
+  -- Capture expansion Tier A: professions, wealth, recipes, duels.
+  -- CHAT_MSG_SKILL/SYSTEM are parse-only (see PARSE_ONLY) so they are not
+  -- raw-recorded as telemetry; they only drive the aggregated AT_* beats.
+  "CHAT_MSG_SKILL",
+  "CHAT_MSG_SYSTEM",
+  "NEW_RECIPE_LEARNED",
+
   -- Phase 0.75-C: character detection async return channel.
   -- RequestTimePlayed() schedules TIME_PLAYED_MSG(totalSec, levelSec).
   "TIME_PLAYED_MSG",
@@ -638,6 +645,188 @@ local function recordEvent(db, event, ...)
 end
 
 ------------------------------------------------------------------------
+-- Capture expansion Tier A -- professions, wealth, recipes, duels.
+--
+-- Aggregated, not enumerated (see docs/capture-expansion-scope.md): raw
+-- skill/system ticks stay parse-only, and we promote MILESTONES + a
+-- per-session rollup into synthetic AT_* beat records the web ingest maps to
+-- story beats. enUS string parsing for now (locale support is a follow-up).
+-- Battlegrounds/arenas/world-PvP are Tier B (built against the live client).
+------------------------------------------------------------------------
+
+-- Events handled by Tier A parsing only -- we do NOT raw-record these (they
+-- are high-volume telemetry with no per-tick story value).
+local PARSE_ONLY = {
+  CHAT_MSG_SKILL = true,
+  CHAT_MSG_SYSTEM = true,
+}
+
+-- Classic named profession ranks, keyed by the skill value crossed.
+local PROFESSION_RANKS = {
+  { 75,  "Journeyman" },
+  { 150, "Expert" },
+  { 225, "Artisan" },
+  { 300, "Master" },
+  { 375, "Grand Master" },
+  { 450, "Illustrious Grand Master" },
+  { 525, "Zen Master" },
+}
+
+-- Wealth thresholds in copper, each with the in-world aspiration it unlocks.
+-- We narrate the meaning, never the number.
+local GOLD = 10000
+local WEALTH_THRESHOLDS = {
+  { 10 * GOLD,     "ten gold to their name, a first real cushion" },
+  { 100 * GOLD,    "a hundred gold saved, a mount now within reach" },
+  { 1000 * GOLD,   "a thousand gold, the epic road finally affordable" },
+  { 5000 * GOLD,   "wealth enough to never want for gear or a warm bed" },
+  { 10000 * GOLD,  "the coffers of a minor lord" },
+  { 100000 * GOLD, "a fortune most adventurers will never see" },
+}
+
+local function emitBeat(db, beatEvent, enrichment, summary)
+  bumpCount(db, beatEvent)
+  local rec = {
+    id = uuid(),
+    t = GetTime(),
+    ts = date("%Y-%m-%dT%H:%M:%S"),
+    event = beatEvent,
+    session = db.currentSessionId,
+    char = UnitGUID("player") or nil,
+    charName = UnitName("player") or nil,
+    args = { summary or "" },
+    enrichment = enrichment,
+  }
+  table.insert(db.events, rec)
+  local cap = (db.config and db.config.maxEvents) or 5000
+  while #db.events > cap do table.remove(db.events, 1) end
+end
+
+-- Persisted Tier A state lives on db so milestones fire once (ever) and the
+-- per-session skill rollup survives /reload.
+local function tierAState(db)
+  db.tierA = db.tierA or {}
+  local s = db.tierA
+  s.seenSkills    = s.seenSkills    or {}  -- skill -> true (first-ever fired)
+  s.rankCrossed   = s.rankCrossed   or {}  -- skill -> highest rank value fired
+  s.wealthCrossed = s.wealthCrossed or {}  -- threshold copper -> true
+  s.sessionSkills = s.sessionSkills or {}  -- skill -> { from=, to= } this session
+  return s
+end
+
+local function rankForSkill(level)
+  local crossed = nil
+  for _, row in ipairs(PROFESSION_RANKS) do
+    if level >= row[1] then crossed = row else break end
+  end
+  return crossed -- { value, name } or nil
+end
+
+local function handleSkillUp(db, msg)
+  if type(msg) ~= "string" then return end
+  local skill, levelStr = msg:match("[Ss]kill in (.+) has increased to (%d+)")
+  if not skill then return end
+  local level = tonumber(levelStr)
+  if not level then return end
+  local s = tierAState(db)
+
+  if not s.seenSkills[skill] then
+    s.seenSkills[skill] = true
+    emitBeat(db, "AT_PROFESSION_FIRST",
+      { profession = { skill = skill, to = level } },
+      "Took up " .. skill .. ".")
+  end
+
+  local ss = s.sessionSkills[skill]
+  if not ss then ss = { from = level, to = level }; s.sessionSkills[skill] = ss end
+  if level < ss.from then ss.from = level end
+  ss.to = level
+
+  local rank = rankForSkill(level)
+  if rank and (s.rankCrossed[skill] or 0) < rank[1] then
+    s.rankCrossed[skill] = rank[1]
+    emitBeat(db, "AT_PROFESSION_RANK",
+      { profession = { skill = skill, to = level, rank = rank[2] } },
+      "Reached " .. rank[2] .. " in " .. skill .. ".")
+  end
+end
+
+local function handleWealth(db)
+  local money = (GetMoney and GetMoney()) or nil
+  if type(money) ~= "number" then return end
+  local s = tierAState(db)
+  for _, row in ipairs(WEALTH_THRESHOLDS) do
+    local threshold, aspiration = row[1], row[2]
+    if money >= threshold and not s.wealthCrossed[threshold] then
+      s.wealthCrossed[threshold] = true
+      emitBeat(db, "AT_WEALTH_MILESTONE",
+        { wealth = { copper = money, thresholdCopper = threshold, aspiration = aspiration } },
+        aspiration)
+    end
+  end
+end
+
+local function handleRecipe(db, payload)
+  local recipe
+  if type(payload) == "number" and C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo then
+    local ok, info = pcall(C_TradeSkillUI.GetRecipeInfo, payload)
+    if ok and info and info.name then recipe = info.name end
+  elseif type(payload) == "string" then
+    recipe = payload:match("new item: (.-)%.?$")
+      or payload:match("learned how to create (.-)%.?$")
+      or payload:match("learned to create (.-)%.?$")
+      or payload:match("learned to make (.-)%.?$")
+  end
+  if not recipe or recipe == "" then return end
+  emitBeat(db, "AT_RECIPE_LEARNED",
+    { profession = { recipe = recipe } },
+    "Learned to craft " .. recipe .. ".")
+end
+
+local function handleDuelSystem(db, msg)
+  if type(msg) ~= "string" then return end
+  local winner, loser = msg:match("(.+) has defeated (.+) in a [Dd]uel")
+  if not winner then return end
+  local me = UnitName("player")
+  if winner ~= me and loser ~= me then return end
+  local opponent = (winner == me) and loser or winner
+  emitBeat(db, "AT_DUEL",
+    { pvp = { opponentName = opponent, won = (winner == me) } },
+    (winner == me and "Won a duel against " or "Lost a duel to ") .. opponent .. ".")
+end
+
+-- Flush the per-session skill rollup into one beat per skill, then clear it.
+local function flushProfessionRollup(db)
+  local s = tierAState(db)
+  for skill, ss in pairs(s.sessionSkills) do
+    local gained = (ss.to or 0) - (ss.from or 0)
+    if gained > 0 then
+      emitBeat(db, "AT_PROFESSION_SESSION",
+        { profession = { skill = skill, from = ss.from, to = ss.to } },
+        skill .. " " .. tostring(ss.from) .. " to " .. tostring(ss.to) .. ".")
+    end
+  end
+  s.sessionSkills = {}
+end
+
+-- Dispatch Tier A handling for a raw WoW event. Defensive: never throws.
+local function handleTierA(db, event, ...)
+  if event == "CHAT_MSG_SKILL" then
+    safeCall(handleSkillUp, db, ...)
+  elseif event == "CHAT_MSG_MONEY" then
+    safeCall(handleWealth, db)
+  elseif event == "NEW_RECIPE_LEARNED" then
+    safeCall(handleRecipe, db, ...)
+  elseif event == "CHAT_MSG_SYSTEM" then
+    local msg = ...
+    safeCall(handleDuelSystem, db, msg)
+    safeCall(handleRecipe, db, msg)
+  elseif event == "PLAYER_LOGOUT" then
+    safeCall(flushProfessionRollup, db)
+  end
+end
+
+------------------------------------------------------------------------
 -- Character detection -- Phase 0.75-C
 --
 -- Identity = UnitGUID("player"). Stable within a character's lifetime
@@ -917,7 +1106,12 @@ frame:SetScript("OnEvent", function(self, event, ...)
   end
   if not db.currentSessionId then db.currentSessionId = uuid() end
 
-  recordEvent(db, event, ...)
+  -- Parse-only events (skill-ups, system messages) feed Tier A aggregation but
+  -- are not raw-recorded as telemetry. Everything else records as before.
+  if not PARSE_ONLY[event] then
+    recordEvent(db, event, ...)
+  end
+  handleTierA(db, event, ...)
 
   -- Phase 1.6: session counters + UI signal bus. UI/*.lua files subscribe
   -- to the events they care about via NS.On(...). Wrapped so any UI

@@ -2,7 +2,7 @@
 ## Title: Aftertale
 ## Notes: Turn your play into a chronicle -- captures events + a parchment-style story UI.
 ## Author: snoblitz
-## Version: 0.5.2
+## Version: 0.6.0
 ## X-License: MIT
 ## SavedVariables: AftertaleDB, AftertaleCompanion, AftertaleRestore
 ## DefaultState: enabled
