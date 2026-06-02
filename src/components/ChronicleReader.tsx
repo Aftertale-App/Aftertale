@@ -8,6 +8,7 @@ import {
 } from '../lib/enrichmentStore';
 import { buildChronicleSessions } from '../lib/sessionHistory';
 import { isRecapEntryId, recapSessionId } from '../lib/chapterParse';
+import { computeThreads, type StoryThread } from '../lib/threadLedger';
 import { Reveal } from './Reveal';
 import ManualEntryDialog from './ManualEntryDialog';
 import type { CharacterBible, HistoryEntry } from '../types';
@@ -89,6 +90,18 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
   const sessions = useMemo(
     () => (bible ? buildChronicleSessions(scopedAddonRecords, bible.name) : []),
     [bible, scopedAddonRecords],
+  );
+  // The hero's wake of unfinished business — open + cold quest threads. A
+  // visible, often-relatable record for a distractible player (spec §3.1).
+  const looseThreads = useMemo<StoryThread[]>(
+    () =>
+      readOnly
+        ? []
+        : computeThreads(scopedAddonRecords, Date.now())
+            .filter((t) => !t.resolved)
+            .sort((a, b) => b.lastTouchedAt - a.lastTouchedAt)
+            .slice(0, 12),
+    [scopedAddonRecords, readOnly],
   );
   // Ghost pills (Phase 3): sessions the addon observed that haven't been
   // committed as a Chronicle chapter yet. The recap commit path writes a
@@ -404,6 +417,26 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
                   </>
                 )}
               </div>
+            </section>
+          )}
+
+          {mode === 'full' && looseThreads.length > 0 && (
+            <section className="at-threads-left">
+              <p className="at-kicker">Threads left behind</p>
+              <p className="at-threads-left-sub">
+                The errands and arcs {bible?.name ?? 'the hero'} took up but hasn't closed — a record of the road not yet finished.
+              </p>
+              <ul className="at-threads-left-list">
+                {looseThreads.map((t) => (
+                  <li key={t.threadId} className={`at-thread at-thread-${t.status}`}>
+                    <span className="at-thread-title">{t.title}</span>
+                    {t.zone && <span className="at-thread-zone">{t.zone}</span>}
+                    <span className="at-thread-status">
+                      {t.status === 'faded' ? 'gone cold' : t.status === 'dormant' ? 'cooling' : 'open'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
         </>

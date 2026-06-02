@@ -4194,6 +4194,55 @@ button.at-sheet-pill:focus-visible {
   line-height: 1.45;
 }
 
+/* Threads left behind — the hero's wake of unfinished business (saga view). */
+.at-threads-left {
+  margin-top: 1.75rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--border, #2a2018);
+  border-radius: 10px;
+  background: var(--bg-inset, #120d08);
+}
+.at-threads-left-sub {
+  margin: 0.2rem 0 0.85rem;
+  font-size: 13px;
+  color: var(--fg-muted, #b8ab94);
+  line-height: 1.5;
+}
+.at-threads-left-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.at-thread {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.45rem 0.6rem;
+  border-left: 2px solid var(--gold-deep, #3a2c1c);
+  background: rgba(255, 240, 200, 0.02);
+  border-radius: 0 4px 4px 0;
+}
+.at-thread-title { font-size: 14px; color: var(--fg, #ede7d8); }
+.at-thread-zone { font-size: 12px; color: var(--fg-faint, #8a7d68); }
+.at-thread-status {
+  margin-left: auto;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong, #3a2c1c);
+  color: var(--fg-faint, #8a7d68);
+}
+.at-thread-active .at-thread-status { color: var(--gold, #d4a373); border-color: var(--gold-deep, #5a4326); }
+.at-thread-faded { opacity: 0.62; }
+
 /* Multi-chapter recap draft — each chapter gets its own titled block. */
 .at-session-recap-chapter + .at-session-recap-chapter {
   margin-top: 1.5rem;
