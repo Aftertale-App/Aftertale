@@ -556,6 +556,12 @@ export function cleanRecapText(raw: string): string {
   text = text.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,;:!?]|$)/g, '$1$2');
   // Normalize bullet lines so they render cleanly when paragraph-split.
   text = text.replace(/^[ \t]*[-*•][ \t]+/gm, '• ');
+  // Set the closing sections apart as distinct blocks: put "What lingers:" and
+  // "The longer road:" on their own line with a blank line before and after, and
+  // break the label off any inline content that follows its colon. So a heading
+  // + list (What lingers) and a heading + paragraph (The longer road) render
+  // cleanly instead of running together with the prose.
+  text = text.replace(/[ \t]*\n?[ \t]*(What lingers|The longer road)[ \t]*:[ \t]*/gi, '\n\n$1:\n\n');
   // Defang em/en dashes and double-hyphens that the model loves to scatter
   // around. Sentence break ("X — Y") becomes ", "; mid-word ("9–11") becomes
   // a single hyphen.
@@ -578,7 +584,7 @@ export function extractRecapTitle(raw: string): string | null {
   return title || null;
 }
 
-function renderEntryParagraphs(raw: string) {
+export function renderEntryParagraphs(raw: string) {
   const text = cleanRecapText(raw);
   const blocks = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   if (blocks.length === 0) return <p>{text}</p>;
@@ -619,7 +625,8 @@ function renderEntryParagraphs(raw: string) {
           );
         }
         if (lines.length === 1 && lines[0].length < 60 && lines[0].endsWith(':')) {
-          return <p key={i} className="at-entry-label">{lines[0]}</p>;
+          const isClosing = /^(what lingers|the longer road)\s*:$/i.test(lines[0]);
+          return <p key={i} className={isClosing ? 'at-entry-label at-entry-closing' : 'at-entry-label'}>{lines[0]}</p>;
         }
         if (lines.length > 1) {
           // Multi-line non-bullet block; only apply lead-word to the very first line.

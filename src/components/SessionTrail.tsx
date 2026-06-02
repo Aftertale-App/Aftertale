@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import { appendSessionRecapChapters, removeAddonHistoryEntriesByEventIds, removeSessionRecapEntries } from '../lib/bibleStore';
 import { parseChapters, recapSessionId } from '../lib/chapterParse';
+import { renderEntryParagraphs } from './ChronicleReader';
 import { threadContextForSession, formatThreadContext } from '../lib/threadLedger';
 import { loadArcState, saveArcState, formatArcForPrompt, parseArcUpdate, applyArcUpdate } from '../lib/arcLedger';
 import { removeAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
@@ -948,15 +949,12 @@ function SavedSessionRecapArticle({
   return (
     <article className="at-chronicle-article at-session-campfire-article">
       <div className="at-session-recap-body">
-        {chapters.map((chapter, ci) => {
-          const paras = cleanRecapText(chapter.text).split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-          return (
-            <section key={ci} className="at-session-recap-chapter">
-              {chapter.title && <h5 className="at-session-recap-chapter-title">{chapter.title}</h5>}
-              {paras.map((para, i) => <p key={i}>{para}</p>)}
-            </section>
-          );
-        })}
+        {chapters.map((chapter, ci) => (
+          <section key={ci} className="at-session-recap-chapter">
+            {chapter.title && <h5 className="at-session-recap-chapter-title">{chapter.title}</h5>}
+            {renderEntryParagraphs(chapter.text)}
+          </section>
+        ))}
       </div>
       <footer className="at-session-recap-footer">
         <div className="at-session-recap-meta">

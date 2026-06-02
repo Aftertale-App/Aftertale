@@ -2143,6 +2143,15 @@ button.at-sheet-pill:focus-visible {
   font-weight: 600;
 }
 
+/* The two closing sections ("What lingers" / "The longer road") read as a quiet
+   coda set apart from the prose, not run-on text. */
+.at-entry-closing {
+  margin-top: 1.25rem !important;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border, #2a2018);
+  color: var(--gold-bright, #f0c896);
+}
+
 .at-entry-bullets {
   margin: 0;
   padding: 0;
