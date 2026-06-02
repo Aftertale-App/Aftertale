@@ -579,7 +579,9 @@ function S.CreateInnerFrame(parent, w, h, opts)
   local PAD    = opts.padding or 18
   local SC_X, LC_X = 0.0698, 0.9302
   local SC_Y, LC_Y = 0.1087, 0.8913
-  local tex = artPath("frame\\inner-frame.png")
+  -- opts.texture lets a caller swap in a recoloured variant (e.g. the Hub's
+  -- near-black "inner-frame-dark.png") without affecting other screens.
+  local tex = artPath(opts.texture or "frame\\inner-frame.png")
 
   local f = CreateFrame("Frame", nil, parent)
   f:SetSize(w, h)
@@ -641,11 +643,136 @@ function S.CreateInnerCell(parent, w, h, opts)
   local f = CreateFrame("Frame", nil, parent)
   f:SetSize(w, h)
   local tex = f:CreateTexture(nil, "BACKGROUND")
-  tex:SetTexture(artPath("frame\\inner-cell.png"))
+  tex:SetTexture(artPath(opts.texture or "frame\\inner-cell.png"))
   tex:SetAllPoints(f)
   local content = CreateFrame("Frame", nil, f)
   content:SetPoint("TOPLEFT",     f, "TOPLEFT",      PAD, -PAD)
   content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD,  PAD)
+  f.content = content
+  return f
+end
+
+------------------------------------------------------------------------
+-- S.CreateCard -- the redesign's core surface.
+--
+-- A rounded panel built from the clean card-white.png (rounded alpha fill)
+-- and card-stroke.png (rounded hairline border), 9-sliced so the corner
+-- radius stays CONSTANT and crisp at any size. The fill tints either flat
+-- (opts.fill) or as a smooth vertical gradient (opts.grad = { top, bottom }),
+-- applied per-slice with the gradient stops lerped to each slice's y-range
+-- so the seams are invisible. Optional additive glow via S.AddGlow.
+--
+-- Because the rounding lives in the texture's ALPHA, the corners are true
+-- transparency (no chroma key -> no magenta) and the fill is mathematically
+-- flat per pixel (no grain). Returns the frame with a pre-inset .content.
+--
+-- opts = {
+--   corner = 22,                       on-screen corner radius (px)
+--   fill   = {r,g,b,a},                flat fill, OR
+--   grad   = { {r,g,b,a}, {r,g,b,a} }, top -> bottom gradient (wins over fill)
+--   border = {r,g,b,a},                hairline colour (nil = none)
+--   pad    = 12,                       content inset
+-- }
+------------------------------------------------------------------------
+
+-- card-white / card-stroke share a 51/256 rounded-corner inset.
+local CARD_SC, CARD_LC = 0.1992, 0.8008
+
+local function cardLerp(a, b, t) return a + (b - a) * t end
+local function cardLerpC(c1, c2, t)
+  return {
+    cardLerp(c1[1], c2[1], t), cardLerp(c1[2], c2[2], t),
+    cardLerp(c1[3], c2[3], t), cardLerp(c1[4] or 1, c2[4] or 1, t),
+  }
+end
+
+-- Vertical gradient across one texture quad. cTop shows at the top. Mirrors
+-- the verified /aftertale proto call; falls back to SetGradientAlpha on
+-- older clients.
+function S.SetVGradient(tex, cTop, cBot)
+  if tex.SetGradient and CreateColor then
+    tex:SetGradient("VERTICAL", CreateColor(cTop[1], cTop[2], cTop[3], cTop[4] or 1),
+                                CreateColor(cBot[1], cBot[2], cBot[3], cBot[4] or 1))
+  elseif tex.SetGradientAlpha then
+    tex:SetGradientAlpha("VERTICAL", cTop[1], cTop[2], cTop[3], cTop[4] or 1,
+                                     cBot[1], cBot[2], cBot[3], cBot[4] or 1)
+  end
+end
+
+-- Soft additive glow filling parent (negative inset extends it outward for a
+-- bloom; positive inset pulls it in). Returns the texture for further tuning.
+function S.AddGlow(parent, color, alpha, inset, layer)
+  local g = parent:CreateTexture(nil, layer or "BACKGROUND")
+  g:SetTexture(artPath("frame\\glow-soft.png"))
+  g:SetBlendMode("ADD")
+  g:SetVertexColor(color[1], color[2], color[3], alpha or 0.5)
+  inset = inset or 0
+  g:SetPoint("TOPLEFT",     parent, "TOPLEFT",      inset, -inset)
+  g:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT",  -inset,  inset)
+  return g
+end
+
+function S.CreateCard(parent, w, h, opts)
+  opts = opts or {}
+  local corner = opts.corner or 22
+  local pad    = opts.pad or 12
+  local f = CreateFrame(opts.button and "Button" or "Frame", nil, parent)
+  if w and h then f:SetSize(w, h) end
+
+  local g1, g2
+  if opts.grad then g1, g2 = opts.grad[1], opts.grad[2]
+  elseif opts.fill then g1, g2 = opts.fill, opts.fill end
+  local H = h or 100
+  local fA, fB = corner / H, (H - corner) / H   -- top-row bottom frac / bottom-row top frac
+
+  -- Tint one fill slice spanning vertical fractions yTop..yBot of the card.
+  local function tint(t, yTop, yBot)
+    if not g1 then return end
+    if not opts.grad then
+      t:SetVertexColor(g1[1], g1[2], g1[3], g1[4] or 1)
+    else
+      S.SetVGradient(t, cardLerpC(g1, g2, yTop), cardLerpC(g1, g2, yBot))
+    end
+  end
+
+  local SC, LC = CARD_SC, CARD_LC
+  local function slice(relTex, coords, layer)
+    local t = f:CreateTexture(nil, layer)
+    t:SetTexture(artPath(relTex))
+    t:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+    return t
+  end
+
+  -- FILL (card-white) 9-slice on BACKGROUND.
+  local W = "frame\\card-white.png"
+  local tl = slice(W, {0,SC,0,SC}, "BACKGROUND"); tl:SetSize(corner,corner); tl:SetPoint("TOPLEFT");     tint(tl, 0, fA)
+  local tr = slice(W, {LC,1,0,SC}, "BACKGROUND"); tr:SetSize(corner,corner); tr:SetPoint("TOPRIGHT");    tint(tr, 0, fA)
+  local bl = slice(W, {0,SC,LC,1}, "BACKGROUND"); bl:SetSize(corner,corner); bl:SetPoint("BOTTOMLEFT");  tint(bl, fB, 1)
+  local br = slice(W, {LC,1,LC,1}, "BACKGROUND"); br:SetSize(corner,corner); br:SetPoint("BOTTOMRIGHT"); tint(br, fB, 1)
+  local top = slice(W, {SC,LC,0,SC}, "BACKGROUND"); top:SetHeight(corner); top:SetPoint("TOPLEFT", tl, "TOPRIGHT"); top:SetPoint("TOPRIGHT", tr, "TOPLEFT"); tint(top, 0, fA)
+  local bot = slice(W, {SC,LC,LC,1}, "BACKGROUND"); bot:SetHeight(corner); bot:SetPoint("BOTTOMLEFT", bl, "BOTTOMRIGHT"); bot:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT"); tint(bot, fB, 1)
+  local lf = slice(W, {0,SC,SC,LC}, "BACKGROUND"); lf:SetWidth(corner); lf:SetPoint("TOPLEFT", tl, "BOTTOMLEFT"); lf:SetPoint("BOTTOMLEFT", bl, "TOPLEFT"); tint(lf, fA, fB)
+  local rt = slice(W, {LC,1,SC,LC}, "BACKGROUND"); rt:SetWidth(corner); rt:SetPoint("TOPRIGHT", tr, "BOTTOMRIGHT"); rt:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT"); tint(rt, fA, fB)
+  local ct = slice(W, {SC,LC,SC,LC}, "BACKGROUND"); ct:SetPoint("TOPLEFT", tl, "BOTTOMRIGHT"); ct:SetPoint("BOTTOMRIGHT", br, "TOPLEFT"); tint(ct, fA, fB)
+
+  -- BORDER (card-stroke) 9-slice on BORDER, flat tint.
+  if opts.border then
+    local b = opts.border
+    local S2 = "frame\\card-stroke.png"
+    local function bslice(coords) local t = slice(S2, coords, "BORDER"); t:SetVertexColor(b[1], b[2], b[3], b[4] or 1); return t end
+    local btl = bslice({0,SC,0,SC}); btl:SetSize(corner,corner); btl:SetPoint("TOPLEFT")
+    local btr = bslice({LC,1,0,SC}); btr:SetSize(corner,corner); btr:SetPoint("TOPRIGHT")
+    local bbl = bslice({0,SC,LC,1}); bbl:SetSize(corner,corner); bbl:SetPoint("BOTTOMLEFT")
+    local bbr = bslice({LC,1,LC,1}); bbr:SetSize(corner,corner); bbr:SetPoint("BOTTOMRIGHT")
+    local bt = bslice({SC,LC,0,SC}); bt:SetHeight(corner); bt:SetPoint("TOPLEFT", btl, "TOPRIGHT"); bt:SetPoint("TOPRIGHT", btr, "TOPLEFT")
+    local bb = bslice({SC,LC,LC,1}); bb:SetHeight(corner); bb:SetPoint("BOTTOMLEFT", bbl, "BOTTOMRIGHT"); bb:SetPoint("BOTTOMRIGHT", bbr, "BOTTOMLEFT")
+    local blf = bslice({0,SC,SC,LC}); blf:SetWidth(corner); blf:SetPoint("TOPLEFT", btl, "BOTTOMLEFT"); blf:SetPoint("BOTTOMLEFT", bbl, "TOPLEFT")
+    local brt = bslice({LC,1,SC,LC}); brt:SetWidth(corner); brt:SetPoint("TOPRIGHT", btr, "BOTTOMRIGHT"); brt:SetPoint("BOTTOMRIGHT", bbr, "TOPRIGHT")
+  end
+
+  local content = CreateFrame("Frame", nil, f)
+  content:SetPoint("TOPLEFT",     f, "TOPLEFT",      pad, -pad)
+  content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -pad,  pad)
   f.content = content
   return f
 end

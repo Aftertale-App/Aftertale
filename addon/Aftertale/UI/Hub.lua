@@ -88,13 +88,28 @@ local function makeTab(parent, label, onClick)
   rule:Hide()
   t.rule = rule
 
+  -- Small gold diamond at each end of the active underline (the mockup's
+  -- ◈──────◈ treatment). A solid square rotated 45deg; retail supports
+  -- Texture:SetRotation.
+  local function diamond()
+    local d = t:CreateTexture(nil, "OVERLAY")
+    d:SetColorTexture(S.rgba("gold", 0.95))
+    d:SetSize(5, 5)
+    if d.SetRotation then d:SetRotation(math.rad(45)) end
+    d:Hide()
+    return d
+  end
+  local dL = diamond(); dL:SetPoint("CENTER", rule, "LEFT",  0, 1)
+  local dR = diamond(); dR:SetPoint("CENTER", rule, "RIGHT", 0, 1)
+  t.diamonds = { dL, dR }
+
   function t:SetSelected(on)
     if on then
       fs:SetTextColor(S.rgba("goldBright"))
-      rule:Show()
+      rule:Show(); dL:Show(); dR:Show()
     else
       fs:SetTextColor(S.rgba("fgMuted"))
-      rule:Hide()
+      rule:Hide(); dL:Hide(); dR:Hide()
     end
   end
 
@@ -108,39 +123,106 @@ local function makeTab(parent, label, onClick)
   return t
 end
 
+-- Violet "ghost" button (secondary action, e.g. "View All Moments"): a
+-- rounded gradient card + violet hairline + gold caps label, with a soft
+-- violet glow on hover.
+local function makeGhostButton(parent, w, h, label)
+  local b = S.CreateCard(parent, w, h, {
+    button = true, corner = 11, pad = 0,
+    grad   = { { 0.22, 0.16, 0.40, 0.85 }, { 0.11, 0.07, 0.22, 0.78 } },
+    border = { S.rgba("accent", 0.45) },
+  })
+  local hov = S.AddGlow(b.content, { 0.72, 0.62, 1.0 }, 0.0, 2, "BACKGROUND")
+  local lbl = b.content:CreateFontString(nil, "OVERLAY")
+  S.UseDisplayFont(lbl, 11, "")
+  lbl:SetText(S.Kicker(label))
+  lbl:SetPoint("CENTER", 0, 0)
+  lbl:SetTextColor(S.rgba("goldBright"))
+  b.label = lbl
+  b:SetScript("OnEnter", function() hov:SetVertexColor(0.72, 0.62, 1.0, 0.22) end)
+  b:SetScript("OnLeave", function() hov:SetVertexColor(0.72, 0.62, 1.0, 0.0) end)
+  return b
+end
+
+-- Gold CTA button ("Open Chronicle"): a rounded gold gradient card, dark
+-- ink label + external-link arrow, with a warm outer bloom on hover.
+local function makeCTAButton(parent, w, h, label)
+  local b = S.CreateCard(parent, w, h, {
+    button = true, corner = 11, pad = 0,
+    grad   = { { 0.96, 0.85, 0.63, 1 }, { 0.82, 0.64, 0.40, 1 } },
+    border = { S.rgba("goldBright", 0.9) },
+  })
+  local bloom = S.AddGlow(b, { 1.0, 0.86, 0.55 }, 0.0, -7, "OVERLAY")
+  local lbl = b.content:CreateFontString(nil, "OVERLAY")
+  S.UseDisplayFont(lbl, 11, "")
+  lbl:SetText(S.Kicker(label))
+  lbl:SetTextColor(0.12, 0.07, 0.02, 1)
+  lbl:SetPoint("CENTER", -9, 0)
+  local arrow = b.content:CreateTexture(nil, "OVERLAY")
+  arrow:SetTexture(artPath("frame\\ext-arrow.png"))
+  arrow:SetVertexColor(0.12, 0.07, 0.02, 1)
+  arrow:SetSize(13, 13)
+  arrow:SetPoint("LEFT", lbl, "RIGHT", 7, 0)
+  b:SetScript("OnEnter", function() bloom:SetVertexColor(1.0, 0.86, 0.55, 0.35) end)
+  b:SetScript("OnLeave", function() bloom:SetVertexColor(1.0, 0.86, 0.55, 0.0) end)
+  return b
+end
+
 -- A single stat tile: rounded plum inner-cell background, illustrated icon
 -- on top, gold number beneath, title-case 2-line label at the bottom.
 -- Sized for 6 tiles in a 3x2 grid inside the left column inner-frame.
 local function makeStatTile(parent, w, h, iconPath, label)
-  local tile = S.CreateInnerCell(parent, w, h, { padding = 6 })
+  local tile = S.CreateCard(parent, w, h, {
+    corner = 14, pad = 6,
+    grad   = { { 0.27, 0.20, 0.44, 0.92 }, { 0.13, 0.08, 0.24, 0.86 } },
+    border = { S.rgba("gold", 0.16) },
+  })
+  local C = tile.content
 
   if iconPath then
-    local icon = tile:CreateTexture(nil, "ARTWORK")
+    -- soft violet bloom behind the icon
+    local ig = C:CreateTexture(nil, "ARTWORK")
+    ig:SetTexture(artPath("frame\\glow-soft.png"))
+    ig:SetBlendMode("ADD")
+    ig:SetVertexColor(0.55, 0.42, 0.95, 0.55)
+    ig:SetSize(42, 42)
+    ig:SetPoint("TOP", C, "TOP", 0, 2)
+
+    local icon = C:CreateTexture(nil, "OVERLAY")
     icon:SetTexture(iconPath)
-    icon:SetSize(44, 44)
-    icon:SetPoint("TOP", tile, "TOP", 0, -10)
+    icon:SetSize(28, 28)
+    icon:SetPoint("TOP", C, "TOP", 0, -2)
     tile.icon = icon
   end
 
-  local value = tile:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(value, 20, "")
+  -- Big stat number. BODY font (a lining-figure serif WITH lowercase, e.g.
+  -- "27h") -- Cinzel is caps-only and renders "27H" with the wrong glyphs.
+  local value = C:CreateFontString(nil, "OVERLAY")
+  local numFont = (GameFontNormalHuge or GameFontNormalLarge or GameFontNormal):GetFont()
+  value:SetFont(numFont, 22, "")
   value:SetText("0")
-  value:SetPoint("TOP", tile, "TOP", 0, -56)
+  value:SetPoint("TOP", C, "TOP", 0, -32)
   value:SetTextColor(S.rgba("goldBright"))
   tile.value = value
 
-  -- Plain title case, no letter-spacing, two lines allowed. Matches the
-  -- mockup's "Moments Captured" / "Achievements Earned" treatment.
-  local lbl = tile:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(lbl, 10, "")
+  -- gold accent rule under the number
+  local accent = C:CreateTexture(nil, "OVERLAY")
+  accent:SetColorTexture(S.rgba("gold", 0.5))
+  accent:SetSize(24, 1)
+  accent:SetPoint("TOP", value, "BOTTOM", 0, -3)
+
+  -- Title-case label, body font (true lowercase), two lines allowed.
+  local lbl = C:CreateFontString(nil, "OVERLAY")
+  local bodyFont = (GameFontHighlight or GameFontNormal):GetFont()
+  lbl:SetFont(bodyFont, 11, "")
   lbl:SetText(label or "")
-  lbl:SetPoint("BOTTOMLEFT",  tile, "BOTTOMLEFT",   4, 6)
-  lbl:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", -4, 6)
+  lbl:SetPoint("BOTTOMLEFT",  C, "BOTTOMLEFT",   2, 4)
+  lbl:SetPoint("BOTTOMRIGHT", C, "BOTTOMRIGHT", -2, 4)
   lbl:SetJustifyH("CENTER")
   lbl:SetJustifyV("BOTTOM")
   lbl:SetWordWrap(true)
   lbl:SetSpacing(1)
-  lbl:SetTextColor(S.rgba("fgMuted"))
+  lbl:SetTextColor(S.rgba("gold"))
 
   return tile
 end
@@ -154,31 +236,54 @@ end
 -- label and the timestamp.
 local function makeMomentRow(parent, w)
   local row = CreateFrame("Frame", nil, parent)
-  row:SetSize(w, 32)
+  row:SetSize(w, 36)
 
-  local icon = row:CreateTexture(nil, "ARTWORK")
-  icon:SetSize(22, 22)
-  icon:SetPoint("LEFT", row, "LEFT", 2, 0)
+  -- faint hairline divider at the bottom of each row
+  local sep = S.CreateRule(row, "gold", 0.10)
+  sep:SetHeight(1)
+  sep:SetPoint("BOTTOMLEFT",  row, "BOTTOMLEFT",  4, 0)
+  sep:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -4, 0)
+  row.sep = sep
+
+  -- rounded violet icon chip
+  local chip = S.CreateCard(row, 28, 28, {
+    corner = 8, pad = 0,
+    grad   = { { 0.24, 0.17, 0.42, 0.80 }, { 0.12, 0.07, 0.24, 0.70 } },
+    border = { S.rgba("gold", 0.14) },
+  })
+  chip:SetPoint("LEFT", row, "LEFT", 2, 0)
+  row.chip = chip
+
+  local icon = chip.content:CreateTexture(nil, "OVERLAY")
+  icon:SetTexture(ICON.moments)
+  icon:SetSize(17, 17)
+  icon:SetPoint("CENTER", chip, "CENTER", 0, 0)
   row.icon = icon
 
   local when = row:CreateFontString(nil, "OVERLAY")
   local f = (GameFontDisable or GameFontNormalSmall):GetFont()
   when:SetFont(f, 11, "")
-  when:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+  when:SetPoint("RIGHT", row, "RIGHT", -6, 0)
   when:SetJustifyH("RIGHT")
-  when:SetTextColor(S.rgba("fgFaint"))
+  when:SetTextColor(S.rgba("fgMuted"))
   row.when = when
 
-  local tag = row:CreateFontString(nil, "OVERLAY")
-  S.UseDisplayFont(tag, 11, "")
-  tag:SetPoint("RIGHT", when, "LEFT", -10, 0)
-  tag:SetJustifyH("RIGHT")
-  tag:SetTextColor(S.rgba("gold"))
+  -- XP tag as a small gold pill (a card with a centered label)
+  local tag = S.CreateCard(row, 56, 18, {
+    corner = 9, pad = 0,
+    fill   = { S.rgba("gold", 0.13) },
+    border = { S.rgba("gold", 0.35) },
+  })
+  tag:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+  tag.text = tag.content:CreateFontString(nil, "OVERLAY")
+  S.UseDisplayFont(tag.text, 9, "")
+  tag.text:SetPoint("CENTER", 0, 0)
+  tag.text:SetTextColor(S.rgba("goldBright"))
   tag:Hide()
   row.tag = tag
 
   local label = S.AddBody(row, "", 13)
-  label:SetPoint("LEFT", icon, "RIGHT", 10, 0)
+  label:SetPoint("LEFT", chip, "RIGHT", 10, 0)
   -- Label RIGHT anchor is set dynamically in Refresh -- either to tag.LEFT
   -- (when a tag is present) or directly to when.LEFT.
   label:SetJustifyH("LEFT")
@@ -276,15 +381,17 @@ local function computeStats(db)
     return string.format("+%d XP", xp)
   end
 
-  -- Dedup consecutive duplicate-labeled events as we walk backward through
-  -- the log. WoW fires ZONE_CHANGED_NEW_AREA repeatedly on loading screens
-  -- and minor boundary crossings within the same zone, so the raw feed
-  -- would spam "Entered Durotar" five times in a row. Capture-layer
-  -- dedup is a separate (deeper) fix; this keeps the demo feed clean.
+  -- Dedup duplicate-labeled events across the whole scan window (not just
+  -- consecutive ones). WoW fires ZONE_CHANGED_NEW_AREA repeatedly -- on
+  -- loading screens, minor boundary crossings, and every time the player
+  -- re-enters a zone over a session -- so a consecutive-only dedup still let
+  -- "Entered Durotar" fill all five rows. Keying a seen-set by the rendered
+  -- label collapses ALL repeats, surfacing a VARIETY of recent moments
+  -- (zone / quest / level / discovery / achievement) like the mockup feed.
   local picked = {}
-  local lastPickedLabel = nil
+  local seenLabels = {}
   for i = #db.events, 1, -1 do
-    if #picked >= 5 then break end
+    if #picked >= 8 then break end
     local e = db.events[i]
     if NARRATIVE[e.event] then
       local enr = e.enrichment or {}
@@ -306,9 +413,9 @@ local function computeStats(db)
       elseif e.event == "ENCOUNTER_END" and enr.encounterName then
         label = (enr.success and "Defeated: " or "Fell to: ") .. enr.encounterName
       end
-      if label ~= lastPickedLabel then
+      if not seenLabels[label] then
+        seenLabels[label] = true
         table.insert(picked, { label = label, when = e.ts or "", event = e.event, tag = tag })
-        lastPickedLabel = label
       end
     end
   end
@@ -381,17 +488,22 @@ local function buildOverviewTab(parent)
   local tab = CreateFrame("Frame", nil, parent)
   tab:SetAllPoints(parent)
 
-  -- TWO COLUMNS, each wrapped in inner-frame (9-sliced so the gold corner
-  -- stars stay sharp at the ~0.89:1 column aspect). No vertical separator
-  -- between them -- mockup just uses a visual gap.
-  local COL_W   = math.floor((parent:GetWidth() or 860) / 2) - 8
+  -- TWO UNEQUAL COLUMNS. The left "Story at a Glance" panel is sized to a
+  -- 2-wide x 3-tall stat grid; whatever width is left (minus the gap) goes to
+  -- the right "Recent Moments" panel, so the moment feed gets the extra
+  -- horizontal room. Widths derive from the tile metrics below so they stay
+  -- in sync if those change.
+  local TOTAL_W = parent:GetWidth() > 0 and parent:GetWidth() or 860
   local COL_H   = parent:GetHeight() > 0 and parent:GetHeight() or 479
   local COL_GAP = 16
+  local LEFT_W  = 2 * 104 + 6 + 2 * 20          -- 2 tiles + grid gap + panel padding
+  local RIGHT_W = TOTAL_W - LEFT_W - COL_GAP
 
-  local leftCol  = S.CreateInnerFrame(tab, COL_W, COL_H, { padding = 18 })
+  local COLGRAD = { { 0.17, 0.12, 0.31, 0.55 }, { 0.08, 0.05, 0.16, 0.42 } }
+  local leftCol  = S.CreateCard(tab, LEFT_W, COL_H, { corner = 18, pad = 20, grad = COLGRAD, border = { S.rgba("gold", 0.22) } })
   leftCol:SetPoint("TOPLEFT", tab, "TOPLEFT", 0, 0)
 
-  local rightCol = S.CreateInnerFrame(tab, COL_W, COL_H, { padding = 18 })
+  local rightCol = S.CreateCard(tab, RIGHT_W, COL_H, { corner = 18, pad = 20, grad = COLGRAD, border = { S.rgba("gold", 0.22) } })
   rightCol:SetPoint("TOPLEFT", leftCol, "TOPRIGHT", COL_GAP, 0)
 
   local LC = leftCol.content
@@ -404,11 +516,12 @@ local function buildOverviewTab(parent)
   local leftKicker = S.AddKicker(LC, "Story at a Glance")
   leftKicker:SetPoint("TOPLEFT", LC, "TOPLEFT", 0, 0)
 
-  local TILE_W, TILE_H, TILE_GAP = 120, 120, 6
+  -- 2 columns x 3 rows, compact for information density.
+  local TILE_W, TILE_H, TILE_GAP = 104, 102, 6
   tab.tiles = {}
   for i, def in ipairs(STATS_LAYOUT) do
-    local col = (i - 1) % 3
-    local row = math.floor((i - 1) / 3)
+    local col = (i - 1) % 2
+    local row = math.floor((i - 1) / 2)
     local tile = makeStatTile(LC, TILE_W, TILE_H, def.icon, def.label)
     tile:SetPoint("TOPLEFT", LC, "TOPLEFT",
       col * (TILE_W + TILE_GAP),
@@ -422,16 +535,21 @@ local function buildOverviewTab(parent)
   -- short-wide horizontal pill (~8:1) produces a "double rounded box"
   -- artifact where the source's rounded ends compress into two visible
   -- blobs. A flat dark-plum panel reads cleanly at any pill aspect.
-  tab.recordingPill = S.CreatePanel(LC, { fill = "inset", border = "border", borderAlpha = 0.25 })
-  tab.recordingPill:SetSize(240, 30)
-  tab.recordingPill:SetPoint("BOTTOMLEFT", LC, "BOTTOMLEFT", 0, 4)
+  tab.recordingPill = S.CreateCard(LC, 240, 32, {
+    corner = 11, pad = 0,
+    grad   = { { 0.18, 0.13, 0.32, 0.6 }, { 0.09, 0.05, 0.16, 0.5 } },
+    border = { S.rgba("accent", 0.28) },
+  })
+  tab.recordingPill:SetPoint("BOTTOMLEFT",  LC, "BOTTOMLEFT",  0, 4)
+  tab.recordingPill:SetPoint("BOTTOMRIGHT", LC, "BOTTOMRIGHT", 0, 4)
+  local PC = tab.recordingPill.content
 
-  local pillDot = S.AddRecordingDot(tab.recordingPill, 7)
-  pillDot:SetPoint("LEFT", tab.recordingPill, "LEFT", 12, 0)
+  local pillDot = S.AddRecordingDot(PC, 7)
+  pillDot:SetPoint("LEFT", PC, "LEFT", 12, 0)
 
-  tab.recordingSince = S.AddMuted(tab.recordingPill, "", 11)
-  tab.recordingSince:SetPoint("LEFT",  pillDot,            "RIGHT", 8, 0)
-  tab.recordingSince:SetPoint("RIGHT", tab.recordingPill,  "RIGHT", -12, 0)
+  tab.recordingSince = S.AddMuted(PC, "", 11)
+  tab.recordingSince:SetPoint("LEFT",  pillDot, "RIGHT", 8, 0)
+  tab.recordingSince:SetPoint("RIGHT", PC,      "RIGHT", -12, 0)
   tab.recordingSince:SetJustifyH("LEFT")
 
   --------------------------------------------------------------------
@@ -449,11 +567,11 @@ local function buildOverviewTab(parent)
   rightRule:SetPoint("TOPRIGHT", RC, "TOPRIGHT", 0, -28)
 
   tab.rows = {}
-  for i = 1, 5 do
+  for i = 1, 8 do
     local r = makeMomentRow(RC, RC:GetWidth())
     if i == 1 then
-      r:SetPoint("TOPLEFT",  rightRule, "BOTTOMLEFT", 0, -8)
-      r:SetPoint("TOPRIGHT", rightRule, "BOTTOMRIGHT", 0, -8)
+      r:SetPoint("TOPLEFT",  rightRule, "BOTTOMLEFT", 0, -6)
+      r:SetPoint("TOPRIGHT", rightRule, "BOTTOMRIGHT", 0, -6)
     else
       r:SetPoint("TOPLEFT",  tab.rows[i - 1], "BOTTOMLEFT",  0, -4)
       r:SetPoint("TOPRIGHT", tab.rows[i - 1], "BOTTOMRIGHT", 0, -4)
@@ -465,15 +583,13 @@ local function buildOverviewTab(parent)
   -- the muted action; "Open Chronicle" uses the gold CTA with baked text.
   local BTN_W, BTN_H = 175, 42
 
-  tab.viewMomentsBtn = S.CreateImageButton(RC,
-    "frame\\button-idle.png", "frame\\button-hover.png",
-    BTN_W, BTN_H, "View All Moments")
+  tab.viewMomentsBtn = makeGhostButton(RC, BTN_W, BTN_H, "View All Moments")
   tab.viewMomentsBtn:SetPoint("BOTTOMLEFT", RC, "BOTTOMLEFT", 0, 4)
   tab.viewMomentsBtn:SetScript("OnClick", function()
     if NS.OpenHubTab then NS.OpenHubTab("moments") end
   end)
 
-  tab.openChronicleBtn = S.CreateCTAButton(RC, BTN_W, BTN_H)
+  tab.openChronicleBtn = makeCTAButton(RC, BTN_W, BTN_H, "Open Chronicle")
   tab.openChronicleBtn:SetPoint("BOTTOMRIGHT", RC, "BOTTOMRIGHT", 0, 4)
   tab.openChronicleBtn:SetScript("OnClick", function()
     if NS.ShowChronicleURL then
@@ -504,17 +620,20 @@ local function buildOverviewTab(parent)
         local icon = EVENT_ICON[e.event] or ICON.moments
         row.icon:SetTexture(icon)
         row.label:SetText(e.label)
-        row.when:SetText(formatWhen(e.when))
 
-        -- Optional metadata tag ("+1.2k XP", "+150 XP", etc.). Anchor the
-        -- label's RIGHT to either the tag's LEFT (if present) or the
-        -- timestamp's LEFT (if not), so we don't leave dead space.
+        -- The right slot holds EITHER an XP tag OR a timestamp, never both --
+        -- matching the mockup, where the quest-completion row shows "+1.2k XP"
+        -- in place of the time. When a tag is present the timestamp is hidden
+        -- and the label anchors to the tag; otherwise the timestamp shows.
         if e.tag and e.tag ~= "" then
-          row.tag:SetText(e.tag)
+          row.tag.text:SetText(e.tag)
           row.tag:Show()
+          row.when:Hide()
           row.label:SetPoint("RIGHT", row.tag, "LEFT", -10, 0)
         else
           row.tag:Hide()
+          row.when:SetText(formatWhen(e.when))
+          row.when:Show()
           row.label:SetPoint("RIGHT", row.when, "LEFT", -10, 0)
         end
 
@@ -561,17 +680,7 @@ local hub
 local function build()
   if hub then return hub end
 
-  -- Whole-texture art frame (preserves the baked corner + centered-edge
-  -- ornaments that a stretched 9-slice would smear). Hub size is matched to
-  -- the art's 1.419 aspect so the border stays uniform and undistorted.
-  -- Content inset kept at CORNER+PADDING so the existing layout math holds.
-  -- Children anchor to hub.content; never to hub.
-  hub = S.CreateArtFramedPanel(UIParent, {
-    art    = "frame-rectangle",
-    insetX = CORNER + PADDING,
-    insetY = CORNER + PADDING,
-    shadow = { depth = 32, alpha = 0.6 },
-  })
+  hub = CreateFrame("Frame", nil, UIParent)
   hub:SetSize(HUB_W, HUB_H)
   hub:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   hub:SetFrameStrata("DIALOG")
@@ -582,6 +691,28 @@ local function build()
   hub:SetScript("OnDragStop",  hub.StopMovingOrSizing)
   hub:Hide()
 
+  -- The "lit ground": one big rounded gradient card (deep violet -> near-black)
+  -- + a gold hairline, with a soft violet glow pooling from the upper centre so
+  -- the panel reads like a lit night sky, not a flat box. Content insets by
+  -- CORNER+PADDING so the existing header/tabs/body layout math holds. Children
+  -- anchor to hub.content; never to hub.
+  local ground = S.CreateCard(hub, HUB_W, HUB_H, {
+    corner = 26,
+    pad    = CORNER + PADDING,
+    grad   = { { 0.15, 0.10, 0.27, 0.99 }, { 0.05, 0.03, 0.11, 0.99 } },
+    border = { S.rgba("gold", 0.55) },
+  })
+  ground:SetAllPoints(hub)
+  hub.ground = ground
+  hub.content = ground.content
+
+  local lit = ground.content:CreateTexture(nil, "BACKGROUND")
+  lit:SetTexture(artPath("frame\\glow-soft.png"))
+  lit:SetBlendMode("ADD")
+  lit:SetVertexColor(0.42, 0.32, 0.78, 0.28)
+  lit:SetSize(HUB_W * 0.95, HUB_H * 0.75)
+  lit:SetPoint("TOP", ground.content, "TOP", 0, math.floor(HUB_H * 0.18))
+
   -- Modal scrim: dims the game world behind the Hub so the panel's gold
   -- corners stop fighting the busy in-world background. Click-outside-to-
   -- close + tracks Show/Hide automatically.
@@ -590,6 +721,9 @@ local function build()
   _G["AftertaleHub"] = hub
   table.insert(UISpecialFrames, "AftertaleHub") -- ESC closes
 
+  -- The near-black interior now comes from the recoloured frame-rectangle-dark
+  -- asset (violet fill -> near-black, gold border preserved), so no separate
+  -- fill plate is needed here.
   local C_AREA = hub.content
 
   -- HEADER (top-left): sigil straddles the gold top edge of the OUTER hub
@@ -610,9 +744,10 @@ local function build()
   close:SetPoint("TOPRIGHT", C_AREA, "TOPRIGHT", -2, -4)
   close:SetScript("OnClick", function() hub:Hide() end)
 
-  -- TABS: left-aligned strip under the title. Mockup puts them flush left
-  -- starting at the same x as the title.
-  local TAB_W   = 130
+  -- TABS: a full-width strip under the title. The mockup distributes the
+  -- five tabs evenly across the panel width (OVERVIEW near the left edge,
+  -- SETTINGS near the right) -- NOT left-packed. Centres are spread evenly
+  -- with a small edge inset; see the loop below.
   local TAB_X0  = 0  -- start at the content-area's left edge
   local TAB_Y   = -50 -- below the title row
   local tabStrip = CreateFrame("Frame", nil, C_AREA)
@@ -646,12 +781,18 @@ local function build()
   hub.tabFrames.settings   = buildPlaceholderTab(body, "Settings")
   for _, f in pairs(hub.tabFrames) do f:Hide() end
 
-  -- Tabs left-aligned starting at the strip's left edge.
+  -- Tabs distributed evenly across the full strip width by centre. contentW
+  -- is the strip's usable width; with a small edge inset each tab centre lands
+  -- at inset + (i-0.5)/n * usable, matching the mockup's spread.
+  local contentW = HUB_W - 2 * (CORNER + PADDING)
+  local TAB_EDGE = 30
+  local usable   = contentW - 2 * TAB_EDGE
+  local n        = #TABS
   for i, tab in ipairs(TABS) do
     local btn = makeTab(tabStrip, tab.label, function()
       NS.OpenHubTab(tab.id)
     end)
-    btn:SetPoint("LEFT", tabStrip, "LEFT", (i - 1) * TAB_W, 0)
+    btn:SetPoint("CENTER", tabStrip, "LEFT", TAB_EDGE + ((i - 0.5) / n) * usable, 0)
     hub.tabButtons[tab.id] = btn
   end
 
@@ -728,6 +869,116 @@ NS.ShowChronicleURL = function()
   else
     print(NS.CHAT_TAG .. " " .. url)
   end
+end
+
+------------------------------------------------------------------------
+-- Rounded + gradient + glow PROTOTYPE  (/aftertale proto)
+--
+-- Proves the creative-redesign chrome renders in-client before committing
+-- to it: a rounded gradient panel (a WHITE card texture tinted via
+-- SetGradient -- the rounding lives in the card's alpha) + a rounded gold
+-- hairline + an additive violet glow, with one sample stat tile inside.
+-- Throwaway; delete once the direction is locked.
+------------------------------------------------------------------------
+
+-- Tint a texture with a vertical/horizontal gradient, across WoW API versions.
+-- SetGradient MULTIPLIES the gradient over the texture; a white card therefore
+-- shows the gradient colour, and the card's transparent corners stay
+-- transparent (so the rounded shape survives).
+local function setGradient(tex, orient, c1, c2)
+  if tex.SetGradient and CreateColor then
+    tex:SetGradient(orient, CreateColor(c1[1], c1[2], c1[3], c1[4] or 1),
+                            CreateColor(c2[1], c2[2], c2[3], c2[4] or 1))
+  elseif tex.SetGradientAlpha then
+    tex:SetGradientAlpha(orient, c1[1], c1[2], c1[3], c1[4] or 1,
+                                 c2[1], c2[2], c2[3], c2[4] or 1)
+  end
+end
+
+function NS.OpenProto()
+  if NS._proto then
+    NS._proto:SetShown(not NS._proto:IsShown())
+    return
+  end
+  local f = CreateFrame("Frame", "AftertaleProto", UIParent)
+  f:SetSize(440, 360)
+  f:SetPoint("CENTER")
+  f:SetFrameStrata("DIALOG")
+  f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", f.StartMoving)
+  f:SetScript("OnDragStop",  f.StopMovingOrSizing)
+
+  -- soft violet drop glow behind the whole panel (additive blend)
+  local glow = f:CreateTexture(nil, "BACKGROUND")
+  glow:SetTexture(artPath("frame\\glow-soft.png"))
+  glow:SetBlendMode("ADD")
+  glow:SetVertexColor(0.50, 0.38, 0.92, 0.55)
+  glow:SetPoint("TOPLEFT",     f, "TOPLEFT",     -48, 48)
+  glow:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT",  48, -48)
+
+  -- rounded gradient panel fill (white card tinted top -> bottom)
+  local panel = f:CreateTexture(nil, "BORDER")
+  panel:SetTexture(artPath("frame\\card-white.png"))
+  panel:SetAllPoints(f)
+  setGradient(panel, "VERTICAL", { 0.30, 0.22, 0.46, 0.97 }, { 0.09, 0.05, 0.18, 0.97 })
+
+  -- rounded gold hairline border
+  local border = f:CreateTexture(nil, "ARTWORK")
+  border:SetTexture(artPath("frame\\card-stroke.png"))
+  border:SetAllPoints(f)
+  border:SetVertexColor(S.rgba("gold", 0.85))
+
+  local head = S.AddHeading(f, "Rounded + Gradient + Glow", 16)
+  head:SetPoint("TOP", f, "TOP", 0, -18)
+  local sub = S.AddMuted(f, "rounded corners + faded fill + glow = it works", 11)
+  sub:SetPoint("TOP", head, "BOTTOM", 0, -3)
+
+  -- sample stat tile: rounded gradient card + glow behind icon + big number
+  local tile = CreateFrame("Frame", nil, f)
+  tile:SetSize(150, 150)
+  tile:SetPoint("TOP", f, "TOP", 0, -74)
+
+  local tcard = tile:CreateTexture(nil, "BACKGROUND")
+  tcard:SetTexture(artPath("frame\\card-white.png"))
+  tcard:SetAllPoints(tile)
+  setGradient(tcard, "VERTICAL", { 0.36, 0.27, 0.55, 0.95 }, { 0.15, 0.09, 0.28, 0.95 })
+
+  local tstroke = tile:CreateTexture(nil, "BORDER")
+  tstroke:SetTexture(artPath("frame\\card-stroke.png"))
+  tstroke:SetAllPoints(tile)
+  tstroke:SetVertexColor(S.rgba("gold", 0.30))
+
+  local iglow = tile:CreateTexture(nil, "ARTWORK")
+  iglow:SetTexture(artPath("frame\\glow-soft.png"))
+  iglow:SetBlendMode("ADD")
+  iglow:SetVertexColor(0.55, 0.42, 0.95, 0.70)
+  iglow:SetSize(86, 86)
+  iglow:SetPoint("TOP", tile, "TOP", 0, -8)
+
+  local icon = tile:CreateTexture(nil, "OVERLAY")
+  icon:SetTexture(ICON.moments)
+  icon:SetSize(46, 46)
+  icon:SetPoint("TOP", tile, "TOP", 0, -16)
+
+  local num = tile:CreateFontString(nil, "OVERLAY")
+  local nf = (GameFontNormalHuge or GameFontNormalLarge or GameFontNormal):GetFont()
+  num:SetFont(nf, 30, "")
+  num:SetText("147")
+  num:SetTextColor(S.rgba("goldBright"))
+  num:SetPoint("TOP", tile, "TOP", 0, -64)
+
+  local lbl = tile:CreateFontString(nil, "OVERLAY")
+  local bf = (GameFontHighlight or GameFontNormal):GetFont()
+  lbl:SetFont(bf, 12, "")
+  lbl:SetText("Moments Captured")
+  lbl:SetTextColor(S.rgba("gold"))
+  lbl:SetPoint("BOTTOM", tile, "BOTTOM", 0, 12)
+
+  local hint = S.AddMuted(f, "drag to move  -  /at proto to close", 10)
+  hint:SetPoint("BOTTOM", f, "BOTTOM", 0, 14)
+
+  table.insert(UISpecialFrames, "AftertaleProto")
+  NS._proto = f
 end
 
 -- Live refresh while the Hub is open.

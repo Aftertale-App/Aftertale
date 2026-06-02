@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>Hub — faithful render of the rebuilt addon</title>
+<style>
+/* Mirrors the rebuilt Hub.lua EXACTLY: same card gradient colours, glow
+   strengths, gold-hairline alphas, and layout numbers (scaled 1.4x from the
+   addon's 960x677). Uses the addon's actual icon PNGs via the Art junction.
+   This is the "simulator confirms" render of the final rebuild. */
+@font-face{ font-family:'Cinzel'; src:url('./Fonts/Cinzel-Bold.ttf'); font-weight:700; }
+@font-face{ font-family:'Cinzel'; src:url('./Fonts/Cinzel-SemiBold.ttf'); font-weight:600; }
+:root{
+  --gold:#d4a373; --goldB:#f0c896; --accent:#b89eff;
+  --serif:'Georgia','Times New Roman',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:1344px;height:948px;overflow:hidden;background:#05030c;}
+body{font-family:var(--serif);position:relative;}
+
+/* ground = big rounded gradient card + gold hairline + top-centre lit glow */
+.hub{position:absolute;inset:0;border-radius:36px;
+  background:
+    radial-gradient(60% 45% at 50% 10%, rgba(107,82,199,.28), transparent 70%),
+    linear-gradient(180deg, rgba(38,26,69,.99), rgba(13,8,28,.99));
+  border:1.5px solid rgba(212,163,115,.55);
+  box-shadow:0 0 50px 6px rgba(212,163,115,.08), 0 14px 40px rgba(0,0,0,.5);}
+.content{position:absolute;inset:70px;}
+
+/* header */
+.header{position:relative;height:84px;display:flex;align-items:center;gap:18px;}
+.sigil{width:88px;height:88px;object-fit:contain;margin-top:-30px;
+  filter:drop-shadow(0 0 12px rgba(185,158,255,.4));}
+.title{font-family:'Cinzel';font-weight:700;font-size:50px;letter-spacing:7px;color:var(--goldB);
+  text-shadow:0 0 18px rgba(240,200,150,.3);}
+.close{margin-left:auto;color:#b6a587;font-size:30px;font-family:sans-serif;}
+
+/* tabs */
+.tabs{display:flex;justify-content:space-between;align-items:center;margin:6px 50px 0;}
+.tab{font-family:'Cinzel';font-weight:600;font-size:19px;letter-spacing:3px;color:#b6a587;position:relative;padding:6px 2px;}
+.tab.on{color:var(--goldB);text-shadow:0 0 12px rgba(240,200,150,.4);}
+.tab.on::after{content:'';position:absolute;left:-8px;right:-8px;bottom:-9px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);box-shadow:0 0 8px rgba(212,163,115,.6);}
+.headrule{height:1px;margin:14px 6px 0;background:linear-gradient(90deg,transparent,rgba(212,163,115,.4) 10%,rgba(212,163,115,.4) 90%,transparent);}
+
+/* body columns */
+.body{display:flex;gap:22px;margin-top:20px;height:671px;}
+/* left "Story at a Glance" sized to a 2-wide grid; right gets the rest */
+.col.left{flex:0 0 356px;}
+.col.right{flex:1;}
+.col{position:relative;border-radius:25px;padding:28px;
+  background:linear-gradient(180deg, rgba(43,31,79,.55), rgba(20,13,41,.42));
+  border:1px solid rgba(212,163,115,.22);
+  box-shadow:inset 0 1px 0 rgba(255,240,210,.04);}
+.kicker{font-family:'Cinzel';font-weight:600;font-size:17px;letter-spacing:3px;color:var(--gold);}
+
+/* stat grid */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:18px;}
+/* absolute layout, mirroring the addon's anchors (scaled 1.4x from 102px) */
+.tile{position:relative;height:143px;border-radius:18px;overflow:hidden;
+  background:linear-gradient(180deg, rgba(69,51,112,.92), rgba(33,20,61,.86));
+  border:1px solid rgba(212,163,115,.16);}
+.tile .iglow{position:absolute;top:0;left:50%;width:59px;height:59px;transform:translateX(-50%);border-radius:50%;
+  background:radial-gradient(circle, rgba(140,107,242,.55), transparent 65%);}
+.tile img{position:absolute;top:4px;left:50%;transform:translateX(-50%);width:39px;height:39px;object-fit:contain;}
+.tile .num{position:absolute;top:46px;left:0;right:0;text-align:center;font-family:var(--serif);font-weight:700;font-size:31px;color:var(--goldB);line-height:1;
+  text-shadow:0 0 14px rgba(240,200,150,.3);}
+.tile .acc{position:absolute;top:80px;left:50%;transform:translateX(-50%);width:34px;height:1.5px;background:rgba(212,163,115,.5);}
+.tile .lab{position:absolute;bottom:6px;left:4px;right:4px;text-align:center;font-family:var(--serif);font-size:15px;color:var(--gold);line-height:1.1;}
+
+/* recording pill */
+.pill{position:absolute;left:28px;bottom:24px;width:336px;height:45px;border-radius:15px;display:flex;align-items:center;gap:12px;padding:0 18px;
+  background:linear-gradient(180deg, rgba(46,33,82,.6), rgba(23,13,41,.5));border:1px solid rgba(185,158,255,.28);}
+.pill .dot{width:13px;height:13px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);}
+.pill .t{font-family:var(--serif);font-size:18px;color:#efe7d7;}
+
+/* recent moments */
+.rrule{height:1px;margin:16px 0 0;background:rgba(212,163,115,.45);}
+.row{display:flex;align-items:center;gap:14px;height:50px;border-bottom:1px solid rgba(212,163,115,.10);}
+.chip{width:39px;height:39px;flex:0 0 39px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(180deg, rgba(61,43,107,.8), rgba(31,18,61,.7));border:1px solid rgba(212,163,115,.14);}
+.chip img{width:24px;height:24px;object-fit:contain;}
+.row .lab{flex:1;font-family:var(--serif);font-size:18px;color:#efe7d7;}
+.row .when{font-family:var(--serif);font-size:15px;color:#b6a587;}
+.row .xp{font-family:'Cinzel';font-weight:600;font-size:13px;letter-spacing:1px;color:var(--goldB);
+  padding:4px 11px;border-radius:12px;background:rgba(212,163,115,.13);border:1px solid rgba(212,163,115,.35);}
+
+/* buttons */
+.btns{position:absolute;left:28px;right:28px;bottom:24px;display:flex;gap:18px;height:54px;}
+.btn{flex:1;border-radius:15px;display:flex;align-items:center;justify-content:center;gap:9px;
+  font-family:'Cinzel';font-weight:600;font-size:17px;letter-spacing:3px;}
+.ghost{color:var(--goldB);background:linear-gradient(180deg, rgba(56,41,102,.85), rgba(28,18,56,.78));border:1px solid rgba(185,158,255,.45);}
+.cta{color:#1f1205;background:linear-gradient(180deg, #f5d9a1, #d1a366);border:1px solid rgba(240,200,150,.9);box-shadow:0 0 16px rgba(212,163,115,.3);}
+.cta svg{width:16px;height:16px;}
+</style></head>
+<body>
+<div class="hub">
+  <div class="content">
+    <div class="header">
+      <img class="sigil" src="./Art/sigil-header.png?v=9">
+      <div class="title">AFTERTALE</div>
+      <div class="close">&#10005;</div>
+    </div>
+    <div class="tabs">
+      <div class="tab on">OVERVIEW</div><div class="tab">MOMENTS</div>
+      <div class="tab">MILESTONES</div><div class="tab">WATCH</div><div class="tab">SETTINGS</div>
+    </div>
+    <div class="headrule"></div>
+    <div class="body">
+      <div class="col left">
+        <div class="kicker">STORY AT A GLANCE</div>
+        <div class="grid">
+          <div class="tile"><div class="iglow"></div><img src="./Art/icons/moments.png?v=9"><div class="num">147</div><div class="acc"></div><div class="lab">Moments<br>Captured</div></div>
+          <div class="tile"><div class="iglow"></div><img src="./Art/icons/time.png?v=9"><div class="num">27h</div><div class="acc"></div><div class="lab">Time<br>Recorded</div></div>
+          <div class="tile"><div class="iglow"></div><img src="./Art/icons/zones.png?v=9"><div class="num">12</div><div class="acc"></div><div class="lab">Zones<br>Visited</div></div>
+          <div class="tile"><div class="iglow"></div><img src="./Art/icons/quests.png?v=9"><div class="num">43</div><div class="acc"></div><div class="lab">Quests<br>Completed</div></div>
+          <div class="tile"><div class="iglow"></div><img src="./Art/icons/feats.png?v=9"><div class="num">12</div><div class="acc"></div><div class="lab">Achievements<br>Earned</div></div>
+          <div class="tile"><div class="iglow"></div><img src="./Art/icons/dungeons.png?v=9"><div class="num">3</div><div class="acc"></div><div class="lab">Dungeons<br>Completed</div></div>
+        </div>
+        <div class="pill"><div class="dot"></div><div class="t">Recording since March 12, 2026</div></div>
+      </div>
+      <div class="col right">
+        <div class="kicker">RECENT MOMENTS</div>
+        <div class="rrule"></div>
+        <div class="row"><div class="chip"><img src="./Art/icons/quests.png?v=9"></div><div class="lab">Entered Stranglethorn Vale</div><div class="when">Today, 7:42 PM</div></div>
+        <div class="row"><div class="chip"><img src="./Art/icons/feats.png?v=9"></div><div class="lab">Completed: The Green Hills of Stranglethorn</div><div class="xp">+1.2k XP</div></div>
+        <div class="row"><div class="chip"><img src="./Art/icons/moments.png?v=9"></div><div class="lab">Reached Level 27</div><div class="when">Today, 7:18 PM</div></div>
+        <div class="row"><div class="chip"><img src="./Art/icons/discoveries.png?v=9"></div><div class="lab">Discovered: Grom'gol Base Camp</div><div class="when">Today, 6:55 PM</div></div>
+        <div class="row"><div class="chip"><img src="./Art/icons/items.png?v=9"></div><div class="lab">Achievement Earned: Expert Treasure Hunter</div><div class="when">Today, 6:12 PM</div></div>
+        <div class="row"><div class="chip"><img src="./Art/icons/dungeons.png?v=9"></div><div class="lab">Defeated: Bloodscalp Warlord</div><div class="when">Today, 3:48 PM</div></div>
+        <div class="row"><div class="chip"><img src="./Art/icons/quests.png?v=9"></div><div class="lab">Completed: Up to Snuff</div><div class="xp">+860 XP</div></div>
+        <div class="row" style="border-bottom:none"><div class="chip"><img src="./Art/icons/zones.png?v=9"></div><div class="lab">Entered Northern Stranglethorn</div><div class="when">Today, 2:31 PM</div></div>
+        <div class="btns">
+          <div class="btn ghost">VIEW ALL MOMENTS</div>
+          <div class="btn cta">OPEN CHRONICLE <svg viewBox="0 0 24 24" fill="none"><path d="M9 7h8v8M17 7L8 16" stroke="#1f1205" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,7 @@
+# Junctions to the addon's real asset dirs, created by the harness so it can
+# load the actual PNGs/fonts over the local server. Never commit these.
+/Art
+/Fonts
+
+# Local copy of the design reference; the canonical one lives in docs/.
+hub_mockup.jpeg

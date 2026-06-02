@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Hub parity — mockup vs simulator</title>
+<style>
+  body{ margin:0; background:#07060e; font-family:sans-serif; }
+  .wrap{ display:flex; }
+  .pane{ width:767px; }
+  .cap{ color:#d4a373; font-size:14px; letter-spacing:2px; text-transform:uppercase;
+        padding:8px 12px; text-align:center; }
+  .pane img{ width:767px; display:block; }
+  .frame{ width:767px; height:512px; overflow:hidden; }
+  .frame iframe{ width:1535px; height:1024px; transform:scale(0.49967); transform-origin:top left; border:0; }
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="pane"><div class="cap">Mockup (docs/hub_mockup.jpeg)</div><img src="./hub_mockup.jpeg"></div>
+    <div class="pane"><div class="cap">Simulator — addon's shipped PNGs + layout</div>
+      <div class="frame"><iframe src="/"></iframe></div></div>
+  </div>
+</body></html>

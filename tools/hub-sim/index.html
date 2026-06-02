@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Aftertale Hub Simulator</title>
+<style>
+/* ------------------------------------------------------------------
+   Aftertale Hub — headless fidelity simulator.
+   Loads the REAL addon PNGs (./Art via junction) + Cinzel (./Fonts)
+   and mirrors Hub.lua / Style.lua layout, palette, and the
+   docs/hub_mockup.jpeg sample data. Rendered at the mockup's native
+   1535x1024 so it overlays 1:1.
+
+   URL hash:
+     #overlay  -> show mockup at 45% on top for alignment diffing
+     #mockup   -> show mockup only
+------------------------------------------------------------------ */
+@font-face{ font-family:'Cinzel'; src:url('./Fonts/Cinzel-Bold.ttf'); font-weight:700; }
+@font-face{ font-family:'Cinzel'; src:url('./Fonts/Cinzel-SemiBold.ttf'); font-weight:600; }
+@font-face{ font-family:'CinzelM'; src:url('./Fonts/Cinzel-Medium.ttf'); }
+/* Body face: a transitional serif WITH lowercase (Cinzel is caps-only and
+   was forcing everything to all-caps). Matches the mockup's label/row text. */
+
+
+:root{
+  --gold:        #d4a373;
+  --goldBright:  #f0c896;
+  --goldDeep:    #8b6240;
+  --accent:      #b89eff;
+  --fg:          #ede7d8;
+  --fgMuted:     #a89c80;
+  --fgFaint:     #6a6149;
+  --nearblack:   #0c0a17;  /* mockup interior */
+  --world:       #07060e;
+  /* Lining-figure serif (matches the mockup's baseline-aligned numerals and
+     lowercase 'h' in "27h"; Georgia's old-style figures dropped 4/7 below the
+     baseline). Stands in for WoW's Friz Quadrata body face, which is likewise
+     a lining-figure serif with lowercase. */
+  --serif:       'Times New Roman','Liberation Serif',serif;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ background:var(--world); }
+body{ width:1535px; height:1024px; position:relative; overflow:hidden;
+      font-family:var(--serif); -webkit-font-smoothing:antialiased; }
+
+/* ---- outer art frame ---- */
+.hub{ position:absolute; inset:0; }
+.frame-img{ position:absolute; inset:14px; width:calc(100% - 28px); height:calc(100% - 28px);
+            object-fit:fill; }
+/* near-black interior fill, inset just inside the gold border so the
+   gold stays bright while the body reads near-black like the mockup */
+.frame-fill{ position:absolute; inset:34px; background:var(--nearblack); border-radius:18px; }
+
+/* content area, inset inside the border (matched to mockup pixel scan:
+   frame inner x64..1471, columns y226..855) */
+.content{ position:absolute; left:66px; right:66px; top:42px; bottom:40px; }
+
+/* ---- header ---- */
+.header{ position:relative; height:96px; }
+.sigil{ position:absolute; left:0px; top:6px; width:82px; height:82px;
+        object-fit:contain; }
+.title{ position:absolute; left:104px; top:32px; font-family:'Cinzel'; font-weight:700;
+        font-size:40px; letter-spacing:5px; color:var(--goldBright);
+        text-shadow:0 2px 10px rgba(240,200,150,.18); }
+.close{ position:absolute; right:8px; top:24px; font-size:28px; color:var(--fgMuted);
+        font-family:sans-serif; font-weight:300; }
+
+/* ---- tabs ---- */
+.tabs{ position:absolute; left:97px; right:95px; top:145px; height:34px;
+       display:flex; justify-content:space-between; align-items:center; }
+.tab{ font-family:'Cinzel'; font-weight:600; font-size:17px; letter-spacing:3px;
+      color:var(--fgMuted); position:relative; padding:4px 2px; }
+.tab.active{ color:var(--goldBright); }
+.tab .ul{ position:absolute; left:-6px; right:-6px; bottom:-9px; height:2px;
+          background:linear-gradient(90deg,transparent,var(--gold) 20%,var(--gold) 80%,transparent); }
+.tab .ul::before, .tab .ul::after{ content:''; position:absolute; top:-2px; width:5px; height:5px;
+          background:var(--gold); transform:rotate(45deg); }
+.tab .ul::before{ left:14px; } .tab .ul::after{ right:14px; }
+.tabrule{ position:absolute; left:6px; right:6px; top:161px; height:1px;
+          background:linear-gradient(90deg,transparent,rgba(212,163,115,.45) 8%,rgba(212,163,115,.45) 92%,transparent); }
+
+/* ---- body: two columns ---- */
+.body{ position:absolute; left:0; right:0; top:184px; bottom:129px; display:flex; gap:30px; }
+.col{ flex:1; position:relative; padding:51px 26px 22px; }
+/* FAITHFUL: render the actual recoloured inner-frame-dark.png as a 9-slice
+   border-image (near-black fill + gold border + corner stars + edge diamonds),
+   exactly what the addon now draws. Decorative layer behind the content. */
+.colframe{ position:absolute; inset:0; border:22px solid transparent;
+           border-image:url('./inner-frame-clean.svg') 10.87% 6.98% fill;
+           pointer-events:none; }
+.col .corner{ display:none; }
+
+.kicker{ font-family:'Cinzel'; font-weight:600; font-size:15px; letter-spacing:3px;
+         color:var(--gold); }
+
+/* ---- left: stat grid ---- */
+.grid{ position:absolute; left:26px; right:26px; top:120px;
+       display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr);
+       gap:10px; height:464px; }
+.tile{ position:relative; padding-top:34px;
+       background:url('./inner-cell-clean.svg') center/100% 100% no-repeat;
+       display:flex; flex-direction:column; align-items:center; justify-content:flex-start; }
+.tile img{ width:62px; height:62px; object-fit:contain; }
+.tile .val{ font-family:var(--serif); font-weight:700; font-size:42px; color:var(--goldBright);
+            margin-top:6px; line-height:1; }
+.tile .lbl{ font-family:var(--serif); font-size:15px; color:var(--gold); text-align:center;
+            margin-top:7px; line-height:1.22; opacity:.92; }
+
+.pill{ position:absolute; left:26px; right:26px; bottom:4px; height:44px;
+       border:1px solid rgba(184,158,255,.30); border-radius:10px;
+       background:rgba(184,158,255,.06); display:flex; align-items:center; gap:12px;
+       padding-left:22px; }
+.pill .dot{ width:11px; height:11px; border-radius:50%; background:var(--accent);
+            box-shadow:0 0 8px var(--accent); }
+.pill .txt{ font-family:var(--serif); font-size:17px; color:var(--fg); }
+
+/* ---- right: recent moments ---- */
+.rrule{ position:absolute; left:26px; right:26px; top:78px; height:1px;
+        background:rgba(212,163,115,.30); }
+.rows{ position:absolute; left:26px; right:26px; top:87px; bottom:72px; }
+.row{ position:relative; height:94px; display:flex; align-items:center;
+      border-bottom:1px solid rgba(212,163,115,.13); }
+.row:last-child{ border-bottom:none; }
+.row img{ width:46px; height:46px; object-fit:contain; flex:0 0 46px; margin-right:18px; }
+.row .lab{ font-family:var(--serif); font-size:20px; color:var(--fg); flex:1; }
+.row .meta{ font-family:var(--serif); font-size:16px; color:var(--fgMuted); }
+.row .meta.tag{ color:var(--gold); }
+
+.btns{ position:absolute; left:26px; right:26px; bottom:4px; height:48px;
+       display:flex; gap:18px; }
+.btn{ flex:1; position:relative; display:flex; align-items:center; justify-content:center;
+      border-radius:10px; }
+.btn-ghost{ border:1px solid rgba(184,158,255,.40); background:rgba(184,158,255,.07);
+            font-family:'Cinzel'; font-weight:600; font-size:16px; letter-spacing:3px;
+            color:var(--goldBright); }
+.btn-cta{ border:1px solid rgba(212,163,115,.65); background:rgba(212,163,115,.10);
+          font-family:'Cinzel'; font-weight:600; font-size:16px; letter-spacing:3px;
+          color:var(--goldBright); gap:10px; }
+.btn-cta .ext{ font-family:sans-serif; font-weight:400; font-size:16px; }
+
+/* ---- overlay / mockup-only debug modes ---- */
+.mock{ position:absolute; inset:0; width:1535px; height:1024px; display:none; z-index:50;
+       pointer-events:none; }
+body.overlay .mock{ display:block; opacity:.45; }
+body.mockonly .mock{ display:block; opacity:1; }
+body.mockonly .hub{ display:none; }
+</style>
+</head>
+<body>
+  <div class="hub">
+    <img class="frame-img" src="./frame-clean.svg" alt="">
+    <div class="content">
+
+      <!-- header -->
+      <div class="header">
+        <img class="sigil" src="./Art/sigil-header.png?v=2" alt="">
+        <div class="title">AFTERTALE</div>
+        <div class="close">&#10005;</div>
+      </div>
+
+      <!-- tabs -->
+      <div class="tabs">
+        <div class="tab active">OVERVIEW<div class="ul"></div></div>
+        <div class="tab">MOMENTS</div>
+        <div class="tab">MILESTONES</div>
+        <div class="tab">WATCH</div>
+        <div class="tab">SETTINGS</div>
+      </div>
+      <div class="tabrule"></div>
+
+      <!-- body -->
+      <div class="body">
+        <!-- LEFT -->
+        <div class="col">
+          <div class="colframe"></div>
+          <div class="kicker">STORY AT A GLANCE</div>
+          <div class="grid">
+            <div class="tile"><img src="./Art/icons/moments.png?v=2"><div class="val">147</div><div class="lbl">Moments<br>Captured</div></div>
+            <div class="tile"><img src="./Art/icons/time.png?v=2"><div class="val">27h</div><div class="lbl">Time<br>Recorded</div></div>
+            <div class="tile"><img src="./Art/icons/zones.png?v=2"><div class="val">12</div><div class="lbl">Zones<br>Visited</div></div>
+            <div class="tile"><img src="./Art/icons/quests.png?v=2"><div class="val">43</div><div class="lbl">Quests<br>Completed</div></div>
+            <div class="tile"><img src="./Art/icons/feats.png?v=2"><div class="val">12</div><div class="lbl">Achievements<br>Earned</div></div>
+            <div class="tile"><img src="./Art/icons/dungeons.png?v=2"><div class="val">3</div><div class="lbl">Dungeons<br>Completed</div></div>
+          </div>
+          <div class="pill"><div class="dot"></div><div class="txt">Recording since March 12, 2026</div></div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="col">
+          <div class="colframe"></div>
+          <div class="kicker">RECENT MOMENTS</div>
+          <div class="rrule"></div>
+          <div class="rows">
+            <div class="row"><img src="./Art/icons/quests.png?v=2"><div class="lab">Entered Stranglethorn Vale</div><div class="meta">Today, 7:42 PM</div></div>
+            <div class="row"><img src="./Art/icons/feats.png?v=2"><div class="lab">Completed: The Green Hills of Stranglethorn</div><div class="meta tag">+1.2k XP</div></div>
+            <div class="row"><img src="./Art/icons/moments.png?v=2"><div class="lab">Reached Level 27</div><div class="meta">Today, 7:18 PM</div></div>
+            <div class="row"><img src="./Art/icons/discoveries.png?v=2"><div class="lab">Discovered: Grom'gol Base Camp</div><div class="meta">Today, 6:55 PM</div></div>
+            <div class="row"><img src="./Art/icons/items.png?v=2"><div class="lab">Achievement Earned: Expert Treasure Hunter</div><div class="meta">Today, 6:12 PM</div></div>
+          </div>
+          <div class="btns">
+            <div class="btn btn-ghost">VIEW ALL MOMENTS</div>
+            <div class="btn btn-cta">OPEN CHRONICLE <span class="ext">&#8599;</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <img class="mock" src="./hub_mockup.jpeg" alt="">
+  <script>
+    function applyHash(){
+      document.body.className = '';
+      if(location.hash==='#overlay') document.body.classList.add('overlay');
+      if(location.hash==='#mockup')  document.body.classList.add('mockonly');
+    }
+    window.addEventListener('hashchange', applyHash); applyHash();
+  </script>
+</body>
+</html>

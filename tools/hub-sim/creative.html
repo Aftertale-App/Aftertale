@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Aftertale Hub — creative pass</title>
+<style>
+@font-face{ font-family:'Cinzel'; src:url('./Fonts/Cinzel-Bold.ttf'); font-weight:700; }
+@font-face{ font-family:'Cinzel'; src:url('./Fonts/Cinzel-SemiBold.ttf'); font-weight:600; }
+
+:root{
+  --gold:#d9b27a; --gold-bright:#f4d6a0; --gold-deep:#9c7445;
+  --violet:#b9a0ff; --violet-deep:#7d5cc4;
+  --cream:#efe7d7; --muted:#b6a587; --faint:#7c6f57;
+  --serif:'Georgia','Times New Roman',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:1535px;height:1024px;overflow:hidden;}
+body{
+  font-family:var(--serif);
+  /* warm violet-black ground: lit toward the upper-centre, deep at the edges */
+  background:
+    radial-gradient(120% 90% at 50% 8%, #241640 0%, #160d2c 38%, #0c0719 70%, #070411 100%);
+  position:relative;
+}
+/* faint starfield + vignette over the ground */
+body::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(1.5px 1.5px at 18% 22%, rgba(233,224,255,.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 76% 14%, rgba(233,224,255,.40), transparent 60%),
+    radial-gradient(1.2px 1.2px at 62% 64%, rgba(233,224,255,.35), transparent 60%),
+    radial-gradient(1.2px 1.2px at 33% 78%, rgba(233,224,255,.30), transparent 60%),
+    radial-gradient(1.6px 1.6px at 88% 52%, rgba(233,224,255,.40), transparent 60%),
+    radial-gradient(1.2px 1.2px at 8% 56%, rgba(233,224,255,.30), transparent 60%),
+    radial-gradient(1.3px 1.3px at 50% 40%, rgba(233,224,255,.25), transparent 60%);
+}
+body::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 240px 40px rgba(4,2,10,.7);
+}
+
+/* ---------- hub shell ---------- */
+.hub{
+  position:absolute; inset:30px;
+  border-radius:26px;
+  background:linear-gradient(180deg, rgba(120,92,180,.07), rgba(40,24,70,.02));
+  border:1.5px solid transparent;
+  /* gold border via gradient + soft outer glow + inner top sheen */
+  background-clip:padding-box;
+  box-shadow:
+    0 0 0 1.5px rgba(217,178,122,.55),
+    0 0 60px 6px rgba(217,178,122,.10),
+    inset 0 1px 0 rgba(255,240,210,.06),
+    inset 0 0 120px 10px rgba(10,6,22,.6);
+  padding:30px 38px;
+}
+/* delicate corner sparkles on the shell */
+.spark{position:absolute;color:var(--gold-bright);filter:drop-shadow(0 0 4px rgba(244,214,160,.6));}
+.spark svg{display:block}
+.sp-tl{left:16px;top:14px}.sp-tr{right:16px;top:14px}
+.sp-bl{left:16px;bottom:14px}.sp-br{right:16px;bottom:14px}
+
+/* ---------- header ---------- */
+.header{display:flex;align-items:center;gap:16px;position:relative;height:70px;}
+.sigil{width:58px;height:58px;filter:drop-shadow(0 0 10px rgba(185,160,255,.45));}
+.title{font-family:'Cinzel';font-weight:700;font-size:42px;letter-spacing:6px;
+  color:var(--gold-bright);
+  text-shadow:0 0 18px rgba(244,214,160,.35), 0 2px 2px rgba(0,0,0,.4);}
+.close{margin-left:auto;font-family:sans-serif;font-size:26px;color:var(--muted);
+  width:34px;height:34px;display:grid;place-items:center;border-radius:8px;
+  border:1px solid rgba(217,178,122,.18);}
+
+/* tabs */
+.tabs{display:flex;justify-content:space-between;align-items:center;margin:18px 30px 0;}
+.tab{font-family:'Cinzel';font-weight:600;font-size:16px;letter-spacing:3px;color:var(--muted);position:relative;padding:6px 4px;}
+.tab.on{color:var(--gold-bright);text-shadow:0 0 14px rgba(244,214,160,.4);}
+.tab.on::after{content:'';position:absolute;left:-8px;right:-8px;bottom:-8px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--gold) 25%,var(--gold-bright) 50%,var(--gold) 75%,transparent);
+  box-shadow:0 0 10px rgba(217,178,122,.6);}
+.tab.on .dot{position:absolute;bottom:-12px;left:50%;width:5px;height:5px;margin-left:-2.5px;background:var(--gold-bright);transform:rotate(45deg);box-shadow:0 0 6px var(--gold);}
+.headrule{height:1px;margin:14px 0 0;background:linear-gradient(90deg,transparent,rgba(217,178,122,.35) 12%,rgba(217,178,122,.35) 88%,transparent);}
+
+/* ---------- body columns ---------- */
+.body{display:flex;gap:28px;margin-top:22px;height:712px;}
+.panel{
+  flex:1;position:relative;border-radius:18px;padding:24px 26px;
+  background:linear-gradient(180deg, rgba(126,92,196,.13), rgba(40,24,70,.04) 60%, rgba(20,12,38,.02));
+  border:1px solid rgba(217,178,122,.20);
+  box-shadow:inset 0 1px 0 rgba(255,240,210,.05), inset 0 0 60px rgba(12,7,26,.5), 0 8px 30px rgba(0,0,0,.35);
+}
+.panel .pspark{position:absolute;color:var(--gold);opacity:.65;filter:drop-shadow(0 0 3px rgba(217,178,122,.5));}
+.psp-tl{left:8px;top:6px}.psp-tr{right:8px;top:6px}.psp-bl{left:8px;bottom:6px}.psp-br{right:8px;bottom:6px}
+.kicker{font-family:'Cinzel';font-weight:600;font-size:14px;letter-spacing:3px;color:var(--gold);opacity:.9;
+  display:flex;align-items:center;gap:10px;}
+.kicker::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(217,178,122,.28),transparent);}
+
+/* stat grid */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:22px;}
+.tile{
+  position:relative;border-radius:14px;padding:22px 8px 16px;text-align:center;overflow:hidden;
+  background:radial-gradient(80% 60% at 50% 0%, rgba(140,104,210,.20), rgba(60,38,100,.05) 70%, transparent),
+             linear-gradient(180deg, rgba(40,24,70,.25), rgba(18,10,34,.15));
+  border:1px solid rgba(217,178,122,.16);
+  box-shadow:inset 0 1px 0 rgba(255,240,210,.05);
+}
+.tile .ico{width:50px;height:50px;margin:0 auto 6px;filter:drop-shadow(0 0 8px rgba(185,160,255,.35));}
+.tile .num{font-family:'Cinzel';font-weight:700;font-size:38px;line-height:1;color:var(--gold-bright);
+  text-shadow:0 0 16px rgba(244,214,160,.3);}
+.tile .lab{font-family:var(--serif);font-size:14px;color:var(--muted);margin-top:8px;line-height:1.2;}
+.tile .accent{width:34px;height:2px;margin:9px auto 0;border-radius:2px;
+  background:linear-gradient(90deg,transparent,rgba(217,178,122,.5),transparent);}
+
+/* recording chip */
+.chip{position:absolute;left:26px;right:26px;bottom:20px;height:46px;border-radius:12px;display:flex;align-items:center;gap:12px;padding:0 18px;
+  background:linear-gradient(180deg, rgba(126,92,196,.16), rgba(40,24,70,.06));
+  border:1px solid rgba(185,160,255,.28);}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--violet);box-shadow:0 0 10px var(--violet);animation:p 2.4s ease-in-out infinite;}
+@keyframes p{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.chip .t{font-family:var(--serif);font-size:16px;color:var(--cream);}
+
+/* recent moments */
+.feed{margin-top:18px;display:flex;flex-direction:column;}
+.frule{height:1px;background:linear-gradient(90deg,transparent,rgba(217,178,122,.30) 8%,rgba(217,178,122,.30) 92%,transparent);margin-bottom:4px;}
+.row{display:flex;align-items:center;gap:16px;padding:14px 6px;border-bottom:1px solid rgba(217,178,122,.10);}
+.row:last-of-type{border-bottom:none;}
+.row .chipico{width:42px;height:42px;flex:0 0 42px;border-radius:11px;display:grid;place-items:center;
+  background:radial-gradient(70% 70% at 50% 35%, rgba(140,104,210,.22), rgba(40,24,70,.08));
+  border:1px solid rgba(217,178,122,.14);}
+.row .chipico svg{width:24px;height:24px;filter:drop-shadow(0 0 5px rgba(185,160,255,.3));}
+.row .lab{flex:1;font-family:var(--serif);font-size:19px;color:var(--cream);}
+.row .when{font-family:var(--serif);font-size:15px;color:var(--muted);}
+.row .xp{font-family:'Cinzel';font-weight:600;font-size:13px;letter-spacing:1px;color:var(--gold-bright);
+  padding:4px 10px;border-radius:20px;background:rgba(217,178,122,.12);border:1px solid rgba(217,178,122,.3);}
+
+/* buttons */
+.btns{position:absolute;left:26px;right:26px;bottom:20px;display:flex;gap:16px;height:50px;}
+.btn{flex:1;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:'Cinzel';font-weight:600;font-size:15px;letter-spacing:3px;}
+.btn.ghost{color:var(--gold-bright);background:linear-gradient(180deg,rgba(126,92,196,.18),rgba(40,24,70,.06));border:1px solid rgba(185,160,255,.35);}
+.btn.cta{color:#1c1206;background:linear-gradient(180deg,var(--gold-bright),var(--gold));
+  box-shadow:0 0 18px rgba(217,178,122,.35), inset 0 1px 0 rgba(255,255,255,.4);}
+.btn.cta svg{width:16px;height:16px}
+
+svg.symset{position:absolute;width:0;height:0}
+</style>
+</head>
+<body>
+<!-- icon symbol set: gold stroke + faint violet fill -->
+<svg class="symset" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <g id="g-base" fill="none" stroke="#d9b27a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></g>
+  </defs>
+  <symbol id="i-star" viewBox="0 0 48 48">
+    <path d="M24 4 L28 20 L44 24 L28 28 L24 44 L20 28 L4 24 L20 20 Z" fill="#b9a0ff" fill-opacity=".18" stroke="#f4d6a0" stroke-width="2"/>
+    <path d="M38 8 l1.3 3.4 3.4 1.3 -3.4 1.3 -1.3 3.4 -1.3 -3.4 -3.4 -1.3 3.4 -1.3 Z" fill="#d9b27a"/>
+  </symbol>
+  <symbol id="i-clock" viewBox="0 0 48 48">
+    <circle cx="24" cy="25" r="17" fill="#b9a0ff" fill-opacity=".12" stroke="#d9b27a" stroke-width="2.4"/>
+    <path d="M24 25 V13 M24 25 L33 30" stroke="#f4d6a0" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    <path d="M18 6 L24 10 L30 6" stroke="#d9b27a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-compass" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="18" fill="#b9a0ff" fill-opacity=".10" stroke="#d9b27a" stroke-width="2.2"/>
+    <path d="M24 10 L27 24 L24 38 L21 24 Z" fill="#f4d6a0" fill-opacity=".5" stroke="#f4d6a0" stroke-width="1.2"/>
+    <path d="M10 24 L24 21 L38 24 L24 27 Z" fill="#d9b27a" fill-opacity=".25" stroke="#d9b27a" stroke-width="1.2"/>
+  </symbol>
+  <symbol id="i-scroll" viewBox="0 0 48 48">
+    <path d="M14 13 h18 a4 4 0 0 1 4 4 v18 a4 4 0 0 0 4 4 h-18 a4 4 0 0 1 -4 -4 Z" fill="#b9a0ff" fill-opacity=".12" stroke="#d9b27a" stroke-width="2.2"/>
+    <path d="M14 13 a4 4 0 0 0 0 8 h4 v-8 Z" fill="#d9b27a" fill-opacity=".2" stroke="#d9b27a" stroke-width="2"/>
+    <path d="M19 25 h10 M19 30 h7" stroke="#d9b27a" stroke-width="1.6" opacity=".75"/>
+    <path d="M39 10 L26 33 l-2 5 5 -2 Z" fill="#f4d6a0" fill-opacity=".5" stroke="#f4d6a0" stroke-width="1.6"/>
+  </symbol>
+  <symbol id="i-shield" viewBox="0 0 48 48">
+    <path d="M24 5 L40 11 V25 C40 34 33 40 24 43 C15 40 8 34 8 25 V11 Z" fill="#b9a0ff" fill-opacity=".12" stroke="#d9b27a" stroke-width="2.4"/>
+    <path d="M24 15 l2.3 7 7.3 0 -5.9 4.3 2.3 7 -6-4.3 -6 4.3 2.3-7 -5.9-4.3 7.3 0 Z" fill="#f4d6a0" fill-opacity=".5" stroke="#f4d6a0" stroke-width="1"/>
+  </symbol>
+  <symbol id="i-swords" viewBox="0 0 48 48">
+    <path d="M11 7 L27 27 M9 36 l3 3 -5 2 2 -5 Z M30 30 l5 5" stroke="#d9b27a" stroke-width="2.4" fill="#b9a0ff" fill-opacity=".12"/>
+    <path d="M37 7 L21 27 M39 36 l-3 3 5 2 -2 -5 Z M18 30 l-5 5" stroke="#d9b27a" stroke-width="2.4" fill="#b9a0ff" fill-opacity=".12"/>
+    <path d="M11 7 l-4 0 0 4 M37 7 l4 0 0 4" stroke="#f4d6a0" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-archway" viewBox="0 0 48 48">
+    <path d="M10 40 V24 a14 14 0 0 1 28 0 V40" fill="#b9a0ff" fill-opacity=".12" stroke="#d9b27a" stroke-width="2.4"/>
+    <path d="M17 40 V25 a7 7 0 0 1 14 0 V40" stroke="#d9b27a" stroke-width="1.6" opacity=".7" fill="none"/>
+    <path d="M7 40 h34" stroke="#d9b27a" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M22 9 L24 5 L26 9 Z" fill="#f4d6a0"/>
+  </symbol>
+  <symbol id="i-chest" viewBox="0 0 48 48">
+    <path d="M9 21 a15 15 0 0 1 30 0 v2 H9 Z" fill="#d9b27a" fill-opacity=".18" stroke="#d9b27a" stroke-width="2.2"/>
+    <rect x="9" y="22" width="30" height="17" rx="2" fill="#b9a0ff" fill-opacity=".12" stroke="#d9b27a" stroke-width="2.2"/>
+    <path d="M9 30 h30" stroke="#d9b27a" stroke-width="1.8"/>
+    <rect x="21" y="26" width="6" height="8" rx="1.5" fill="#f4d6a0" fill-opacity=".5" stroke="#f4d6a0" stroke-width="1.4"/>
+  </symbol>
+  <symbol id="i-sigil" viewBox="0 0 48 48">
+    <g stroke="#d9b27a" stroke-width=".8" opacity=".5"><path d="M24 2 V46 M2 24 H46 M9 9 L39 39 M39 9 L9 39"/></g>
+    <path d="M24 3 L27 21 L45 24 L27 27 L24 45 L21 27 L3 24 L21 21 Z" fill="#b9a0ff" fill-opacity=".2" stroke="#f4d6a0" stroke-width="1.6"/>
+    <circle cx="24" cy="24" r="2.4" fill="#f4d6a0"/>
+  </symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M7 7 h10 v10 M17 7 L7 17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10 Z" fill="currentColor"/></symbol>
+</svg>
+
+<div class="hub">
+  <span class="spark sp-tl"><svg width="16" height="16"><use href="#i-spark"/></svg></span>
+  <span class="spark sp-tr"><svg width="16" height="16"><use href="#i-spark"/></svg></span>
+  <span class="spark sp-bl"><svg width="16" height="16"><use href="#i-spark"/></svg></span>
+  <span class="spark sp-br"><svg width="16" height="16"><use href="#i-spark"/></svg></span>
+
+  <div class="header">
+    <svg class="sigil"><use href="#i-sigil"/></svg>
+    <div class="title">AFTERTALE</div>
+    <div class="close">&#10005;</div>
+  </div>
+  <div class="tabs">
+    <div class="tab on">OVERVIEW<span class="dot"></span></div>
+    <div class="tab">MOMENTS</div><div class="tab">MILESTONES</div>
+    <div class="tab">WATCH</div><div class="tab">SETTINGS</div>
+  </div>
+  <div class="headrule"></div>
+
+  <div class="body">
+    <!-- LEFT -->
+    <div class="panel">
+      <span class="pspark psp-tl"><svg width="11" height="11"><use href="#i-spark"/></svg></span>
+      <span class="pspark psp-tr"><svg width="11" height="11"><use href="#i-spark"/></svg></span>
+      <span class="pspark psp-bl"><svg width="11" height="11"><use href="#i-spark"/></svg></span>
+      <span class="pspark psp-br"><svg width="11" height="11"><use href="#i-spark"/></svg></span>
+      <div class="kicker">STORY AT A GLANCE</div>
+      <div class="grid">
+        <div class="tile"><svg class="ico"><use href="#i-star"/></svg><div class="num">147</div><div class="accent"></div><div class="lab">Moments Captured</div></div>
+        <div class="tile"><svg class="ico"><use href="#i-clock"/></svg><div class="num">27h</div><div class="accent"></div><div class="lab">Time Recorded</div></div>
+        <div class="tile"><svg class="ico"><use href="#i-compass"/></svg><div class="num">12</div><div class="accent"></div><div class="lab">Zones Visited</div></div>
+        <div class="tile"><svg class="ico"><use href="#i-scroll"/></svg><div class="num">43</div><div class="accent"></div><div class="lab">Quests Completed</div></div>
+        <div class="tile"><svg class="ico"><use href="#i-shield"/></svg><div class="num">12</div><div class="accent"></div><div class="lab">Achievements Earned</div></div>
+        <div class="tile"><svg class="ico"><use href="#i-swords"/></svg><div class="num">3</div><div class="accent"></div><div class="lab">Dungeons Completed</div></div>
+      </div>
+      <div class="chip"><span class="pulse"></span><span class="t">Recording since March 12, 2026</span></div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="panel">
+      <span class="pspark psp-tl"><svg width="11" height="11"><use href="#i-spark"/></svg></span>
+      <span class="pspark psp-tr"><svg width="11" height="11"><use href="#i-spark"/></svg></span>
+      <span class="pspark psp-bl"><svg width="11" height="11"><use href="#i-spark"/></svg></span>
+      <span class="pspark psp-br"><svg width="11" height="11"><use href="#i-spark"/></svg></span>
+      <div class="kicker">RECENT MOMENTS</div>
+      <div class="feed">
+        <div class="frule"></div>
+        <div class="row"><div class="chipico"><svg><use href="#i-scroll"/></svg></div><div class="lab">Entered Stranglethorn Vale</div><div class="when">Today, 7:42 PM</div></div>
+        <div class="row"><div class="chipico"><svg><use href="#i-shield"/></svg></div><div class="lab">Completed: The Green Hills of Stranglethorn</div><div class="xp">+1.2k XP</div></div>
+        <div class="row"><div class="chipico"><svg><use href="#i-star"/></svg></div><div class="lab">Reached Level 27</div><div class="when">Today, 7:18 PM</div></div>
+        <div class="row"><div class="chipico"><svg><use href="#i-archway"/></svg></div><div class="lab">Discovered: Grom'gol Base Camp</div><div class="when">Today, 6:55 PM</div></div>
+        <div class="row"><div class="chipico"><svg><use href="#i-chest"/></svg></div><div class="lab">Achievement Earned: Expert Treasure Hunter</div><div class="when">Today, 6:12 PM</div></div>
+      </div>
+      <div class="btns">
+        <div class="btn ghost">VIEW ALL MOMENTS</div>
+        <div class="btn cta">OPEN CHRONICLE <svg><use href="#i-ext"/></svg></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
