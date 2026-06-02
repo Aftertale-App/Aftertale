@@ -103,17 +103,34 @@ export function formatArcForPrompt(state: ArcState | null): string | null {
   return `THE HERO'S INNER JOURNEY SO FAR (let this inform "The longer road" — continue it, don't restart it):\n${lines.map((l) => `- ${l}`).join('\n')}`;
 }
 
-const ARC_BLOCK_RE = /<<ARC>>([\s\S]*?)<<\/ARC>>/i;
+// Match a partial opener too (`<<ARC`, `<< ARC`) so a truncated/garbled block
+// is still stripped — the model sometimes runs out of tokens mid-block.
+const ARC_OPEN_RE = /<<\s*ARC/i;
+const ARC_CLOSED_RE = /<<ARC>>([\s\S]*?)<<\/ARC>>/i;
 
 /**
  * Pull the model's hidden arc-update block out of a recap response. Returns the
  * response with the block stripped (so it never renders) plus the parsed update.
+ *
+ * Robust to truncation: if the closing `<</ARC>>` never arrived (the model hit
+ * its token cap mid-block), we still strip everything from the opener to the end
+ * so a partial block can NEVER leak into the prose. We parse whatever fields we
+ * got from the partial body.
  */
 export function parseArcUpdate(raw: string): { stripped: string; update: Partial<ArcState> | null } {
-  const m = raw.match(ARC_BLOCK_RE);
-  if (!m) return { stripped: raw, update: null };
-  const stripped = raw.replace(ARC_BLOCK_RE, '').trim();
-  const body = m[1];
+  let body: string;
+  let stripped: string;
+  const closed = raw.match(ARC_CLOSED_RE);
+  if (closed) {
+    body = closed[1];
+    stripped = raw.replace(closed[0], '').trim();
+  } else {
+    const open = raw.match(ARC_OPEN_RE);
+    if (!open || open.index === undefined) return { stripped: raw.trim(), update: null };
+    // Strip from the opener to end-of-string (truncated block).
+    body = raw.slice(open.index + open[0].length);
+    stripped = raw.slice(0, open.index).trim();
+  }
   const trend = body.match(/trend:\s*(.+)/i)?.[1]?.trim();
   const questionsRaw = body.match(/questions:\s*(.+)/i)?.[1]?.trim();
   const movement = body.match(/movement:\s*(.+)/i)?.[1]?.trim();

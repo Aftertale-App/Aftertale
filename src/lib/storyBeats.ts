@@ -187,6 +187,9 @@ export interface ChapterLength {
   // The session's TOTAL prose budget. The model writes 1..N chapters within it
   // (see chapter-engine-spec §2); chapterHint nudges the likely count.
   chapterHint: string;  // injected: how many chapters this size tends to be
+  paraSpec: string;     // per-chapter paragraph target, e.g. "2 to 3"
+  // maxTokens leaves headroom above the prose for the two closings AND the
+  // hidden arc-update block, so none of them get truncated.
   maxTokens: number;    // hard total generation budget for the session
   estOutputTokens: number; // realistic fill, for the cost estimate only
 }
@@ -195,17 +198,20 @@ export const CHAPTER_LENGTHS: Record<ChapterLengthId, ChapterLength> = {
   quick: {
     id: 'quick', label: 'Quick recap', blurb: 'Short and sweet',
     chapterHint: 'This is a brief session — write it as a single tight chapter.',
-    maxTokens: 700, estOutputTokens: 450,
+    paraSpec: '2 to 3',
+    maxTokens: 1100, estOutputTokens: 700,
   },
   full: {
     id: 'full', label: 'Full chapter', blurb: 'The whole session, as a chapter',
     chapterHint: 'Usually a single chapter; split into two only if the session clearly changes scene.',
-    maxTokens: 1900, estOutputTokens: 1300,
+    paraSpec: '3 to 5',
+    maxTokens: 2400, estOutputTokens: 1700,
   },
   epic: {
     id: 'epic', label: 'Epic', blurb: 'A long, varied session',
     chapterHint: 'A long, varied session — it may run to two or three chapters as the scenes shift.',
-    maxTokens: 3400, estOutputTokens: 2600,
+    paraSpec: '3 to 5',
+    maxTokens: 4200, estOutputTokens: 3200,
   },
 };
 

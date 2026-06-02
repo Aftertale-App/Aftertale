@@ -124,7 +124,7 @@ async function requestCampfireRecap(
           'OUTPUT FORMAT (strict) — repeat this whole block for EACH chapter, with one blank line between chapters:',
           '- A title line: `# <Title>` (3 to 7 words drawn from THIS chapter\'s actual events — the specific NPC, item, deed, or beat. Never the zone name alone, never generic phrases like "A Day\'s Work").',
           '- One blank line.',
-          '- 3 to 6 short paragraphs of prose for this chapter, each separated by a blank line.',
+          `- ${length.paraSpec} short paragraphs of prose for this chapter, each separated by a blank line.`,
           '- One blank line.',
           '- `What lingers:` on its own line, then 1 to 3 short bullets starting with `- `, on what this chapter leaves IN THE WORLD: a debt, a face they will see again, a question, a loose end. Do NOT use "So what changed".',
           includeArc
