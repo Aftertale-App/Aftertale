@@ -7,7 +7,13 @@ import { loadSessionRecaps, removeSessionRecap, saveSessionRecap, SESSION_RECAPS
 import { entryId } from '../lib/chronicleExport';
 import { eventFactLine, type ChronicleSession } from '../lib/sessionHistory';
 import { getSeedMode, type SeedMode } from '../lib/featureFlags';
-import { beatGlyph, beatLabel, pickStoryBeats } from '../lib/storyBeats';
+import {
+  beatGlyph, beatLabel, pickStoryBeats,
+  sessionNarrativeScore, recommendChapterLength,
+  CHAPTER_LENGTHS, CHAPTER_LENGTH_ORDER,
+  type ChapterLength, type ChapterLengthId,
+} from '../lib/storyBeats';
+import { calculateCost } from '../pricing';
 import type { CharacterBible, HistoryEntry, LLMResponse } from '../types';
 
 // Strip the LLM's markdown formatting before we display the recap as a
@@ -49,13 +55,17 @@ function extractRecapTitle(raw: string): string | null {
   return title || null;
 }
 
-async function requestCampfireRecap(modelIdx: number, prompt: string): Promise<LLMResponse> {
+async function requestCampfireRecap(
+  modelIdx: number,
+  prompt: string,
+  length: ChapterLength,
+): Promise<LLMResponse> {
   const choice = MODEL_CHOICES[modelIdx];
   const provider = await choice.factory();
   return provider.chat({
     task: 'summary',
     model: choice.pricingKey,
-    maxTokens: 1800,
+    maxTokens: length.maxTokens,
     temperature: 0.7,
     messages: [
       {
@@ -72,13 +82,21 @@ async function requestCampfireRecap(modelIdx: number, prompt: string): Promise<L
           '- Avoid the cliche "not X, but Y" construction. Vary sentence rhythm.',
           '- Prefer concrete nouns and verbs over abstract sentiment. Show, don\'t narrate the feeling.',
           '',
+          'PACING (important):',
+          '- Scale the writing to what actually happened. Give each consequential beat (a death, a boss kill, an achievement, a hard-won quest completion, a dungeon cleared) its own moment on the page; do not summarize the big moments away.',
+          '- Group or compress routine errands and repeated chores so they do not crowd out the moments that matter.',
+          '- If there are more beats than the length allows, prioritize the most consequential and touch the rest briefly. Never silently drop a death, a boss kill, or a finished quest chain.',
+          length.movements
+            ? '- This was a long session. You may break the chapter into 2 to 3 titled movements (a short `## <Movement title>` line before each), one per distinct stretch of the session, so it reads as scenes rather than one wall of prose.'
+            : '',
+          '',
           'OUTPUT FORMAT (strict):',
           '- Line 1: a single chapter title in the form `# <Title>`. The title must be 3 to 7 words drawn from the actual events of THIS session (the specific NPC, item, deed, or beat that defines it). Do NOT use the zone name alone, do NOT use generic phrases like "A Day\'s Work" or "Coldridge Errands".',
           '- One blank line.',
-          '- 3 to 5 short paragraphs of prose, each separated by a blank line.',
+          `- ${length.paragraphSpec} short paragraphs of prose, each separated by a blank line${length.movements ? ' (distributed across the movements above)' : ''}.`,
           '- One blank line.',
-          '- A final closing section. Use the heading `What lingers:` on its own line, then 2 to 3 short bullets starting with `- `. Each bullet is one sentence about what this session leaves with the hero: a debt, a question, a face they will see again, a small change in how they carry themselves. Do NOT use "So what changed".',
-        ].join('\n'),
+          `- A final closing section. Use the heading \`What lingers:\` on its own line, then ${length.lingerSpec} short bullets starting with \`- \`. Each bullet is one sentence about what this session leaves with the hero: a debt, a question, a face they will see again, a small change in how they carry themselves. Do NOT use "So what changed".`,
+        ].filter(Boolean).join('\n'),
       },
       {
         role: 'user',
@@ -216,14 +234,14 @@ export function SessionTrail({
     );
   }
 
-  async function generateSelectedSessionRecap(session: ChronicleSession) {
+  async function generateSelectedSessionRecap(session: ChronicleSession, length: ChapterLength) {
     const recap = sessionRecaps[session.id];
     const published = isPublished(session, recap);
     if (published && !window.confirm('This will replace your current chapter for this session. Continue?')) return;
     setBusySessionId(session.id);
     setSessionError(null);
     try {
-      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session));
+      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length);
       const committed = published ? writeRecapToChronicle(session, res.text) : null;
       saveSessionRecap(characterKey, session.id, {
         text: res.text,
@@ -315,6 +333,8 @@ export function SessionTrail({
               <SessionCard
                 key={session.id}
                 session={session}
+                bible={bible}
+                pricingKey={MODEL_CHOICES[modelIdx].pricingKey}
                 recap={recap}
                 published={published}
                 committedEntry={committedEntries.get(session.id)}
@@ -325,7 +345,7 @@ export function SessionTrail({
                 enrichments={enrichments}
                 manualEntries={manualEntriesBySession.get(session.id) ?? []}
                 onSelect={() => focusSession(session.id)}
-                onGenerate={() => generateSelectedSessionRecap(session)}
+                onGenerate={(length) => generateSelectedSessionRecap(session, length)}
                 onCommit={() => commitRecapToChronicle(session)}
                 onUnpublish={() => removeRecapFromChronicle(session)}
                 onDiscard={() => discardRecap(session)}
@@ -341,6 +361,8 @@ export function SessionTrail({
 
 function SessionCard({
   session,
+  bible,
+  pricingKey,
   recap,
   published,
   committedEntry,
@@ -358,6 +380,8 @@ function SessionCard({
   onRead,
 }: {
   session: ChronicleSession;
+  bible: CharacterBible;
+  pricingKey: string;
   recap?: SessionRecapRecord;
   published: boolean;
   committedEntry?: HistoryEntry;
@@ -368,7 +392,7 @@ function SessionCard({
   enrichments: Record<string, string>;
   manualEntries: HistoryEntry[];
   onSelect: () => void;
-  onGenerate: () => void;
+  onGenerate: (length: ChapterLength) => void;
   onCommit: () => void;
   onUnpublish: () => void;
   onDiscard: () => void;
@@ -376,6 +400,22 @@ function SessionCard({
 }) {
   const stateLabel = published ? 'Published' : recap ? 'Draft' : 'Unwritten';
   const slimTitle = recap ? extractRecapTitle(recap.text) ?? session.title : session.title;
+
+  // Narrative weight → recommended chapter length (the player can override).
+  const recommendedId = useMemo(() => recommendChapterLength(sessionNarrativeScore(session.records)), [session.records]);
+  const [lengthId, setLengthId] = useState<ChapterLengthId>(recommendedId);
+  const chosen = CHAPTER_LENGTHS[lengthId];
+  // Estimated prompt size, for the "~4¢" cost cue. Input is the same across the
+  // three sizes; only the output (length.estOutputTokens) differs.
+  const estInputTokens = useMemo(
+    () => Math.ceil(buildSessionRecapPrompt(bible, session).length / 4),
+    [bible, session],
+  );
+  const centsFor = (len: ChapterLength): number | null => {
+    const dollars = calculateCost(pricingKey, estInputTokens, 0, len.estOutputTokens);
+    return dollars > 0 ? Math.max(1, Math.round(dollars * 100)) : null;
+  };
+  const significance = describeSessionSignificance(session, recommendedId);
   return (
     <details
       id={`at-session-${session.id}`}
@@ -406,7 +446,7 @@ function SessionCard({
               <button type="button" className="at-btn at-btn-ghost at-btn-sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRead(); }}>
                 ▸ Read in Chronicle
               </button>
-              <button type="button" className="at-btn at-btn-ghost at-btn-sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGenerate(); }}>
+              <button type="button" className="at-btn at-btn-ghost at-btn-sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGenerate(chosen); }}>
                 🔄 Regenerate
               </button>
               <button type="button" className="at-btn at-btn-ghost at-btn-sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onUnpublish(); }}>
@@ -427,18 +467,29 @@ function SessionCard({
           </div>
           <div className="at-chronicle-generate-controls">
             {!published && (
-              <button className="at-btn at-btn-primary" onClick={recap ? onCommit : onGenerate} disabled={busy}>
+              <button className="at-btn at-btn-primary" onClick={recap ? onCommit : () => onGenerate(chosen)} disabled={busy}>
                 {busy ? 'Dipping the quill…' : recap ? '📖 Publish to Chronicle' : '✨ Generate session recap'}
               </button>
             )}
             {recap && !published && (
               <>
-                <button className="at-btn at-btn-secondary" onClick={onGenerate} disabled={busy}>🔄 Regenerate</button>
+                <button className="at-btn at-btn-secondary" onClick={() => onGenerate(chosen)} disabled={busy}>🔄 Regenerate</button>
                 <button className="at-btn at-btn-ghost" onClick={onDiscard}>🗑 Discard draft</button>
               </>
             )}
           </div>
         </div>
+
+        {!published && (
+          <ChapterLengthControl
+            significance={significance}
+            chosenId={lengthId}
+            recommendedId={recommendedId}
+            onPick={setLengthId}
+            centsFor={centsFor}
+            disabled={busy}
+          />
+        )}
 
         {sessionError && (
           <div className="at-callout-danger at-chronicle-error">
@@ -471,6 +522,91 @@ function SessionCard({
   );
 }
 
+
+// Plain-language read of the session: recognition of the player's own deeds +
+// the size of chapter that earns. No scores, no weights, no jargon.
+function describeSessionSignificance(session: ChronicleSession, lengthId: ChapterLengthId): string {
+  const st = session.stats;
+  const dungeonCleared = session.records.some((r) => r.event.kind === 'instance_complete');
+  const bossKills = session.records.filter((r) => r.event.kind === 'boss_kill').length;
+  const highlights: string[] = [];
+  if (st.questsCompleted > 0) highlights.push(`wrapped ${st.questsCompleted} quest${st.questsCompleted === 1 ? '' : 's'}`);
+  if (st.levelsGained > 0) {
+    highlights.push(
+      typeof session.endLevel === 'number'
+        ? `reached level ${session.endLevel}`
+        : `gained ${st.levelsGained} level${st.levelsGained === 1 ? '' : 's'}`,
+    );
+  }
+  if (dungeonCleared) highlights.push('cleared a dungeon');
+  else if (bossKills > 0) highlights.push(`felled ${bossKills} boss${bossKills === 1 ? '' : 'es'}`);
+  if (st.deaths > 0) highlights.push(st.deaths === 1 ? 'met death once' : `died ${st.deaths} times`);
+  if (highlights.length === 0 && st.notableItems.length > 0) highlights.push(`found ${st.notableItems[0]}`);
+
+  const lead = lengthId === 'epic' ? 'A big night' : lengthId === 'full' ? 'A solid session' : 'A quick run';
+  const tail =
+    lengthId === 'epic'
+      ? "This one's earned a long, multi-part chapter."
+      : lengthId === 'full'
+        ? 'Good for a full chapter.'
+        : "We'll keep this one short and sweet.";
+
+  if (highlights.length === 0) return `${lead}. We'll shape what we caught into a chapter.`;
+
+  const top = highlights.slice(0, 3);
+  const list =
+    top.length === 1 ? top[0] : top.length === 2 ? `${top[0]} and ${top[1]}` : `${top[0]}, ${top[1]}, and ${top[2]}`;
+  return `${lead} — ${list}. ${tail}`;
+}
+
+function ChapterLengthControl({
+  significance,
+  chosenId,
+  recommendedId,
+  onPick,
+  centsFor,
+  disabled,
+}: {
+  significance: string;
+  chosenId: ChapterLengthId;
+  recommendedId: ChapterLengthId;
+  onPick: (id: ChapterLengthId) => void;
+  centsFor: (len: ChapterLength) => number | null;
+  disabled: boolean;
+}) {
+  return (
+    <div className="at-chapter-length">
+      <p className="at-chapter-length-read">{significance}</p>
+      <div className="at-chapter-length-label">Chapter length</div>
+      <div className="at-chapter-length-options" role="group" aria-label="Chapter length">
+        {CHAPTER_LENGTH_ORDER.map((id) => {
+          const len = CHAPTER_LENGTHS[id];
+          const cents = centsFor(len);
+          const isChosen = chosenId === id;
+          const isRec = recommendedId === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              className={`at-chapter-length-opt${isChosen ? ' is-chosen' : ''}`}
+              aria-pressed={isChosen}
+              disabled={disabled}
+              onClick={() => onPick(id)}
+              title={len.blurb}
+            >
+              <span className="at-chapter-length-opt-label">{len.label}</span>
+              <span className="at-chapter-length-opt-cost">{cents != null ? `~${cents}¢` : len.blurb}</span>
+              {isRec && <span className="at-chapter-length-rec">Recommended</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="at-chapter-length-help">
+        Longer chapters capture more of what happened and use a bit more of your AI credits.
+      </p>
+    </div>
+  );
+}
 
 function entryContext(entry: HistoryEntry): string {
   return [

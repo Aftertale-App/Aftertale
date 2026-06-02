@@ -7,6 +7,26 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — chapters that scale with the session *(2026-06-02)*
+
+Session recaps no longer come out the same length regardless of how much you
+played. A session's **narrative weight** (a weighted count of story beats —
+quest turn-ins and deaths matter more than accepting a quest) now drives both
+the prose target in the prompt and the token budget, so a quick errand run
+stays a tight vignette and a 3-hour quest night becomes a genuinely longer,
+multi-movement chapter instead of a compressed summary that drops the big beats.
+
+- `storyBeats.ts`: `BEAT_WEIGHTS`, `sessionNarrativeScore()`, three tunable
+  `CHAPTER_LENGTHS` (Quick / Full / Epic), and `recommendChapterLength()`.
+- The recap prompt now scales its paragraph target + pacing rules per size and
+  is told to give each consequential beat its own moment and never silently
+  drop a death, boss kill, or finished quest chain.
+- **Player-facing control on each session card** (no jargon): a plain-language
+  read of the session ("A big night — wrapped 14 quests and cleared a dungeon.
+  This one's earned a long chapter."), three labeled size buttons with the
+  weighted pick badged *Recommended*, and an approximate cost in cents per
+  size (BYOK-honest) so you control the spend.
+
 ### Added — mobile-aware app shell: a reader-first phone surface *(2026-06-02)*
 
 The web app now renders a dedicated **MobileShell** below 760px instead of

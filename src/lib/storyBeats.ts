@@ -55,6 +55,98 @@ export function pickStoryBeats(
   return records.filter((record) => isStoryBeat(record.event, settings));
 }
 
+// ============================================================================
+// Narrative weight — how "story-worthy" a session is, used to scale chapter
+// length so a marathon doesn't get compressed into the same 3 paragraphs as a
+// quick errand run. Not every beat counts equally: a hard-won quest turn-in or
+// a death is a real story moment; accepting a quest is a lighter thread-opener.
+//
+// In WoW the quest log IS the story spine, so quests carry real weight (a
+// turn-in is the payoff of a thread). Tune these freely — they're the only
+// knobs that decide how long a chapter gets.
+// ============================================================================
+export const BEAT_WEIGHTS: Record<AddonEventKind, number> = {
+  quest_turned_in: 2,        // the payoff — a story thread lands
+  quest_accepted: 1,         // a thread opens
+  player_death: 3,           // drama spike
+  boss_kill: 3,              // set-piece
+  instance_complete: 2.5,    // a whole arc resolved
+  achievement_earned: 2,     // milestone
+  level_up: 1.5,             // milestone, rarer than quests
+  instance_enter_first: 1.5, // new place, new stakes
+  item_loot: 1,              // base; refined by quality below
+} as Record<AddonEventKind, number>;
+
+const LOOT_QUALITY_WEIGHT: Record<LootQuality, number> = {
+  common: 0.5,
+  uncommon: 0.75,
+  rare: 1,
+  epic: 2,
+  legendary: 3,
+};
+
+/** Narrative weight of a single event (0 if it isn't a story beat at all). */
+export function beatWeight(event: AddonEvent, settings: StoryBeatSettings = DEFAULT_STORY_BEAT_SETTINGS): number {
+  if (!isStoryBeat(event, settings)) return 0;
+  if (event.kind === 'item_loot') return LOOT_QUALITY_WEIGHT[event.itemQuality ?? 'common'];
+  return BEAT_WEIGHTS[event.kind] ?? 1;
+}
+
+/** Total narrative weight of a session — the scaling signal for chapter length. */
+export function sessionNarrativeScore(records: AddonEventRecord[], settings?: StoryBeatSettings): number {
+  return records.reduce((sum, r) => sum + beatWeight(r.event, settings), 0);
+}
+
+// ----------------------------------------------------------------------------
+// Chapter length tiers. Three user-facing sizes (the buttons on the session
+// card). Each drives both the prose target injected into the prompt AND the
+// token budget. `estOutputTokens` is the realistic fill used only for the
+// "~4¢" cost estimate (models rarely use the whole maxTokens budget).
+// ----------------------------------------------------------------------------
+export type ChapterLengthId = 'quick' | 'full' | 'epic';
+
+export interface ChapterLength {
+  id: ChapterLengthId;
+  label: string;        // button label
+  blurb: string;        // one-liner under the option
+  paragraphSpec: string;// injected into the prompt, e.g. "2 to 3"
+  lingerSpec: string;   // closing-bullet count, e.g. "1 to 2"
+  movements: boolean;   // allow titled scene-breaks (long sessions only)
+  maxTokens: number;    // hard generation budget
+  estOutputTokens: number; // realistic fill, for the cost estimate only
+}
+
+export const CHAPTER_LENGTHS: Record<ChapterLengthId, ChapterLength> = {
+  quick: {
+    id: 'quick', label: 'Quick recap', blurb: 'Short and sweet',
+    paragraphSpec: '2 to 3', lingerSpec: '1 to 2', movements: false,
+    maxTokens: 700, estOutputTokens: 450,
+  },
+  full: {
+    id: 'full', label: 'Full chapter', blurb: 'The whole session, as a chapter',
+    paragraphSpec: '4 to 7', lingerSpec: '2 to 3', movements: false,
+    maxTokens: 1900, estOutputTokens: 1300,
+  },
+  epic: {
+    id: 'epic', label: 'Epic', blurb: 'A long, multi-part chapter',
+    paragraphSpec: '9 to 12', lingerSpec: '2 to 3', movements: true,
+    maxTokens: 3400, estOutputTokens: 2600,
+  },
+};
+
+export const CHAPTER_LENGTH_ORDER: ChapterLengthId[] = ['quick', 'full', 'epic'];
+
+// Score thresholds that pick the *recommended* size. Below `full` → quick;
+// at/above `epic` → epic; the broad middle → full. See the worked examples in
+// the design notes: ~quick run ≈ 12, ~1hr ≈ 25, ~2hr ≈ 55, ~3-4hr ≈ 100.
+export const RECOMMEND_THRESHOLDS = { full: 12, epic: 45 };
+
+export function recommendChapterLength(score: number): ChapterLengthId {
+  if (score >= RECOMMEND_THRESHOLDS.epic) return 'epic';
+  if (score >= RECOMMEND_THRESHOLDS.full) return 'full';
+  return 'quick';
+}
+
 /**
  * Returns a short noun-form label suitable for a beat list row.
  * Examples: "Accepted: The Defias Brotherhood", "Died at Klaven Mortwake",

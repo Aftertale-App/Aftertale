@@ -4107,6 +4107,94 @@ button.at-sheet-pill:focus-visible {
 .at-legal-foot a { color: var(--at-accent, #a47ad1); }
 
 /* ============================================================================
+   Chapter-length control on the session card — the "how big a chapter" picker.
+   Plain-language read of the session + three sized choices + a cents cue.
+   ============================================================================ */
+.at-chapter-length {
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border, #2a2018);
+  background: var(--bg-inset, #120d08);
+  border-radius: 8px;
+}
+.at-chapter-length-read {
+  margin: 0 0 0.75rem;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg, #ede7d8);
+}
+.at-chapter-length-label {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint, #8a7d68);
+  margin-bottom: 0.45rem;
+}
+.at-chapter-length-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.at-chapter-length-opt {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.6rem 0.7rem 0.65rem;
+  background: var(--bg-elevated, #1c1610);
+  border: 1px solid var(--border-strong, #3a2c1c);
+  border-radius: 6px;
+  color: var(--fg-muted, #b8ab94);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 110ms ease, background 110ms ease, color 110ms ease;
+}
+.at-chapter-length-opt:hover:not(:disabled) {
+  color: var(--fg, #ede7d8);
+  border-color: var(--gold-deep, #5a4326);
+}
+.at-chapter-length-opt.is-chosen {
+  border-color: var(--gold, #d4a373);
+  background: linear-gradient(180deg, rgba(178, 132, 49, 0.16), rgba(178, 132, 49, 0.05));
+  color: var(--gold-bright, #f0c896);
+  box-shadow: 0 0 0 1px var(--gold, #d4a373);
+}
+.at-chapter-length-opt:disabled { opacity: 0.55; cursor: not-allowed; }
+.at-chapter-length-opt-label {
+  font-family: var(--font-display, serif);
+  font-size: 15px;
+}
+.at-chapter-length-opt-cost {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--fg-faint, #8a7d68);
+}
+.at-chapter-length-opt.is-chosen .at-chapter-length-opt-cost { color: var(--gold, #d4a373); }
+.at-chapter-length-rec {
+  margin-top: 3px;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--at-accent, #a47ad1);
+  border: 1px solid rgba(164, 122, 209, 0.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.at-chapter-length-help {
+  margin: 0.6rem 0 0;
+  font-size: 12px;
+  color: var(--fg-faint, #8a7d68);
+  line-height: 1.45;
+}
+
+/* ============================================================================
    MobileShell — phone surface (bottom nav + reader-first panes).
    Full-height flex column: slim topbar, scrolling body, pinned bottom nav.
    Pinning the nav as a normal flex child (not position:fixed) avoids overlap
