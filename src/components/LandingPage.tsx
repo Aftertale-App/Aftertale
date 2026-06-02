@@ -339,7 +339,7 @@ export function LandingPage() {
         </div>
         <div className="at-container at-footer-legal">
           <span>© 2026 Aftertale. All rights reserved.</span>
-          <span><a href="#">Privacy</a> · <a href="#">Terms</a> · <a href="#">Cookies</a></span>
+          <span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
         </div>
         <div className="at-container at-footer-trademark">
           <p>

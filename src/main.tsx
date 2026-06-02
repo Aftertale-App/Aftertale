@@ -11,6 +11,12 @@ const App = lazy(() => import('./App').then((m) => ({ default: m.App })));
 const AuthCallback = lazy(() =>
   import('./components/AuthCallback').then((m) => ({ default: m.AuthCallback })),
 );
+const PrivacyPage = lazy(() =>
+  import('./components/LegalPage').then((m) => ({ default: m.PrivacyPage })),
+);
+const TermsPage = lazy(() =>
+  import('./components/LegalPage').then((m) => ({ default: m.TermsPage })),
+);
 
 function RouteFallback() {
   return (
@@ -91,6 +97,20 @@ function Root() {
     return (
       <Suspense fallback={<RouteFallback />}>
         <AuthCallback />
+      </Suspense>
+    );
+  }
+  if (window.location.pathname === '/privacy') {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <PrivacyPage />
+      </Suspense>
+    );
+  }
+  if (window.location.pathname === '/terms') {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <TermsPage />
       </Suspense>
     );
   }

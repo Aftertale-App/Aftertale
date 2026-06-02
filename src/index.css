@@ -4032,6 +4032,81 @@ button.at-sheet-pill:focus-visible {
 }
 
 /* ============================================================================
+   Legal pages (/privacy, /terms) — a quiet, readable column.
+   ============================================================================ */
+.at-legal {
+  min-height: 100vh;
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(178, 132, 49, 0.06), transparent 60%),
+    var(--bg, #15110d);
+  color: var(--fg, #ede7d8);
+  padding: 3rem 1.25rem 5rem;
+}
+.at-legal-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.at-legal-back {
+  display: inline-block;
+  margin-bottom: 1.75rem;
+  font-size: 14px;
+  color: var(--at-accent, #a47ad1);
+  text-decoration: none;
+}
+.at-legal-back:hover { text-decoration: underline; }
+.at-legal-title {
+  font-family: var(--font-display, serif);
+  font-size: clamp(30px, 5vw, 40px);
+  margin: 0 0 0.25rem;
+  color: var(--gold-bright, #f0c896);
+}
+.at-legal-updated {
+  font-size: 13px;
+  color: var(--fg-faint, #8a7d68);
+  margin: 0 0 2rem;
+}
+.at-legal-body h2 {
+  font-family: var(--font-display, serif);
+  font-size: 20px;
+  margin: 2rem 0 0.6rem;
+  color: var(--fg, #ede7d8);
+}
+.at-legal-body p,
+.at-legal-body li {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--fg-muted, #b8ab94);
+}
+.at-legal-body p { margin: 0 0 1rem; }
+.at-legal-body ul {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.at-legal-body code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  background: var(--bg-inset, #120d08);
+  border: 1px solid var(--border, #2a2018);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--gold-bright, #f0c896);
+}
+.at-legal-body a {
+  color: var(--at-accent, #a47ad1);
+}
+.at-legal-foot {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border, #2a2018);
+  font-size: 14px;
+  color: var(--fg-muted, #b8ab94);
+}
+.at-legal-foot a { color: var(--at-accent, #a47ad1); }
+
+/* ============================================================================
    MobileShell — phone surface (bottom nav + reader-first panes).
    Full-height flex column: slim topbar, scrolling body, pinned bottom nav.
    Pinning the nav as a normal flex child (not position:fixed) avoids overlap
