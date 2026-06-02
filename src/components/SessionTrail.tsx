@@ -3,6 +3,7 @@ import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import { appendSessionRecapChapters, removeAddonHistoryEntriesByEventIds, removeSessionRecapEntries } from '../lib/bibleStore';
 import { parseChapters, recapSessionId } from '../lib/chapterParse';
 import { threadContextForSession, formatThreadContext } from '../lib/threadLedger';
+import { loadArcState, saveArcState, formatArcForPrompt, parseArcUpdate, applyArcUpdate } from '../lib/arcLedger';
 import { removeAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
 import { ENRICHMENTS_UPDATED_EVENT, loadEnrichments, removeEnrichments, toParagraphMap } from '../lib/enrichmentStore';
 import { loadSessionRecaps, removeSessionRecap, saveSessionRecap, SESSION_RECAPS_UPDATED_EVENT, type SessionRecapMap, type SessionRecapRecord } from '../lib/sessionRecapStore';
@@ -80,6 +81,7 @@ async function requestCampfireRecap(
   register: SessionRegister,
   includeArc: boolean,
   continuity: string | null,
+  innerJourney: string | null,
 ): Promise<LLMResponse> {
   const choice = MODEL_CHOICES[modelIdx];
   const provider = await choice.factory();
@@ -126,7 +128,11 @@ async function requestCampfireRecap(
           '- One blank line.',
           '- `What lingers:` on its own line, then 1 to 3 short bullets starting with `- `, on what this chapter leaves IN THE WORLD: a debt, a face they will see again, a question, a loose end. Do NOT use "So what changed".',
           includeArc
-            ? '- One blank line, then `The longer road:` on its own line, then 1 to 2 sentences on the INTERIOR: what the hero felt but did not say, and how this leg moved their OWN journey — a step toward or away from who they fear becoming, drawn from their Hero\'s truth, fears, and flaws. This is about the character they are becoming, not the quest.'
+            ? '- One blank line, then `The longer road:` on its own line, then 1 to 2 sentences on the INTERIOR: what the hero felt but did not say, and how this leg moved their OWN journey — a step toward or away from who they fear becoming, drawn from their Hero\'s truth, fears, and flaws, and continuing the inner journey so far (if given) rather than restarting it. This is about the character they are becoming, not the quest.'
+            : '',
+          includeArc && innerJourney ? `\n${innerJourney}` : '',
+          includeArc
+            ? '\nAFTER the final chapter, output a hidden bookkeeping block EXACTLY in this form and write nothing after it. The reader never sees it:\n<<ARC>>\ntrend: <one short clause on where the hero is trending internally now>\nquestions: <0 to 2 open internal questions separated by " | ", or "none">\nmovement: <one sentence on how THIS session moved the hero\'s own journey>\n<</ARC>>'
             : '',
         ].filter(Boolean).join('\n'),
       },
@@ -293,9 +299,15 @@ export function SessionTrail({
       const now = Date.now();
       const allRecords = sessions.flatMap((s) => s.records);
       const continuity = formatThreadContext(threadContextForSession(session, allRecords, now), now);
-      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length, session.register, includeArc, continuity);
-      const chapters = parseChapters(res.text).map((c) => ({ title: c.title, text: cleanRecapText(c.text) }));
-      const record: SessionRecapRecord = { text: res.text, chapters, savedAt: Date.now(), modelId: res.model };
+      const priorArc = includeArc ? loadArcState(characterKey) : null;
+      const innerJourney = includeArc ? formatArcForPrompt(priorArc) : null;
+      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length, session.register, includeArc, continuity, innerJourney);
+      // Pull the hidden arc-update block out before parsing chapters, and carry
+      // the inner journey forward for the next chapter.
+      const { stripped, update } = parseArcUpdate(res.text);
+      if (includeArc && update) saveArcState(characterKey, applyArcUpdate(priorArc, update, now));
+      const chapters = parseChapters(stripped).map((c) => ({ title: c.title, text: cleanRecapText(c.text) }));
+      const record: SessionRecapRecord = { text: stripped, chapters, savedAt: Date.now(), modelId: res.model };
       // If it was already published, re-publish the fresh set in place.
       if (published) record.committedEntryIds = writeRecapToChronicle(session, record);
       saveSessionRecap(characterKey, session.id, record);
