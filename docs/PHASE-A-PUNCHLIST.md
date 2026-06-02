@@ -37,10 +37,11 @@ The actual build work. Bounded; ~5–6 working days end-to-end.
     do-not-sync (kept locally, never pushed) rather than polluting the account.
     Documented in `companion-architecture.md` §6.
   - Effort: **2–3 days**.
-- [ ] **E2. Privacy + Terms routes** at `/privacy` and `/terms`.
+- [x] **E2. Privacy + Terms routes** at `/privacy` and `/terms`. ✅ *(impl: `src/components/LegalPage.tsx`, routed in `main.tsx`; footer links wired)*
   - Wire into the SPA fallback the way `/auth/callback` is. Real React
     components, not external links.
-  - Effort: **half day** of routing once the content (W1, W2) is drafted.
+  - Lawyer-light content drafted inline (W1/W2 effectively done as a first
+    pass — still wants counsel review before Phase B). Effort: **half day**.
 - [ ] **E3. Feedback button** in-app.
   - Modal with: rating (1–5 stars), one-line gut reaction, optional
     comment, optional email-back permission.
@@ -317,7 +318,29 @@ silently default to whatever I happened to write.
 Add entries here as work lands so future-you remembers what got decided
 and why.
 
-*(Empty — first entry goes here when work starts.)*
+### 2026-06-02 — Legal pages + full landing reframe
+
+- **E2 (Privacy + Terms)** shipped. `src/components/LegalPage.tsx` exports
+  `PrivacyPage` + `TermsPage`, routed at `/privacy` and `/terms` via the SPA
+  fallback. Lawyer-light content drafted inline — honest about the
+  network-free addon, BYOK key handling, what Supabase stores, the OpenRouter
+  chain. Still wants counsel review before Phase B (LG3). Footer Privacy/Terms
+  links wired (dropped the unused Cookies link).
+- **Landing reframe (LP1–LP8) complete**, all behind a single
+  `PHASE_A_MODE = true` flag in `LandingPage.tsx` (flip to false when
+  Companion/Phase D ships to restore the full marketing landing):
+  - LP1 early-testing note above pricing; LP2 magic-moment section + phone
+    mockup hidden; LP3 onboarding rewritten to the honest BYOK/file-drop flow;
+    LP4 phase-aware FAQ + new "What stage is Aftertale at?" lead item; LP5
+    hero trust line fixed to the §10 wording ("the free tier is always free");
+    LP6 "Coming soon" badges on Companion-only feature tiles; LP7 dismissible
+    early-testing banner; LP8 supported strip "Currently supports WoW".
+- **Open decisions resolved** (Part 6): landing "Sign in" CTA → "Open the app"
+  (option 2); pricing display → "Coming soon" note (not hidden, not priced).
+- **Still open / not started:** E3 (feedback button + migration), E4 (addon
+  GitHub Release), E5 (Discord wiring), all of Ops (O1 env flip, O2 Discord,
+  O3 email, O4 external smoke), cohort prep (K1–K3), LG1 trademark search.
+  The remaining engineering item in my lane is **E3**.
 
 ---
 
