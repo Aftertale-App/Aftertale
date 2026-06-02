@@ -2118,15 +2118,19 @@ button.at-sheet-pill:focus-visible {
   line-height: 1.55;
 }
 
-.at-chronicle-entry-body > p:first-child .at-entry-leadword,
-.at-chronicle-entry-body > ul:first-child + p .at-entry-leadword {
+/* Illuminated drop cap on the first letter of an entry's opening paragraph.
+   The JS only emits one .at-chronicle-dropcap per entry, so no first-child
+   scoping is needed. Floats over ~2.5 lines, manuscript-style. */
+.at-chronicle-entry-body .at-chronicle-dropcap {
+  float: left;
   font-family: var(--font-display);
-  font-size: 1.15em;
-  line-height: 1;
+  font-size: 3.2em;
+  line-height: 0.66;
+  margin: 0.04em 0.1em 0 0;
+  padding-top: 0.02em;
   color: var(--gold-bright);
-  letter-spacing: 0.04em;
   font-weight: 600;
-  margin-right: 0.1em;
+  text-shadow: 0 2px 12px rgba(212, 163, 115, 0.35);
 }
 
 .at-entry-label {

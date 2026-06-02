@@ -545,17 +545,25 @@ function renderEntryParagraphs(raw: string) {
   const blocks = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   if (blocks.length === 0) return <p>{text}</p>;
   let leadApplied = false;
+  // Traditional illuminated drop cap: float the first *letter* big, let the
+  // rest of the text wrap around it. Skips a leading opening quote/punctuation
+  // so the cap lands on the first actual letter.
+  const renderLead = (content: string) => {
+    const m = content.match(/^(\s*["'“‘(]?\s*)(\p{L}|\p{N})([\s\S]*)$/u);
+    if (!m) return content;
+    const [, pre, cap, rest] = m;
+    return (
+      <>
+        {pre}
+        <span className="at-chronicle-dropcap">{cap}</span>
+        {rest}
+      </>
+    );
+  };
   const renderPlainPara = (content: string, key: number) => {
     if (leadApplied) return <p key={key}>{content}</p>;
     leadApplied = true;
-    const m = content.match(/^(\S+)(\s+)([\s\S]*)$/);
-    if (!m) return <p key={key}><span className="at-entry-leadword">{content}</span></p>;
-    const [, lead, gap, rest] = m;
-    return (
-      <p key={key}>
-        <span className="at-entry-leadword">{lead}</span>{gap}{rest}
-      </p>
-    );
+    return <p key={key}>{renderLead(content)}</p>;
   };
   return (
     <>
@@ -580,14 +588,7 @@ function renderEntryParagraphs(raw: string) {
           const [firstLine, ...rest] = lines;
           if (!leadApplied) {
             leadApplied = true;
-            const m = firstLine.match(/^(\S+)(\s+)([\s\S]*)$/);
-            const head = m ? (
-              <>
-                <span className="at-entry-leadword">{m[1]}</span>{m[2]}{m[3]}
-              </>
-            ) : (
-              <span className="at-entry-leadword">{firstLine}</span>
-            );
+            const head = renderLead(firstLine);
             return (
               <p key={i}>
                 {head}
