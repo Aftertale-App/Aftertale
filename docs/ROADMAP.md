@@ -174,6 +174,17 @@ Candidate items (none committed):
 - Multi-WoW-account households if §10 TODO resolves toward "support it"
 - Community lore graph (shared NPC knowledge, opt-in)
 - Discord posting of chapter summaries
+- **"Continue with Discord" sign-in** — strong audience fit (WoW players
+  live in Discord; one-click beats typing a 6-digit OTP). Add it *alongside*
+  email-OTP, not as a replacement. **Critical:** the anonymous→account
+  upgrade path must use Supabase `linkIdentity({ provider: 'discord' })`,
+  NOT `signInWithOAuth`, so the anonymous `user.id` (the stable `owner_id`)
+  is preserved and on-device chronicle data isn't stranded. Reserve
+  `signInWithOAuth` for the returning-user-on-fresh-device case. Plumbing is
+  half-there: the legacy `/auth/callback` + `exchangeCode()` PKCE path
+  (auth.ts) is the same code-exchange flow OAuth needs. Requires a Discord
+  app (client id/secret in Supabase provider config — not the bundle) +
+  redirect URLs in the Discord dev portal and Supabase.
 
 ## Known issues — round-trip rework (2026-05-25 stress test)
 
