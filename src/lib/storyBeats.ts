@@ -30,6 +30,20 @@ export const STORY_BEAT_KINDS: ReadonlySet<AddonEventKind> = new Set([
   'instance_enter_first',
   'boss_kill',
   'instance_complete',
+  // Downtime register
+  'profession_first',
+  'profession_rank',
+  'profession_session',
+  'recipe_learned',
+  'crafted_notable',
+  'wealth_milestone',
+  // Martial register
+  'battleground',
+  'arena_match',
+  'rating_milestone',
+  'world_pvp',
+  'duel',
+  'honor_milestone',
 ]);
 
 const QUALITY_ORDER: LootQuality[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
@@ -75,6 +89,20 @@ export const BEAT_WEIGHTS: Record<AddonEventKind, number> = {
   level_up: 1.5,             // milestone, rarer than quests
   instance_enter_first: 1.5, // new place, new stakes
   item_loot: 1,              // base; refined by quality below
+  // Downtime register
+  profession_rank: 2,        // crossed a named rank
+  profession_first: 1.5,     // took up a craft for the first time
+  profession_session: 1,     // a session of patient grind, rolled up
+  recipe_learned: 1.5,       // mastered a recipe (notable bumped in beatWeight)
+  crafted_notable: 2,        // forged something worth keeping
+  wealth_milestone: 1.5,     // a fortune turned (big thresholds bumped)
+  // Martial register
+  battleground: 2.5,         // a full match (loss trimmed in beatWeight)
+  arena_match: 2.5,          // a rated bout
+  rating_milestone: 2,       // crossed a rated threshold
+  world_pvp: 1.5,            // a zone killstreak, rolled up
+  duel: 1,                   // settled it behind the inn
+  honor_milestone: 1.5,      // a PvP rank / honor threshold
 } as Record<AddonEventKind, number>;
 
 const LOOT_QUALITY_WEIGHT: Record<LootQuality, number> = {
@@ -89,7 +117,54 @@ const LOOT_QUALITY_WEIGHT: Record<LootQuality, number> = {
 export function beatWeight(event: AddonEvent, settings: StoryBeatSettings = DEFAULT_STORY_BEAT_SETTINGS): number {
   if (!isStoryBeat(event, settings)) return 0;
   if (event.kind === 'item_loot') return LOOT_QUALITY_WEIGHT[event.itemQuality ?? 'common'];
-  return BEAT_WEIGHTS[event.kind] ?? 1;
+  let w = BEAT_WEIGHTS[event.kind] ?? 1;
+  // A battleground/arena loss still earns a beat, just a slightly lighter one.
+  if ((event.kind === 'battleground' || event.kind === 'arena_match') && event.pvp?.won === false) w -= 0.5;
+  // Big fortunes and notable recipes weigh a touch more.
+  if (event.kind === 'wealth_milestone' && (event.wealth?.thresholdCopper ?? 0) >= 10_000 * 10_000) w += 0.5;
+  if (event.kind === 'recipe_learned' && event.profession?.itemQuality && event.profession.itemQuality !== 'common' && event.profession.itemQuality !== 'uncommon') w += 0.5;
+  return w;
+}
+
+// ----------------------------------------------------------------------------
+// Session register — the narrative voice a session earns, from which beats
+// dominate its weight. The single most important concept for landing the
+// non-combat storytelling: a fishing night must not be narrated like a raid.
+// See docs/capture-expansion-scope.md §1.
+// ----------------------------------------------------------------------------
+export type SessionRegister = 'adventuring' | 'downtime' | 'martial';
+
+const REGISTER_BY_KIND: Partial<Record<AddonEventKind, SessionRegister>> = {
+  profession_first: 'downtime', profession_rank: 'downtime', profession_session: 'downtime',
+  recipe_learned: 'downtime', crafted_notable: 'downtime', wealth_milestone: 'downtime',
+  battleground: 'martial', arena_match: 'martial', rating_milestone: 'martial',
+  world_pvp: 'martial', duel: 'martial', honor_milestone: 'martial',
+  // everything else (quests, kills, zones, levels, instances) is adventuring
+};
+
+export function registerForKind(kind: AddonEventKind): SessionRegister {
+  return REGISTER_BY_KIND[kind] ?? 'adventuring';
+}
+
+/**
+ * Classify a session into the register that should set its narrative voice, by
+ * summing beat weight per register and taking the max. Ties break toward the
+ * rarer/spikier story winning the voice: martial > adventuring > downtime.
+ * Returns 'adventuring' for an empty/beatless session.
+ */
+export function classifyRegister(records: AddonEventRecord[], settings?: StoryBeatSettings): SessionRegister {
+  const totals: Record<SessionRegister, number> = { adventuring: 0, downtime: 0, martial: 0 };
+  for (const r of records) {
+    const w = beatWeight(r.event, settings);
+    if (w > 0) totals[registerForKind(r.event.kind)] += w;
+  }
+  const order: SessionRegister[] = ['martial', 'adventuring', 'downtime'];
+  let best: SessionRegister = 'adventuring';
+  let bestVal = -1;
+  for (const reg of order) {
+    if (totals[reg] > bestVal) { bestVal = totals[reg]; best = reg; }
+  }
+  return bestVal <= 0 ? 'adventuring' : best;
 }
 
 /** Total narrative weight of a session — the scaling signal for chapter length. */
@@ -174,6 +249,40 @@ export function beatLabel(event: AddonEvent): string {
       return labelWithFallback('Boss kill', event.unitName ?? event.npcName, event.summary);
     case 'instance_complete':
       return labelWithFallback('Instance complete', event.zone ?? event.subZone, event.summary);
+    case 'profession_first':
+      return labelWithFallback('Took up', event.profession?.skill, event.summary);
+    case 'profession_rank':
+      return event.profession?.skill && event.profession?.rank
+        ? `${event.profession.skill}: ${event.profession.rank}`
+        : labelWithFallback('Rank', event.profession?.rank, event.summary);
+    case 'profession_session':
+      return event.profession?.skill && typeof event.profession.from === 'number' && typeof event.profession.to === 'number'
+        ? `${event.profession.skill} ${event.profession.from} to ${event.profession.to}`
+        : labelWithFallback('Practiced', event.profession?.skill, event.summary);
+    case 'recipe_learned':
+      return labelWithFallback('Learned', event.profession?.recipe, event.summary);
+    case 'crafted_notable':
+      return labelWithFallback('Crafted', event.profession?.itemName ?? event.itemName, event.summary);
+    case 'wealth_milestone':
+      return labelWithFallback('Wealth', event.wealth?.aspiration, event.summary);
+    case 'battleground':
+      return labelWithFallback(event.pvp?.won ? 'Won' : 'Fought', event.pvp?.battleground, event.summary);
+    case 'arena_match':
+      return event.pvp?.bracket
+        ? `Arena ${event.pvp.bracket}: ${event.pvp.won ? 'win' : 'loss'}`
+        : labelWithFallback('Arena', event.pvp?.won ? 'win' : 'loss', event.summary);
+    case 'rating_milestone':
+      return typeof event.pvp?.ratingMilestone === 'number'
+        ? `Reached ${event.pvp.ratingMilestone} rating`
+        : labelWithFallback('Rating', undefined, event.summary);
+    case 'world_pvp':
+      return typeof event.pvp?.killStreak === 'number'
+        ? `${event.pvp.killStreak} felled in ${event.pvp.zone ?? 'the field'}`
+        : labelWithFallback('World PvP', event.pvp?.zone, event.summary);
+    case 'duel':
+      return labelWithFallback('Duel', event.pvp?.opponentName, event.summary);
+    case 'honor_milestone':
+      return labelWithFallback('Honor', event.pvp?.honorMilestone, event.summary);
     default:
       return event.summary;
   }
@@ -206,6 +315,30 @@ export function beatGlyph(kind: AddonEventKind): string {
       return '⚔';
     case 'instance_complete':
       return '🏁';
+    case 'profession_first':
+      return '🔰';
+    case 'profession_rank':
+      return '🔨';
+    case 'profession_session':
+      return '⚒';
+    case 'recipe_learned':
+      return '📜';
+    case 'crafted_notable':
+      return '✨';
+    case 'wealth_milestone':
+      return '💰';
+    case 'battleground':
+      return '⚔';
+    case 'arena_match':
+      return '🏟';
+    case 'rating_milestone':
+      return '📈';
+    case 'world_pvp':
+      return '🗡';
+    case 'duel':
+      return '🤺';
+    case 'honor_milestone':
+      return '🎖';
     default:
       return '•';
   }

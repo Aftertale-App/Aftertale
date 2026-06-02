@@ -25,6 +25,20 @@ export type AddonEventKind =
   | 'instance_enter_first'
   | 'boss_kill'
   | 'instance_complete'
+  // Downtime register — professions, gathering, wealth (see capture-expansion-scope.md)
+  | 'profession_first'
+  | 'profession_rank'
+  | 'profession_session'
+  | 'recipe_learned'
+  | 'crafted_notable'
+  | 'wealth_milestone'
+  // Martial register — PvP
+  | 'battleground'
+  | 'arena_match'
+  | 'rating_milestone'
+  | 'world_pvp'
+  | 'duel'
+  | 'honor_milestone'
   | 'unknown';
 
 export type WowEventName =
@@ -147,6 +161,59 @@ export interface LootItem {
   quality?: number;
 }
 
+// Downtime-register detail (professions, gathering, wealth). Optional, only
+// present on the relevant kinds.
+export interface ProfessionDetail {
+  skill?: string;        // "Blacksmithing", "Fishing", "Cooking", "Mining"…
+  from?: number;         // session-rollup start skill value
+  to?: number;           // session-rollup end / current skill value
+  rank?: string;         // named rank crossed (Classic): "Journeyman", "Artisan"…
+  recipe?: string;       // mastered recipe name
+  itemName?: string;     // crafted notable item
+  itemQuality?: LootQuality;
+}
+
+export interface WealthDetail {
+  copper?: number;          // current total wealth, in copper
+  thresholdCopper?: number; // the gold threshold just crossed, in copper
+  // Narrator hint for the aspiration this wealth unlocks ("a first real mount",
+  // "the epic mount within reach"). We narrate the meaning, never the number.
+  aspiration?: string;
+}
+
+// Martial-register detail (battlegrounds, arenas, world PvP, duels).
+export interface PvpDetail {
+  battleground?: string;    // "Warsong Gulch", "Arathi Basin"…
+  bracket?: string;         // arena bracket: "2v2", "3v3" — or BG size
+  isArena?: boolean;
+  won?: boolean;
+  durationSec?: number;
+  // After-action stats (from the scoreboard API; no combat log needed).
+  killingBlows?: number;
+  honorableKills?: number;
+  deaths?: number;
+  honor?: number;
+  damage?: number;
+  healing?: number;
+  // Rated.
+  rating?: number;
+  ratingDelta?: number;
+  ratingMilestone?: number; // crossed bracket (1500/1800/2000…)
+  // Rivalry (real names ship on). rival = enemy standout from the scoreboard;
+  // killer = best-effort "who killed me"; opponent = duel / world-pvp target.
+  rivalName?: string;
+  rivalClass?: string;
+  rivalRace?: string;
+  killerName?: string;
+  opponentName?: string;
+  opponentClass?: string;
+  // World PvP.
+  zone?: string;
+  killStreak?: number;      // aggregated kills in a zone streak
+  // Honor / PvP rank milestones.
+  honorMilestone?: string;  // "Grunt", "Knight", or an HK threshold label
+}
+
 export interface AddonEvent {
   id: string;
   source: AddonEventSource;
@@ -184,6 +251,10 @@ export interface AddonEvent {
   // Populated for LOOT_OPENED from `enrichment.loot[]`. The web filter
   // can gate this event by minimum quality before deciding to enrich.
   loot?: LootItem[];
+  // Capture-expansion detail, present only on the relevant kinds.
+  profession?: ProfessionDetail;
+  wealth?: WealthDetail;
+  pvp?: PvpDetail;
   sessionId?: string;
   summary: string;
   storyCard?: QuestStoryCard;
@@ -285,6 +356,31 @@ export function createSimulatorSessionEvent(
       : isEnd
         ? `${name} ended the play session${zone ? ` in ${zone}` : ''}.`
         : `${name} died${zone ? ` in ${zone}` : ''}.`,
+  };
+}
+
+// Build a simulator event for a capture-expansion beat (profession / wealth /
+// PvP). Used by the Addon Simulator to exercise the Downtime + Martial
+// registers without a live addon. `wowEvent` is cosmetic for these (they're
+// derived from CHAT_MSG_* / scoreboard, not a single WoW event), so we tag a
+// reasonable source event for the log.
+export function createSimulatorActivityEvent(
+  kind: AddonEventKind,
+  fields: Partial<AddonEvent> & { summary: string },
+  bible: Pick<CharacterBible, 'name' | 'level' | 'currentZone'> | null,
+  sessionId: string,
+  timestamp = Date.now(),
+): AddonEvent {
+  return {
+    id: `addon_${kind}_${timestamp.toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    source: 'simulator',
+    kind,
+    wowEvent: 'COMBAT_LOG_EVENT_UNFILTERED',
+    timestamp,
+    sessionId,
+    zone: bible?.currentZone,
+    playerLevel: bible?.level,
+    ...fields,
   };
 }
 

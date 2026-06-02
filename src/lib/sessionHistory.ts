@@ -1,6 +1,6 @@
 import type { AddonEvent, AddonEventKind, QuestObjective, QuestRewards } from './addonEvents';
 import type { AddonEventRecord } from './addonEventStore';
-import { pickStoryBeats } from './storyBeats';
+import { pickStoryBeats, classifyRegister, type SessionRegister } from './storyBeats';
 import type { StoryBeatSettings } from './storyBeatSettings';
 
 const SESSION_IDLE_GAP_MS = 9 * 60 * 60 * 1000;
@@ -30,6 +30,10 @@ export interface ChronicleSession {
   endZone?: string;
   records: AddonEventRecord[];
   stats: ChronicleSessionStats;
+  // The narrative voice this session earns (adventuring / downtime / martial),
+  // from which beats dominate its weight. Drives significance copy + the recap
+  // prompt's voice block.
+  register: SessionRegister;
   title: string;
   campfireRecap: string;
 }
@@ -164,6 +168,7 @@ function buildSession(bucket: SessionBucket, index: number, heroName: string): C
     endZone: endEvent.zone ?? zonesVisited[zonesVisited.length - 1],
     records,
     stats,
+    register: classifyRegister(records),
     title: sessionTitle(index, records, zonesVisited),
     campfireRecap: '',
   };

@@ -3,8 +3,10 @@ import { CLASSIC_QUEST_CHAINS } from '../lib/classicQuestFixtures';
 import {
   createSimulatorEvent,
   createSimulatorSessionEvent,
+  createSimulatorActivityEvent,
   formatEventLabel,
   type AddonEvent,
+  type AddonEventKind,
   type AddonEventTemplate,
   type SimulatorEventOptions,
   type QuestChainFixture,
@@ -172,6 +174,44 @@ export function AddonSimulator() {
     setLastResult(`Full simulated session complete — ${result.message}`);
   }
 
+  // Emit a whole synthetic session of one register so the Downtime / Martial
+  // chapter voices can be tested end-to-end without a live addon.
+  function emitActivitySession(label: string, beats: Array<[AddonEventKind, Partial<AddonEvent> & { summary: string }]>) {
+    const sessionId = `sim_session_${Date.now().toString(36)}`;
+    let t = Date.now();
+    ingestAddonEvent(createSimulatorSessionEvent('session_start', bible, sessionId, t));
+    for (const [kind, fields] of beats) {
+      t += 60_000;
+      ingestAddonEvent(createSimulatorActivityEvent(kind, fields, bible, sessionId, t));
+    }
+    t += 60_000;
+    const result = ingestAddonEvent(createSimulatorSessionEvent('session_end', loadBible(), sessionId, t));
+    setCurrentSessionId(null);
+    setLastResult(`${label} simulated — ${result.message}`);
+  }
+
+  function emitDowntimeSession() {
+    emitActivitySession('Downtime session', [
+      ['profession_first', { summary: 'Took up Blacksmithing.', profession: { skill: 'Blacksmithing' } }],
+      ['profession_session', { summary: 'Blacksmithing 180 to 225.', profession: { skill: 'Blacksmithing', from: 180, to: 225 } }],
+      ['profession_rank', { summary: 'Became an Artisan Blacksmith.', profession: { skill: 'Blacksmithing', rank: 'Artisan' } }],
+      ['profession_session', { summary: 'Cooking 60 to 110.', profession: { skill: 'Cooking', from: 60, to: 110 } }],
+      ['recipe_learned', { summary: 'Learned to forge a Massive Iron Axe.', profession: { skill: 'Blacksmithing', recipe: 'Massive Iron Axe', itemQuality: 'rare' } }],
+      ['crafted_notable', { summary: 'Forged the Massive Iron Axe.', profession: { itemName: 'Massive Iron Axe', itemQuality: 'rare' } }],
+      ['wealth_milestone', { summary: 'Crossed a thousand gold.', wealth: { copper: 1000 * 10000, thresholdCopper: 1000 * 10000, aspiration: 'enough to finally afford a mount of their own' } }],
+    ]);
+  }
+
+  function emitMartialSession() {
+    emitActivitySession('Martial session', [
+      ['battleground', { summary: 'Won Warsong Gulch.', pvp: { battleground: 'Warsong Gulch', won: true, durationSec: 720, killingBlows: 8, honorableKills: 19, deaths: 3, honor: 410, rivalName: 'Grimfang', rivalClass: 'Rogue', rivalRace: 'Undead' } }],
+      ['battleground', { summary: 'Lost Arathi Basin.', pvp: { battleground: 'Arathi Basin', won: false, durationSec: 980, killingBlows: 5, honorableKills: 22, deaths: 6, honor: 360, rivalName: 'Grimfang', rivalClass: 'Rogue', rivalRace: 'Undead', killerName: 'Grimfang' } }],
+      ['battleground', { summary: 'Won Warsong Gulch.', pvp: { battleground: 'Warsong Gulch', won: true, durationSec: 540, killingBlows: 11, honorableKills: 17, deaths: 2, honor: 450 } }],
+      ['duel', { summary: 'Won a duel against Tovin.', pvp: { opponentName: 'Tovin', opponentClass: 'Warrior', won: true } }],
+      ['world_pvp', { summary: 'A killstreak in Hillsbrad.', pvp: { zone: 'Hillsbrad Foothills', killStreak: 6 } }],
+    ]);
+  }
+
   function clearLog() {
     const label = activeCharacterKey ? 'this hero' : 'all heroes';
     if (!window.confirm(`Clear addon simulator event records for ${label}? Character history is not changed.`)) return;
@@ -253,6 +293,17 @@ export function AddonSimulator() {
               </button>
               <button className="at-btn at-btn-secondary" onClick={emitFullChainSession}>
                 Run full chain as session
+              </button>
+            </div>
+            <p className="muted" style={{ margin: '0.75rem 0 0.35rem', fontSize: 13 }}>
+              Register test sessions — exercise the Downtime / Martial chapter voices:
+            </p>
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <button className="at-btn at-btn-secondary" onClick={emitDowntimeSession}>
+                ⚒ Downtime session (crafting)
+              </button>
+              <button className="at-btn at-btn-secondary" onClick={emitMartialSession}>
+                ⚔ Martial session (PvP)
               </button>
             </div>
           </div>

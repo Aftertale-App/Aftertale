@@ -13,6 +13,7 @@ import {
   CHAPTER_LENGTHS, CHAPTER_LENGTH_ORDER,
   type ChapterLength, type ChapterLengthId,
 } from '../lib/storyBeats';
+import type { SessionRegister } from '../lib/storyBeats';
 import { calculateCost } from '../pricing';
 import type { CharacterBible, HistoryEntry, LLMResponse } from '../types';
 
@@ -55,10 +56,26 @@ function extractRecapTitle(raw: string): string | null {
   return title || null;
 }
 
+// The voice a chapter is written in, chosen by the session's register. This is
+// the heart of landing non-combat storytelling: a fishing night must read like
+// a fishing night, a battleground like a battle. See capture-expansion-scope §1.
+const REGISTER_VOICE: Record<SessionRegister, string[]> = {
+  adventuring: [
+    'VOICE — Adventuring: the hero\'s-journey register. Momentum and stakes: the road taken, the choice made, what it cost and what it opened. Forward motion.',
+  ],
+  downtime: [
+    'VOICE — Downtime (slice-of-life): this was a quiet session of craft, trade, or provisioning, NOT combat. Write it that way. Patience, mastery, the texture of the work — the heat of the forge, the lake at first light, the weight of coin earned honestly. Small triumphs land as small triumphs. Contemplative and grounded; do NOT manufacture danger or epic stakes that were not there. The quiet between adventures is the story.',
+  ],
+  martial: [
+    'VOICE — Martial (glory and rivalry): this session was player-versus-player combat. Write the rush and the cost — the choke point held, the flag run, the rival who kept finding you, the hard-fought loss as much as the win. Name opponents where the facts give names; let rivalries carry across the prose. Visceral and tense, with the honor and bitterness real PvP carries.',
+  ],
+};
+
 async function requestCampfireRecap(
   modelIdx: number,
   prompt: string,
   length: ChapterLength,
+  register: SessionRegister,
 ): Promise<LLMResponse> {
   const choice = MODEL_CHOICES[modelIdx];
   const provider = await choice.factory();
@@ -75,6 +92,8 @@ async function requestCampfireRecap(
           'Write polished story prose from structured character-history notes.',
           'Use only the provided facts. Do not invent completed quests, locations, NPC relationships, or outcomes.',
           'Keep the hero as the subject. Do not mention prompts, models, localStorage, UI tabs, or the app.',
+          '',
+          ...REGISTER_VOICE[register],
           '',
           'STYLE RULES (strict):',
           '- Never use em dashes (—) or en dashes (–). If you would reach for one, use a comma, semicolon, or period instead. Two hyphens (--) are also forbidden.',
@@ -241,7 +260,7 @@ export function SessionTrail({
     setBusySessionId(session.id);
     setSessionError(null);
     try {
-      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length);
+      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length, session.register);
       const committed = published ? writeRecapToChronicle(session, res.text) : null;
       saveSessionRecap(characterKey, session.id, {
         text: res.text,
@@ -523,27 +542,26 @@ function SessionCard({
 }
 
 
-// Plain-language read of the session: recognition of the player's own deeds +
-// the size of chapter that earns. No scores, no weights, no jargon.
-function describeSessionSignificance(session: ChronicleSession, lengthId: ChapterLengthId): string {
-  const st = session.stats;
-  const dungeonCleared = session.records.some((r) => r.event.kind === 'instance_complete');
-  const bossKills = session.records.filter((r) => r.event.kind === 'boss_kill').length;
-  const highlights: string[] = [];
-  if (st.questsCompleted > 0) highlights.push(`wrapped ${st.questsCompleted} quest${st.questsCompleted === 1 ? '' : 's'}`);
-  if (st.levelsGained > 0) {
-    highlights.push(
-      typeof session.endLevel === 'number'
-        ? `reached level ${session.endLevel}`
-        : `gained ${st.levelsGained} level${st.levelsGained === 1 ? '' : 's'}`,
-    );
-  }
-  if (dungeonCleared) highlights.push('cleared a dungeon');
-  else if (bossKills > 0) highlights.push(`felled ${bossKills} boss${bossKills === 1 ? '' : 'es'}`);
-  if (st.deaths > 0) highlights.push(st.deaths === 1 ? 'met death once' : `died ${st.deaths} times`);
-  if (highlights.length === 0 && st.notableItems.length > 0) highlights.push(`found ${st.notableItems[0]}`);
+// Per-register lead phrasing, indexed by chapter size.
+const REGISTER_LEAD: Record<SessionRegister, Record<ChapterLengthId, string>> = {
+  adventuring: { quick: 'A quick run', full: 'A solid session', epic: 'A big night' },
+  downtime: { quick: 'A quiet hour', full: 'A productive evening', epic: 'A long evening of patient work' },
+  martial: { quick: 'A quick scrap', full: 'A night in the fray', epic: 'A long night of battle' },
+};
 
-  const lead = lengthId === 'epic' ? 'A big night' : lengthId === 'full' ? 'A solid session' : 'A quick run';
+// Plain-language read of the session: recognition of the player's own deeds +
+// the size of chapter that earns. No scores, no weights, no jargon. The
+// highlights pulled depend on the session's register so a craft night reads
+// like a craft night.
+function describeSessionSignificance(session: ChronicleSession, lengthId: ChapterLengthId): string {
+  const highlights =
+    session.register === 'downtime'
+      ? downtimeHighlights(session)
+      : session.register === 'martial'
+        ? martialHighlights(session)
+        : adventuringHighlights(session);
+
+  const lead = REGISTER_LEAD[session.register][lengthId];
   const tail =
     lengthId === 'epic'
       ? "This one's earned a long, multi-part chapter."
@@ -557,6 +575,68 @@ function describeSessionSignificance(session: ChronicleSession, lengthId: Chapte
   const list =
     top.length === 1 ? top[0] : top.length === 2 ? `${top[0]} and ${top[1]}` : `${top[0]}, ${top[1]}, and ${top[2]}`;
   return `${lead} — ${list}. ${tail}`;
+}
+
+function adventuringHighlights(session: ChronicleSession): string[] {
+  const st = session.stats;
+  const dungeonCleared = session.records.some((r) => r.event.kind === 'instance_complete');
+  const bossKills = session.records.filter((r) => r.event.kind === 'boss_kill').length;
+  const h: string[] = [];
+  if (st.questsCompleted > 0) h.push(`wrapped ${st.questsCompleted} quest${st.questsCompleted === 1 ? '' : 's'}`);
+  if (st.levelsGained > 0) {
+    h.push(typeof session.endLevel === 'number' ? `reached level ${session.endLevel}` : `gained ${st.levelsGained} level${st.levelsGained === 1 ? '' : 's'}`);
+  }
+  if (dungeonCleared) h.push('cleared a dungeon');
+  else if (bossKills > 0) h.push(`felled ${bossKills} boss${bossKills === 1 ? '' : 'es'}`);
+  if (st.deaths > 0) h.push(st.deaths === 1 ? 'met death once' : `died ${st.deaths} times`);
+  if (h.length === 0 && st.notableItems.length > 0) h.push(`found ${st.notableItems[0]}`);
+  return h;
+}
+
+function downtimeHighlights(session: ChronicleSession): string[] {
+  const h: string[] = [];
+  for (const r of session.records) {
+    const e = r.event;
+    if (e.kind === 'profession_session' && e.profession?.skill && typeof e.profession.from === 'number' && typeof e.profession.to === 'number') {
+      h.push(`${e.profession.skill} ${e.profession.from} to ${e.profession.to}`);
+    } else if (e.kind === 'profession_rank' && e.profession?.skill && e.profession?.rank) {
+      h.push(`made ${e.profession.rank} in ${e.profession.skill}`);
+    } else if (e.kind === 'profession_first' && e.profession?.skill) {
+      h.push(`took up ${e.profession.skill}`);
+    } else if (e.kind === 'recipe_learned' && e.profession?.recipe) {
+      h.push(`learned ${e.profession.recipe}`);
+    } else if (e.kind === 'crafted_notable' && (e.profession?.itemName || e.itemName)) {
+      h.push(`crafted ${e.profession?.itemName ?? e.itemName}`);
+    } else if (e.kind === 'wealth_milestone' && e.wealth?.aspiration) {
+      h.push(e.wealth.aspiration);
+    }
+  }
+  return dedupe(h);
+}
+
+function martialHighlights(session: ChronicleSession): string[] {
+  const h: string[] = [];
+  let bgWins = 0, bgLosses = 0, duels = 0, kills = 0;
+  for (const r of session.records) {
+    const e = r.event;
+    if (e.kind === 'battleground') { e.pvp?.won ? bgWins++ : bgLosses++; }
+    else if (e.kind === 'arena_match') { h.push(`an arena bout (${e.pvp?.won ? 'won' : 'lost'})`); }
+    else if (e.kind === 'rating_milestone' && e.pvp?.ratingMilestone) { h.push(`reached ${e.pvp.ratingMilestone} rating`); }
+    else if (e.kind === 'duel') { duels++; }
+    else if (e.kind === 'world_pvp') { kills += e.pvp?.killStreak ?? 1; }
+    else if (e.kind === 'honor_milestone' && e.pvp?.honorMilestone) { h.push(`earned the rank of ${e.pvp.honorMilestone}`); }
+  }
+  if (bgWins + bgLosses > 0) {
+    const total = bgWins + bgLosses;
+    h.unshift(`fought ${total} battleground${total === 1 ? '' : 's'}${bgWins > 0 ? ` (${bgWins} won)` : ''}`);
+  }
+  if (kills > 0) h.push(`felled ${kills} in open-world combat`);
+  if (duels > 0) h.push(`settled ${duels} duel${duels === 1 ? '' : 's'}`);
+  return dedupe(h);
+}
+
+function dedupe(items: string[]): string[] {
+  return Array.from(new Set(items));
 }
 
 function ChapterLengthControl({
