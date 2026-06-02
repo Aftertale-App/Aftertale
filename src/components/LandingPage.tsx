@@ -44,10 +44,66 @@ function gotoApp() {
   window.location.hash = '#app';
 }
 
+// Phase A (Friends & Strangers) honesty mode. The live landing markets the full
+// multi-tier product; during the closed cohort we only ship the manual BYOK
+// free tier, so this flag gates / reframes every line that promises Companion
+// (auto-capture, push, phone delivery, paid tiers) down to what's actually
+// true today. Flip to false when Phase D (Companion) ships to restore the full
+// marketing landing. See docs/PHASE-A-PUNCHLIST.md §2.1.
+const PHASE_A_MODE = true;
+
+const PHASE_A_BANNER_KEY = 'at.phaseA.bannerDismissed';
+
+// "From signup to first chapter" — honest about the manual BYOK flow during
+// Phase A (no auto-capture, no push). The full-launch version below promises
+// the Companion magic moment and is restored when PHASE_A_MODE is off.
+const ONBOARD_STEPS_PHASE_A = [
+  { title: 'Start free', body: "Open Aftertale and create your hero. Paste your own AI key (OpenRouter) — the free tier runs on your key, so you stay in control of the cost." },
+  { title: 'Shape your hero', body: 'Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero bible you can refine.' },
+  { title: 'Install the addon', body: 'Download the Aftertale addon and let it run while you play. It records your story moments to a local file — it never controls your character or touches the game.' },
+  { title: 'Bring your session in', body: "After you play, drop your SavedVariables file into Aftertale's Inkwell. That's the one manual step the free tier asks of you." },
+  { title: 'Read the chapter', body: 'Hit Enrich and read your chapter: your session, written as prose with your hero at the center of it.' },
+];
+
+const ONBOARD_STEPS_FULL = [
+  { title: 'Start free', body: 'Create your account in under a minute. No credit card required. One hero is enough to begin the tale.' },
+  { title: 'Shape your hero', body: 'Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero bible you can refine.' },
+  { title: 'Connect your game', body: 'Install the capture addon. It watches for story moments while you play. It never controls your character or changes the game.' },
+  { title: 'Play normally', body: 'Quest, wander, get distracted, chase something shiny. Aftertale captures the shape of the session in the background.' },
+  { title: 'Read the chapter', body: 'When the session ends, your first Aftertale is waiting: a personalized chapter written from the hero you brought to life.' },
+];
+
+function PhaseABanner() {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(PHASE_A_BANNER_KEY) === '1'; } catch { return false; }
+  });
+  if (dismissed) return null;
+  return (
+    <div className="at-phasea-banner" role="note">
+      <span>
+        ✦ Aftertale is in early testing — the free tier is live and we'd love your honest read.
+      </span>
+      <button
+        type="button"
+        aria-label="Dismiss"
+        className="at-phasea-banner-close"
+        onClick={() => {
+          try { localStorage.setItem(PHASE_A_BANNER_KEY, '1'); } catch { /* ignore */ }
+          setDismissed(true);
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 export function LandingPage() {
   return (
     <div className="aftertale-landing">
       <style>{landingStyles}</style>
+
+      {PHASE_A_MODE && <PhaseABanner />}
 
       {/* ---------- Header ---------- */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -68,7 +124,7 @@ export function LandingPage() {
           </nav>
           <div className="at-header-cta">
             <a href="#app" className="at-btn at-btn-ghost" onClick={(e) => { e.preventDefault(); gotoApp(); }}>
-              Sign in
+              {PHASE_A_MODE ? 'Open the app' : 'Sign in'}
             </a>
             <a href="#app" className="at-btn at-btn-primary" onClick={(e) => { e.preventDefault(); gotoApp(); }}>
               Get started
@@ -94,12 +150,14 @@ export function LandingPage() {
             <a href="#app" className="at-btn at-btn-primary at-btn-lg" onClick={(e) => { e.preventDefault(); gotoApp(); }}>
               Start free
             </a>
-            <a href="#pricing" className="at-btn at-btn-secondary at-btn-lg">
-              See plans
+            <a href={PHASE_A_MODE ? '#onboard' : '#pricing'} className="at-btn at-btn-secondary at-btn-lg">
+              {PHASE_A_MODE ? 'How it works' : 'See plans'}
             </a>
           </div>
           <p className="at-trust at-hero-anim" style={{ animationDelay: '620ms' }}>
-            Free forever · Bring your own key · One hero to begin the tale
+            {PHASE_A_MODE
+              ? 'The free tier is always free · Bring your own key · One hero to begin the tale'
+              : 'Free forever · Bring your own key · One hero to begin the tale'}
           </p>
         </div>
       </section>
@@ -121,26 +179,28 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ---------- Magic moment ---------- */}
-      <section className="at-section at-section-magic" id="magic">
-        <div className="at-container at-magic-inner">
-          <Reveal variant="up">
-            <div className="at-magic-copy">
-              <p className="at-kicker">✦ After logout, story</p>
-              <h2 className="at-section-h2">The chapter arrives when the world goes quiet.</h2>
-              <p className="at-body">
-                You log out, stretch, and wander to the kitchen. Then your phone
-                buzzes with the part the game never wrote: the meaning of what
-                you just lived through, shaped into prose, with your hero at the
-                center of it.
-              </p>
-            </div>
-          </Reveal>
-          <Reveal variant="right" delay={150}>
-            <PhoneMockup />
-          </Reveal>
-        </div>
-      </section>
+      {/* ---------- Magic moment (Companion-only; hidden in Phase A) ---------- */}
+      {!PHASE_A_MODE && (
+        <section className="at-section at-section-magic" id="magic">
+          <div className="at-container at-magic-inner">
+            <Reveal variant="up">
+              <div className="at-magic-copy">
+                <p className="at-kicker">✦ After logout, story</p>
+                <h2 className="at-section-h2">The chapter arrives when the world goes quiet.</h2>
+                <p className="at-body">
+                  You log out, stretch, and wander to the kitchen. Then your phone
+                  buzzes with the part the game never wrote: the meaning of what
+                  you just lived through, shaped into prose, with your hero at the
+                  center of it.
+                </p>
+              </div>
+            </Reveal>
+            <Reveal variant="right" delay={150}>
+              <PhoneMockup />
+            </Reveal>
+          </div>
+        </section>
+      )}
 
       {/* ---------- Onboarding (first-time activation) ---------- */}
       <section className="at-section at-section-onboard" id="onboard">
@@ -150,41 +210,11 @@ export function LandingPage() {
             <h2 className="at-section-h2 at-section-h2-center">From signup to first chapter</h2>
           </Reveal>
           <div className="at-onboard-grid">
-            <Reveal variant="up" delay={0}>
-              <OnboardStep
-                n={1}
-                title="Start free"
-                body="Create your account in under a minute. No credit card required. One hero is enough to begin the tale."
-              />
-            </Reveal>
-            <Reveal variant="up" delay={80}>
-              <OnboardStep
-                n={2}
-                title="Shape your hero"
-                body="Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero bible you can refine."
-              />
-            </Reveal>
-            <Reveal variant="up" delay={160}>
-              <OnboardStep
-                n={3}
-                title="Connect your game"
-                body="Install the capture addon. It watches for story moments while you play. It never controls your character or changes the game."
-              />
-            </Reveal>
-            <Reveal variant="up" delay={240}>
-              <OnboardStep
-                n={4}
-                title="Play normally"
-                body="Quest, wander, get distracted, chase something shiny. Aftertale captures the shape of the session in the background."
-              />
-            </Reveal>
-            <Reveal variant="up" delay={320}>
-              <OnboardStep
-                n={5}
-                title="Read the chapter"
-                body="When the session ends, your first Aftertale is waiting: a personalized chapter written from the hero you brought to life."
-              />
-            </Reveal>
+            {(PHASE_A_MODE ? ONBOARD_STEPS_PHASE_A : ONBOARD_STEPS_FULL).map((s, i) => (
+              <Reveal key={s.title} variant="up" delay={i * 80}>
+                <OnboardStep n={i + 1} title={s.title} body={s.body} />
+              </Reveal>
+            ))}
           </div>
           <Reveal variant="up" delay={400}>
             <p className="at-onboard-reassure">
@@ -194,7 +224,7 @@ export function LandingPage() {
           <Reveal variant="up" delay={480}>
             <div className="at-supported">
               <p className="at-supported-eyebrow">
-                <span className="at-supported-pulse" aria-hidden /> Live today for World of Warcraft
+                <span className="at-supported-pulse" aria-hidden /> {PHASE_A_MODE ? 'Currently supports World of Warcraft' : 'Live today for World of Warcraft'}
               </p>
               <div className="at-supported-strip" role="list">
                 <div className="at-supported-pill at-supported-pill-retail" role="listitem">
@@ -252,9 +282,9 @@ export function LandingPage() {
             <Reveal variant="up" delay={0}><FeatureTile title="Automatic session capture" body="Let Aftertale gather the important beats of play without turning your evening into homework." /></Reveal>
             <Reveal variant="up" delay={80}><FeatureTile title="Your AI storyteller" body="Each session becomes narrative prose that treats your hero like a protagonist, not a spreadsheet row." /></Reveal>
             <Reveal variant="up" delay={160}><FeatureTile title="Living cloud chronicle" body="Your chapters gather in one private library, building a long-form record of your adventures over time." /></Reveal>
-            <Reveal variant="up" delay={240}><FeatureTile title="Chapter-ready alerts" body="Paid plans can send a push when a new chapter is ready, right when the magic lands." /></Reveal>
-            <Reveal variant="up" delay={320}><FeatureTile title="Many heroes remembered" body="Track more than one character — alt, main, experiment, or recurring disaster — with the right plan." /></Reveal>
-            <Reveal variant="up" delay={400}><FeatureTile title="Export finished sagas" body="Chronicler and Loremaster can export polished chapters as ePub or PDF artifacts worth keeping." /></Reveal>
+            <Reveal variant="up" delay={240}><FeatureTile comingSoon={PHASE_A_MODE} title="Chapter-ready alerts" body="Paid plans can send a push when a new chapter is ready, right when the magic lands." /></Reveal>
+            <Reveal variant="up" delay={320}><FeatureTile comingSoon={PHASE_A_MODE} title="Many heroes remembered" body="Track more than one character — alt, main, experiment, or recurring disaster — with the right plan." /></Reveal>
+            <Reveal variant="up" delay={400}><FeatureTile comingSoon={PHASE_A_MODE} title="Export finished sagas" body="Chronicler and Loremaster can export polished chapters as ePub or PDF artifacts worth keeping." /></Reveal>
           </div>
         </div>
       </section>
@@ -268,6 +298,14 @@ export function LandingPage() {
               Free is the artisan path. The paid tiers let the story find you instead.
             </p>
           </Reveal>
+          {PHASE_A_MODE && (
+            <Reveal variant="in" delay={80}>
+              <p className="at-pricing-phasea-note">
+                Aftertale is in early testing. The free tier is live today — paid
+                tiers ship later this year.
+              </p>
+            </Reveal>
+          )}
           <div className="at-pricing-placeholder">
             <div
               style={{
@@ -313,7 +351,7 @@ export function LandingPage() {
       <section className="at-cta-band">
         <div className="at-container at-cta-band-inner">
           <Reveal variant="up">
-            <h2>Your next chapter is one logout away.</h2>
+            <h2>{PHASE_A_MODE ? 'Your first chapter is one session away.' : 'Your next chapter is one logout away.'}</h2>
             <a href="#app" className="at-btn at-btn-primary at-btn-lg" onClick={(e) => { e.preventDefault(); gotoApp(); }}>
               Get started — free
             </a>
@@ -395,10 +433,13 @@ function OnboardStep({ n, title, body }: { n: number; title: string; body: strin
   );
 }
 
-function FeatureTile({ title, body }: { title: string; body: string }) {
+function FeatureTile({ title, body, comingSoon }: { title: string; body: string; comingSoon?: boolean }) {
   return (
-    <div className="at-feature">
-      <h3>{title}</h3>
+    <div className={`at-feature${comingSoon ? ' at-feature-soon' : ''}`}>
+      <h3>
+        {title}
+        {comingSoon && <span className="at-feature-soon-badge">Coming soon</span>}
+      </h3>
       <p>{body}</p>
     </div>
   );
@@ -868,13 +909,22 @@ function ChapterPanel() {
 }
 
 const FAQS = [
-  { q: 'Which games does Aftertale support?', a: "Aftertale is live today for World of Warcraft, with full capture support across Retail, Classic Era (including Hardcore and Season of Discovery), Cataclysm Classic, and Mists of Pandaria Classic. Aftertale is built as a game-agnostic storytelling layer, so additional games are on the roadmap. We avoid promising support for specific future titles until the capture, privacy, and writing experience meet the standard." },
+  ...(PHASE_A_MODE
+    ? [{ q: 'What stage is Aftertale at?', a: "Aftertale is in early testing. The free tier is live today: you bring your own AI key, install the capture addon, play, drop your session file in, and read your chapter. The paid Companion tier — automatic capture and a chapter pushed to your phone after you log out — is on the way later this year. We'd rather show you exactly what works now than promise what isn't ready." }]
+    : []),
+  { q: 'Which games does Aftertale support?', a: PHASE_A_MODE
+      ? "Aftertale currently supports World of Warcraft, with capture across Retail, Classic Era (including Hardcore and Season of Discovery), Cataclysm Classic, and Mists of Pandaria Classic. Aftertale is built as a game-agnostic storytelling layer, so additional games are on the roadmap. We avoid promising support for specific future titles until the capture, privacy, and writing experience meet the standard."
+      : "Aftertale is live today for World of Warcraft, with full capture support across Retail, Classic Era (including Hardcore and Season of Discovery), Cataclysm Classic, and Mists of Pandaria Classic. Aftertale is built as a game-agnostic storytelling layer, so additional games are on the roadmap. We avoid promising support for specific future titles until the capture, privacy, and writing experience meet the standard." },
   { q: 'What happens if I don’t save my chronicle?', a: "Your hero lives in the browser you started them in. As long as you don't clear your browser data, they're safe — but they won't follow you to a new device, a different browser, an incognito window, or a fresh machine. 'Save your chronicle' ties your hero to an email so they survive a cleared cache, a phone upgrade, or signing in anywhere else. The save is the moment your chronicle stops being browser-bound." },
   { q: 'Is my data private?', a: 'Your chronicle is treated as personal creative data. Aftertale is designed around your heroes, sessions, chapters, and account, not public feeds by default. Public hero pages are only part of the Loremaster identity tier, and publishing is an intentional choice, not a surprise.' },
-  { q: 'What does BYOK mean?', a: 'BYOK means "bring your own key." On the Free tier, you provide your own AI API key and run the artisan path manually. It keeps the forever-free plan sustainable while giving you control over model usage, cost, and experimentation.' },
-  { q: 'What is the difference between Free and Companion?', a: 'Free is for the hands-on player: one hero, manual flow, and your own AI key. Companion is the magic moment tier at $12/month: auto-capture, cloud processing, push notifications, and up to three heroes, so your chapter can arrive after play without extra ritual.' },
+  { q: 'What does BYOK mean?', a: 'BYOK means "bring your own key." On the Free tier, you provide your own AI API key and run the artisan path manually. It keeps the free tier sustainable while giving you control over model usage, cost, and experimentation.' },
+  { q: 'What is the difference between Free and Companion?', a: PHASE_A_MODE
+      ? 'Free — live today — is for the hands-on player: one hero, your own AI key, and a manual flow where you bring your session file in and generate the chapter yourself. Companion is the coming paid tier ($12/month) that adds the magic moment: automatic capture, cloud processing, push notifications, and more heroes, so your chapter arrives after play without the manual step. Companion ships later this year.'
+      : 'Free is for the hands-on player: one hero, manual flow, and your own AI key. Companion is the magic moment tier at $12/month: auto-capture, cloud processing, push notifications, and up to three heroes, so your chapter can arrive after play without extra ritual.' },
   { q: 'Can I cancel and keep my data?', a: 'Yes. Your story should not vanish because a billing cycle ended. If you cancel, you retain access to your existing chronicle and exported files where your tier supports exports. Paid features like automation, additional heroes, generation, and public pages may stop or downgrade after cancellation.' },
-  { q: 'Can I read on my phone?', a: 'Yes. Aftertale is designed around the "new chapter ready" moment, which often happens away from the desk. Companion and higher tiers support push notifications, and your cloud chronicle is meant to be readable wherever you are signed in, including your phone.' },
+  { q: 'Can I read on my phone?', a: PHASE_A_MODE
+      ? 'Yes — if you save your chronicle to an account, it reads on your phone wherever you sign in. Push notifications when a new chapter is ready are part of the coming Companion tier; for now you open the app to read.'
+      : 'Yes. Aftertale is designed around the "new chapter ready" moment, which often happens away from the desk. Companion and higher tiers support push notifications, and your cloud chronicle is meant to be readable wherever you are signed in, including your phone.' },
   { q: 'What AI models do you use?', a: 'Aftertale uses modern large language models selected for narrative quality, reliability, and cost balance. Free uses your own key, so the provider depends on what you connect. Paid tiers use hosted generation, and model choices may evolve as better storytelling options become available.' },
 ];
 
@@ -932,6 +982,58 @@ const landingStyles = `
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Phase A reframe elements (early-testing banner, coming-soon badges). */
+  .at-phasea-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0.55rem 1.25rem;
+    background: linear-gradient(90deg, rgba(164,122,209,0.16), rgba(199,155,240,0.12));
+    border-bottom: 1px solid rgba(199,155,240,0.28);
+    color: var(--at-text);
+    font-size: 13.5px;
+    text-align: center;
+  }
+  .at-phasea-banner-close {
+    background: none;
+    border: none;
+    color: var(--at-text-soft);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 4px 6px;
+    flex: 0 0 auto;
+  }
+  .at-phasea-banner-close:hover { color: var(--at-text); }
+
+  .at-pricing-phasea-note {
+    text-align: center;
+    max-width: 540px;
+    margin: 0.5rem auto 1.5rem;
+    font-size: 14px;
+    color: var(--at-accent-strong);
+  }
+
+  .at-feature-soon h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+  .at-feature-soon-badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--at-accent-strong);
+    border: 1px solid rgba(199,155,240,0.4);
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+  }
+  .at-feature-soon { opacity: 0.82; }
   .aftertale-landing * { box-sizing: border-box; }
 
   .at-container {
