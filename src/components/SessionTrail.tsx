@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
 import { appendSessionRecapChapters, removeAddonHistoryEntriesByEventIds, removeSessionRecapEntries } from '../lib/bibleStore';
 import { parseChapters, recapSessionId } from '../lib/chapterParse';
+import { threadContextForSession, formatThreadContext } from '../lib/threadLedger';
 import { removeAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
 import { ENRICHMENTS_UPDATED_EVENT, loadEnrichments, removeEnrichments, toParagraphMap } from '../lib/enrichmentStore';
 import { loadSessionRecaps, removeSessionRecap, saveSessionRecap, SESSION_RECAPS_UPDATED_EVENT, type SessionRecapMap, type SessionRecapRecord } from '../lib/sessionRecapStore';
@@ -78,6 +79,7 @@ async function requestCampfireRecap(
   length: ChapterLength,
   register: SessionRegister,
   includeArc: boolean,
+  continuity: string | null,
 ): Promise<LLMResponse> {
   const choice = MODEL_CHOICES[modelIdx];
   const provider = await choice.factory();
@@ -113,6 +115,10 @@ async function requestCampfireRecap(
           '- Write this session as ONE OR MORE chapters. MOST sessions are a SINGLE chapter. Begin a new chapter ONLY at a genuine scene change: a new zone, a shift between questing / crafting / PvP, the completion of a quest arc, or a turning point (a death, a boss, a hard-won goal). A short or single-threaded session is ONE chapter. Never invent chapters to fill space.',
           `- ${length.chapterHint}`,
           '',
+          continuity
+            ? 'CONTINUITY (this chronicle is a serial — earlier chapters happened):\n- Some threads below were opened in earlier chapters. If this session RESOLVES one, write that chapter as the PAYOFF: acknowledge the time that passed and bring it to a close, without re-explaining it from scratch — the reader remembers.\n- Threads still open may be touched lightly in "What lingers" if relevant.\n- A long-abandoned thread may earn a brief, honest acknowledgment as character texture; never force it.\n'
+            : '',
+          '',
           'OUTPUT FORMAT (strict) — repeat this whole block for EACH chapter, with one blank line between chapters:',
           '- A title line: `# <Title>` (3 to 7 words drawn from THIS chapter\'s actual events — the specific NPC, item, deed, or beat. Never the zone name alone, never generic phrases like "A Day\'s Work").',
           '- One blank line.',
@@ -126,7 +132,7 @@ async function requestCampfireRecap(
       },
       {
         role: 'user',
-        content: prompt,
+        content: continuity ? `${prompt}\n\n---\n${continuity}` : prompt,
       },
     ],
   });
@@ -284,7 +290,10 @@ export function SessionTrail({
     setBusySessionId(session.id);
     setSessionError(null);
     try {
-      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length, session.register, includeArc);
+      const now = Date.now();
+      const allRecords = sessions.flatMap((s) => s.records);
+      const continuity = formatThreadContext(threadContextForSession(session, allRecords, now), now);
+      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length, session.register, includeArc, continuity);
       const chapters = parseChapters(res.text).map((c) => ({ title: c.title, text: cleanRecapText(c.text) }));
       const record: SessionRecapRecord = { text: res.text, chapters, savedAt: Date.now(), modelId: res.model };
       // If it was already published, re-publish the fresh set in place.
