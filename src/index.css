@@ -4194,6 +4194,19 @@ button.at-sheet-pill:focus-visible {
   line-height: 1.45;
 }
 
+/* Multi-chapter recap draft — each chapter gets its own titled block. */
+.at-session-recap-chapter + .at-session-recap-chapter {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border, #2a2018);
+}
+.at-session-recap-chapter-title {
+  font-family: var(--font-display, serif);
+  font-size: 18px;
+  color: var(--gold-bright, #f0c896);
+  margin: 0 0 0.6rem;
+}
+
 /* ============================================================================
    MobileShell — phone surface (bottom nav + reader-first panes).
    Full-height flex column: slim topbar, scrolling body, pinned bottom nav.

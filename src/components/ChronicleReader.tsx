@@ -7,6 +7,7 @@ import {
   removeEnrichments,
 } from '../lib/enrichmentStore';
 import { buildChronicleSessions } from '../lib/sessionHistory';
+import { isRecapEntryId, recapSessionId } from '../lib/chapterParse';
 import { Reveal } from './Reveal';
 import ManualEntryDialog from './ManualEntryDialog';
 import type { CharacterBible, HistoryEntry } from '../types';
@@ -99,9 +100,8 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
     if (sessions.length === 0) return [];
     const committed = new Set<string>();
     for (const e of entries) {
-      if (typeof e.id === 'string' && e.id.startsWith('recap_')) {
-        committed.add(e.id.slice('recap_'.length));
-      }
+      const sid = recapSessionId(e.id);
+      if (sid) committed.add(sid);
     }
     return sessions
       .filter((s) => !committed.has(s.id))
@@ -431,7 +431,12 @@ function buildChapters(entries: HistoryEntry[]): Chapter[] {
   for (const entry of entries) {
     const zone = entry.zone?.trim() || 'The road';
     const last = chapters[chapters.length - 1];
-    if (!last || !last.zones.includes(zone)) {
+    // A published session-recap chapter is its own hard boundary — it never
+    // zone-merges with neighbours (so a forge night and a battle night don't
+    // fuse), and nothing merges into it. See chapter-engine-spec §1/§7.
+    const entryIsRecap = isRecapEntryId(entry.id);
+    const lastIsRecap = last ? isRecapEntryId(last.entries[last.entries.length - 1]?.id) : false;
+    if (!last || entryIsRecap || lastIsRecap || !last.zones.includes(zone)) {
       chapters.push({
         id: `${entry.id}_chapter`,
         title: entry.title?.trim() || zone,

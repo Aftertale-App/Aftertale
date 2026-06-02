@@ -184,27 +184,27 @@ export interface ChapterLength {
   id: ChapterLengthId;
   label: string;        // button label
   blurb: string;        // one-liner under the option
-  paragraphSpec: string;// injected into the prompt, e.g. "2 to 3"
-  lingerSpec: string;   // closing-bullet count, e.g. "1 to 2"
-  movements: boolean;   // allow titled scene-breaks (long sessions only)
-  maxTokens: number;    // hard generation budget
+  // The session's TOTAL prose budget. The model writes 1..N chapters within it
+  // (see chapter-engine-spec §2); chapterHint nudges the likely count.
+  chapterHint: string;  // injected: how many chapters this size tends to be
+  maxTokens: number;    // hard total generation budget for the session
   estOutputTokens: number; // realistic fill, for the cost estimate only
 }
 
 export const CHAPTER_LENGTHS: Record<ChapterLengthId, ChapterLength> = {
   quick: {
     id: 'quick', label: 'Quick recap', blurb: 'Short and sweet',
-    paragraphSpec: '2 to 3', lingerSpec: '1 to 2', movements: false,
+    chapterHint: 'This is a brief session — write it as a single tight chapter.',
     maxTokens: 700, estOutputTokens: 450,
   },
   full: {
     id: 'full', label: 'Full chapter', blurb: 'The whole session, as a chapter',
-    paragraphSpec: '4 to 7', lingerSpec: '2 to 3', movements: false,
+    chapterHint: 'Usually a single chapter; split into two only if the session clearly changes scene.',
     maxTokens: 1900, estOutputTokens: 1300,
   },
   epic: {
-    id: 'epic', label: 'Epic', blurb: 'A long, multi-part chapter',
-    paragraphSpec: '9 to 12', lingerSpec: '2 to 3', movements: true,
+    id: 'epic', label: 'Epic', blurb: 'A long, varied session',
+    chapterHint: 'A long, varied session — it may run to two or three chapters as the scenes shift.',
     maxTokens: 3400, estOutputTokens: 2600,
   },
 };

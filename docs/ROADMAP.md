@@ -257,4 +257,12 @@ with spaces. Locking this in any future Lua-snippet generator (web side too).
 
 ## Backlog — small follow-ups
 
+- [ ] **Bible-depth nudge.** The chapter engine's character arc ("The longer
+  road" closing) draws on the bible's Hero's Truth / fears / flaws. A sparse
+  bible degrades gracefully (we skip the arc section) — but the player should
+  be *told* that a thin character limits their future story richness, with a
+  prompt to flesh it out. Surface it where they'd feel the gap (the character
+  sheet / first-run, or when a chapter skips "The longer road"). See
+  `docs/chapter-engine-spec.md` §4-5.
+
 - [x] **Per-event-type filter in CompanionExport.** *(2026-05-26)* Added `src/lib/eventFilter.ts` + a category-grouped checkbox panel in `ChronicleReader`'s `CompanionExport`. Defaults to the 8 narrative events (matches addon `Templates.IsNarrativeEvent`, which was simultaneously expanded to add `ENCOUNTER_END` + `BOSS_KILL`). Per-event counts from the current SV import are shown next to each checkbox so the user sees where the cost lives. Persists to `localStorage` under `at.enrichFilter.v1` (global, not per-character). Unknown event types from future addon versions surface in their own "Unknown" group and persist if toggled on. New ENCOUNTER_END / BOSS_KILL template pools + `Preview` cases added to `Lore/Templates.lua`.

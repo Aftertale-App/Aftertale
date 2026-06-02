@@ -14,6 +14,7 @@
 // ============================================================================
 
 import type { BibleEnvelope, CharacterBible, HistoryEntry } from '../types';
+import { recapEntryId, recapSessionId } from './chapterParse';
 
 const LEGACY_KEY = 'at.bible.current';
 const ROSTER_KEY = 'at.bible.roster.v1';
@@ -674,6 +675,50 @@ export function appendSessionRecapHistoryEntry(
 export function removeSessionRecapHistoryEntry(sessionId: string): void {
   if (!sessionId) return;
   deleteHistoryEntry(`recap_${sessionId}`);
+}
+
+/**
+ * Phase 2 chapter engine: commit a session's 1..N chapters as separate
+ * HistoryEntries (`recap_<sessionId>__<i>`), so the reader treats each as its
+ * own chapter. Replaces any prior recap entries for this session (the legacy
+ * single `recap_<sessionId>` and any multi-chapter set). Chapters are stamped a
+ * second apart from the session start so they stay ordered. Returns the entries.
+ */
+export function appendSessionRecapChapters(
+  sessionId: string,
+  chapters: Array<{ title: string; text: string }>,
+  sessionStartedAt: number,
+  zone?: string,
+  level?: number,
+): HistoryEntry[] {
+  if (!sessionId || chapters.length === 0) return [];
+  const current = loadBible();
+  if (!current) return [];
+  const entries: HistoryEntry[] = chapters
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => c.text.trim().length > 0)
+    .map(({ c, i }) => ({
+      id: recapEntryId(sessionId, i + 1),
+      timestamp: sessionStartedAt + i * 1000,
+      text: c.text.trim(),
+      zone,
+      level,
+      title: c.title.trim() || undefined,
+    }));
+  if (entries.length === 0) return [];
+  const existing = (current.history ?? []).filter((e) => recapSessionId(e.id) !== sessionId);
+  const history = [...existing, ...entries].sort((a, b) => a.timestamp - b.timestamp);
+  updateActiveBible({ history });
+  return entries;
+}
+
+/** Remove all recap-chapter entries for a session (legacy + multi-chapter). */
+export function removeSessionRecapEntries(sessionId: string): void {
+  if (!sessionId) return;
+  const current = loadBible();
+  if (!current) return;
+  const history = (current.history ?? []).filter((e) => recapSessionId(e.id) !== sessionId);
+  updateActiveBible({ history });
 }
 
 /**

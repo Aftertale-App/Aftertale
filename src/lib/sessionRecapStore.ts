@@ -13,12 +13,19 @@ const STORAGE_PREFIX = 'at.session-recaps.';
 export const SESSION_RECAPS_UPDATED_EVENT = 'at:session-recaps-updated';
 
 export interface SessionRecapRecord {
-  /** Full LLM output (title + paragraphs + "So what changed" bullets). */
+  /** Full raw LLM output (all chapters, each led by a `# Title` line). */
   text: string;
+  /**
+   * Parsed chapters (Phase 2 chapter engine). One session recap is now 1..N
+   * chapters. Absent on legacy single-chapter recaps, which fall back to `text`.
+   */
+  chapters?: Array<{ title: string; text: string }>;
   savedAt: number;
   modelId?: string;
-  /** Whether this recap has been committed as a HistoryEntry in the Chronicle. */
+  /** Legacy: single committed HistoryEntry id (pre-multi-chapter recaps). */
   committedAsHistoryEntryId?: string;
+  /** Multi-chapter: the HistoryEntry ids published for this session's chapters. */
+  committedEntryIds?: string[];
 }
 
 export type SessionRecapMap = Record<string, SessionRecapRecord>;

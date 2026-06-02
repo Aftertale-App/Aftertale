@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
-import { appendSessionRecapHistoryEntry, removeAddonHistoryEntriesByEventIds, removeSessionRecapHistoryEntry } from '../lib/bibleStore';
+import { appendSessionRecapChapters, removeAddonHistoryEntriesByEventIds, removeSessionRecapEntries } from '../lib/bibleStore';
+import { parseChapters, recapSessionId } from '../lib/chapterParse';
 import { removeAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
 import { ENRICHMENTS_UPDATED_EVENT, loadEnrichments, removeEnrichments, toParagraphMap } from '../lib/enrichmentStore';
 import { loadSessionRecaps, removeSessionRecap, saveSessionRecap, SESSION_RECAPS_UPDATED_EVENT, type SessionRecapMap, type SessionRecapRecord } from '../lib/sessionRecapStore';
@@ -76,6 +77,7 @@ async function requestCampfireRecap(
   prompt: string,
   length: ChapterLength,
   register: SessionRegister,
+  includeArc: boolean,
 ): Promise<LLMResponse> {
   const choice = MODEL_CHOICES[modelIdx];
   const provider = await choice.factory();
@@ -94,6 +96,7 @@ async function requestCampfireRecap(
           'Keep the hero as the subject. Do not mention prompts, models, localStorage, UI tabs, or the app.',
           '',
           ...REGISTER_VOICE[register],
+          '- If a chapter covers a different kind of activity than the rest (e.g. a PvP fight inside a questing session), shift THAT chapter\'s voice to match: adventuring = the hero\'s journey; downtime = slice-of-life craft; martial = glory and rivalry.',
           '',
           'STYLE RULES (strict):',
           '- Never use em dashes (—) or en dashes (–). If you would reach for one, use a comma, semicolon, or period instead. Two hyphens (--) are also forbidden.',
@@ -105,16 +108,20 @@ async function requestCampfireRecap(
           '- Scale the writing to what actually happened. Give each consequential beat (a death, a boss kill, an achievement, a hard-won quest completion, a dungeon cleared) its own moment on the page; do not summarize the big moments away.',
           '- Group or compress routine errands and repeated chores so they do not crowd out the moments that matter.',
           '- If there are more beats than the length allows, prioritize the most consequential and touch the rest briefly. Never silently drop a death, a boss kill, or a finished quest chain.',
-          length.movements
-            ? '- This was a long session. You may break the chapter into 2 to 3 titled movements (a short `## <Movement title>` line before each), one per distinct stretch of the session, so it reads as scenes rather than one wall of prose.'
-            : '',
           '',
-          'OUTPUT FORMAT (strict):',
-          '- Line 1: a single chapter title in the form `# <Title>`. The title must be 3 to 7 words drawn from the actual events of THIS session (the specific NPC, item, deed, or beat that defines it). Do NOT use the zone name alone, do NOT use generic phrases like "A Day\'s Work" or "Coldridge Errands".',
+          'SEGMENTATION:',
+          '- Write this session as ONE OR MORE chapters. MOST sessions are a SINGLE chapter. Begin a new chapter ONLY at a genuine scene change: a new zone, a shift between questing / crafting / PvP, the completion of a quest arc, or a turning point (a death, a boss, a hard-won goal). A short or single-threaded session is ONE chapter. Never invent chapters to fill space.',
+          `- ${length.chapterHint}`,
+          '',
+          'OUTPUT FORMAT (strict) — repeat this whole block for EACH chapter, with one blank line between chapters:',
+          '- A title line: `# <Title>` (3 to 7 words drawn from THIS chapter\'s actual events — the specific NPC, item, deed, or beat. Never the zone name alone, never generic phrases like "A Day\'s Work").',
           '- One blank line.',
-          `- ${length.paragraphSpec} short paragraphs of prose, each separated by a blank line${length.movements ? ' (distributed across the movements above)' : ''}.`,
+          '- 3 to 6 short paragraphs of prose for this chapter, each separated by a blank line.',
           '- One blank line.',
-          `- A final closing section. Use the heading \`What lingers:\` on its own line, then ${length.lingerSpec} short bullets starting with \`- \`. Each bullet is one sentence about what this session leaves with the hero: a debt, a question, a face they will see again, a small change in how they carry themselves. Do NOT use "So what changed".`,
+          '- `What lingers:` on its own line, then 1 to 3 short bullets starting with `- `, on what this chapter leaves IN THE WORLD: a debt, a face they will see again, a question, a loose end. Do NOT use "So what changed".',
+          includeArc
+            ? '- One blank line, then `The longer road:` on its own line, then 1 to 2 sentences on the INTERIOR: what the hero felt but did not say, and how this leg moved their OWN journey — a step toward or away from who they fear becoming, drawn from their Hero\'s truth, fears, and flaws. This is about the character they are becoming, not the quest.'
+            : '',
         ].filter(Boolean).join('\n'),
       },
       {
@@ -156,15 +163,26 @@ export function SessionTrail({
     };
   }, [characterKey]);
 
+  // sessionId -> its committed recap chapter entries (1..N), oldest first.
   const committedEntries = useMemo(() => {
-    const entries = new Map<string, HistoryEntry>();
+    const entries = new Map<string, HistoryEntry[]>();
     for (const e of bible.history ?? []) {
-      if (typeof e.id === 'string' && e.id.startsWith('recap_')) {
-        entries.set(e.id.slice('recap_'.length), e);
-      }
+      const sid = recapSessionId(e.id);
+      if (!sid) continue;
+      const list = entries.get(sid) ?? [];
+      list.push(e);
+      entries.set(sid, list);
     }
+    for (const list of entries.values()) list.sort((a, b) => a.timestamp - b.timestamp);
     return entries;
   }, [bible.history]);
+
+  // Whether this character's bible is rich enough to earn "The longer road"
+  // (the character-arc closing). Thin bibles degrade gracefully — see scope.
+  const includeArc = useMemo(
+    () => Boolean(bible.coreQuote?.trim()) || (bible.beliefs?.length ?? 0) > 0 || (bible.fears?.length ?? 0) > 0,
+    [bible.coreQuote, bible.beliefs, bible.fears],
+  );
 
   const manualEntriesBySession = useMemo(() => {
     const map = new Map<string, HistoryEntry[]>();
@@ -236,38 +254,42 @@ export function SessionTrail({
     window.dispatchEvent(new CustomEvent('at:request-tab', { detail: tab }));
   }
 
-  function isPublished(session: ChronicleSession, recap?: SessionRecapRecord): boolean {
-    const committedId = recap?.committedAsHistoryEntryId;
-    return Boolean(committedId && committedEntries.get(session.id)?.id === committedId);
+  function isPublished(session: ChronicleSession): boolean {
+    return (committedEntries.get(session.id)?.length ?? 0) > 0;
   }
 
-  function writeRecapToChronicle(session: ChronicleSession, text: string) {
-    const title = extractRecapTitle(text);
-    return appendSessionRecapHistoryEntry(
+  // Parse a recap record into chapters (prefer the stored parse; fall back to
+  // splitting the raw text for legacy records).
+  function recapChapters(recap: SessionRecapRecord): Array<{ title: string; text: string }> {
+    if (recap.chapters && recap.chapters.length > 0) return recap.chapters;
+    return parseChapters(recap.text).map((c) => ({ title: c.title, text: cleanRecapText(c.text) }));
+  }
+
+  // Publish all of a session's chapters at once (publish-as-a-set).
+  function writeRecapToChronicle(session: ChronicleSession, recap: SessionRecapRecord): string[] {
+    const chapters = recapChapters(recap).map((c) => ({ title: c.title, text: cleanRecapText(c.text) }));
+    const entries = appendSessionRecapChapters(
       session.id,
-      cleanRecapText(text),
+      chapters,
       session.startedAt,
       session.endZone ?? session.startZone,
       session.endLevel ?? session.startLevel,
-      title ?? undefined,
     );
+    return entries.map((e) => e.id);
   }
 
   async function generateSelectedSessionRecap(session: ChronicleSession, length: ChapterLength) {
-    const recap = sessionRecaps[session.id];
-    const published = isPublished(session, recap);
-    if (published && !window.confirm('This will replace your current chapter for this session. Continue?')) return;
+    const published = isPublished(session);
+    if (published && !window.confirm('This will replace your current chapter(s) for this session. Continue?')) return;
     setBusySessionId(session.id);
     setSessionError(null);
     try {
-      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length, session.register);
-      const committed = published ? writeRecapToChronicle(session, res.text) : null;
-      saveSessionRecap(characterKey, session.id, {
-        text: res.text,
-        savedAt: Date.now(),
-        modelId: res.model,
-        committedAsHistoryEntryId: committed?.id ?? undefined,
-      });
+      const res = await requestCampfireRecap(modelIdx, buildSessionRecapPrompt(bible, session), length, session.register, includeArc);
+      const chapters = parseChapters(res.text).map((c) => ({ title: c.title, text: cleanRecapText(c.text) }));
+      const record: SessionRecapRecord = { text: res.text, chapters, savedAt: Date.now(), modelId: res.model };
+      // If it was already published, re-publish the fresh set in place.
+      if (published) record.committedEntryIds = writeRecapToChronicle(session, record);
+      saveSessionRecap(characterKey, session.id, record);
     } catch (err) {
       setSessionError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -278,18 +300,15 @@ export function SessionTrail({
   function commitRecapToChronicle(session: ChronicleSession) {
     const recap = sessionRecaps[session.id];
     if (!recap) return;
-    const committed = writeRecapToChronicle(session, recap.text);
-    saveSessionRecap(characterKey, session.id, {
-      ...recap,
-      committedAsHistoryEntryId: committed?.id,
-    });
+    const ids = writeRecapToChronicle(session, recap);
+    saveSessionRecap(characterKey, session.id, { ...recap, committedEntryIds: ids });
   }
 
   function removeRecapFromChronicle(session: ChronicleSession) {
     const recap = sessionRecaps[session.id];
-    removeSessionRecapHistoryEntry(session.id);
+    removeSessionRecapEntries(session.id);
     if (recap) {
-      const { committedAsHistoryEntryId: _committedAsHistoryEntryId, ...draft } = recap;
+      const { committedEntryIds: _ids, committedAsHistoryEntryId: _legacy, ...draft } = recap;
       saveSessionRecap(characterKey, session.id, draft);
     }
   }
@@ -347,7 +366,7 @@ export function SessionTrail({
           )}
           {sessions.map((session) => {
             const recap = sessionRecaps[session.id];
-            const published = isPublished(session, recap);
+            const published = isPublished(session);
             return (
               <SessionCard
                 key={session.id}
@@ -356,7 +375,7 @@ export function SessionTrail({
                 pricingKey={MODEL_CHOICES[modelIdx].pricingKey}
                 recap={recap}
                 published={published}
-                committedEntry={committedEntries.get(session.id)}
+                committedEntry={committedEntries.get(session.id)?.[0]}
                 selected={selectedSessionId === session.id}
                 busy={busySessionId === session.id}
                 sessionError={selectedSessionId === session.id ? sessionError : null}
@@ -863,7 +882,7 @@ function PurgeSessionButton({
         removeEnrichments(characterKey, enrichmentIds);
         removeAddonHistoryEntriesByEventIds(eventIds);
         removeSessionRecap(characterKey, session.id);
-        removeSessionRecapHistoryEntry(session.id);
+        removeSessionRecapEntries(session.id);
         setArmed(false);
       }}
       title={
@@ -900,16 +919,23 @@ function SavedSessionRecapArticle({
   record: SessionRecapRecord;
   published: boolean;
 }) {
-  const cleaned = cleanRecapText(record.text);
-  const paragraphs = cleaned
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  // Render the recap as its 1..N chapters, each with its own title heading.
+  const chapters = record.chapters && record.chapters.length > 0
+    ? record.chapters
+    : parseChapters(record.text);
   const savedWhen = new Date(record.savedAt);
   return (
     <article className="at-chronicle-article at-session-campfire-article">
       <div className="at-session-recap-body">
-        {paragraphs.length > 0 ? paragraphs.map((para, i) => <p key={i}>{para}</p>) : <p>{cleaned}</p>}
+        {chapters.map((chapter, ci) => {
+          const paras = cleanRecapText(chapter.text).split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+          return (
+            <section key={ci} className="at-session-recap-chapter">
+              {chapter.title && <h5 className="at-session-recap-chapter-title">{chapter.title}</h5>}
+              {paras.map((para, i) => <p key={i}>{para}</p>)}
+            </section>
+          );
+        })}
       </div>
       <footer className="at-session-recap-footer">
         <div className="at-session-recap-meta">
