@@ -4027,3 +4027,259 @@ button.at-sheet-pill:focus-visible {
   flex: 1 1 auto;
 }
 
+/* ============================================================================
+   MobileShell — phone surface (bottom nav + reader-first panes).
+   Full-height flex column: slim topbar, scrolling body, pinned bottom nav.
+   Pinning the nav as a normal flex child (not position:fixed) avoids overlap
+   math and lets the body own the scroll. See src/components/MobileShell.tsx.
+   ============================================================================ */
+.at-mobile {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(178, 132, 49, 0.06), transparent 60%),
+    var(--bg, #15110d);
+  color: var(--fg, #ede7d8);
+  overflow: hidden;
+}
+
+.at-mobile-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  height: 48px;
+  border-bottom: 1px solid var(--border, #2a2018);
+  background: linear-gradient(180deg, #1e1810 0%, #15100a 100%);
+  padding: 0 1rem;
+  padding-top: env(safe-area-inset-top, 0);
+}
+.at-mobile-wordmark {
+  font-family: var(--font-display, serif);
+  font-size: 18px;
+  letter-spacing: 0.28em;
+  color: var(--gold-bright, #f0c896);
+}
+.at-mobile-demo-tag {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--at-accent, #a47ad1);
+  border: 1px solid rgba(164, 122, 209, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.at-mobile-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+.at-mobile-pane {
+  padding: 1rem 1rem 1.5rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+/* The reader's own desktop chrome (max-widths, big padding) relaxes on mobile. */
+.at-mobile-pane .at-panel {
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+
+/* Bottom nav */
+.at-mobile-nav {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--border, #2a2018);
+  background: linear-gradient(180deg, #1c1610 0%, #120d08 100%);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.at-mobile-navitem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0.55rem 0.25rem 0.6rem;
+  background: none;
+  border: none;
+  border-top: 2px solid transparent;
+  color: var(--fg-faint, #8a7d68);
+  font: inherit;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.at-mobile-navitem.is-active {
+  color: var(--gold-bright, #f0c896);
+  border-top-color: var(--gold, #d4a373);
+}
+.at-mobile-navglyph { font-size: 19px; line-height: 1; }
+.at-mobile-navlabel {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* Demo sign-in banner (sits above the reader) */
+.at-mobile-demobanner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(164, 122, 209, 0.35);
+  background: rgba(164, 122, 209, 0.08);
+  border-radius: var(--r-md, 6px);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--fg, #ede7d8);
+}
+
+/* Locked / handoff cards (Tavern, no-hero Hero, etc.) */
+.at-mobile-locked,
+.at-mobile-handoff {
+  text-align: center;
+  padding: 2.5rem 1.25rem;
+  border: 1px solid var(--border, #2a2018);
+  background: var(--bg-elevated, #1c1610);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+.at-mobile-locked-glyph {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+  filter: grayscale(0.2);
+}
+.at-mobile-locked-title {
+  font-family: var(--font-display, serif);
+  font-size: 24px;
+  margin: 0;
+}
+.at-mobile-locked-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-muted, #b8ab94);
+  max-width: 34ch;
+  margin: 0 0 0.4rem;
+}
+.at-mobile-locked-badge {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--at-accent, #a47ad1);
+  border: 1px solid rgba(164, 122, 209, 0.4);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-bottom: 0.4rem;
+}
+
+/* Read-only hero sheet */
+.at-mobile-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.at-mobile-hero-head {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border, #2a2018);
+  border-radius: 12px;
+  background: var(--bg-elevated, #1c1610);
+}
+.at-mobile-hero-head.at-faction-alliance { border-left: 4px solid var(--alliance, #4a78c8); }
+.at-mobile-hero-head.at-faction-horde { border-left: 4px solid var(--horde, #c0392b); }
+.at-mobile-hero-head h2 {
+  font-family: var(--font-display, serif);
+  font-size: 26px;
+  margin: 0 0 0.6rem;
+}
+.at-mobile-hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.at-mobile-hero-pills span {
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong, #3a2c1c);
+  background: var(--bg-inset, #120d08);
+  color: var(--fg-muted, #b8ab94);
+}
+.at-mobile-hero-quote {
+  font-family: var(--font-display, serif);
+  font-size: 17px;
+  font-style: italic;
+  color: var(--gold-bright, #f0c896);
+  line-height: 1.5;
+  margin: 0;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--gold-deep, #3a2c1c);
+}
+.at-mobile-hero-section h3 {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint, #8a7d68);
+  margin: 0 0 0.5rem;
+}
+.at-mobile-hero-section p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg-muted, #b8ab94);
+  margin: 0 0 0.6rem;
+}
+.at-mobile-hero-section ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.at-mobile-hero-section li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg, #ede7d8);
+}
+.at-mobile-hero-foot {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.25rem;
+  border-top: 1px solid var(--border, #2a2018);
+}
+.at-mobile-hero-foot p { margin: 0; color: var(--fg-muted, #b8ab94); font-size: 14px; }
+.at-mobile-hero-editnote {
+  text-align: center;
+  font-size: 13px;
+  color: var(--fg-faint, #8a7d68);
+  padding-top: 0.5rem;
+}
+
+/* You tab */
+.at-mobile-you-account {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: flex-start;
+}
+

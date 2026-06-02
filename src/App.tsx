@@ -6,6 +6,8 @@ import { SettingsPanel, type SettingsSectionId } from './components/SettingsPane
 import { AddonSimulator } from './components/AddonSimulator';
 import { ChronicleReader } from './components/ChronicleReader';
 import { ScribesDesk } from './components/ScribesDesk';
+import { MobileShell } from './components/MobileShell';
+import { useIsMobile } from './lib/useIsMobile';
 import { getKeyStatus } from './lib/apiKeys';
 import { getShowScribesDesk, getSeedMode, cycleSeedMode } from './lib/featureFlags';
 import { ensureAnonymousSession } from './lib/auth';
@@ -49,6 +51,7 @@ function useActiveBible(): CharacterBible | null {
 }
 
 export function App() {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<Tab>('character');
   const [settings, setSettings] = useState<{ open: boolean; section?: SettingsSectionId }>({
     open: false,
@@ -109,11 +112,14 @@ export function App() {
   }, []);
 
   // First-run nudge: if no key, pop the settings panel automatically to API Keys.
+  // Never on mobile — it's a reader-first surface and BYOK lives on PC. Showing
+  // a key-paste wall to a phone visitor is exactly the wrong first impression.
   useEffect(() => {
+    if (isMobile) return;
     if (!getKeyStatus('openrouter').hasKey) {
       setSettings({ open: true, section: 'apiKeys' });
     }
-  }, []);
+  }, [isMobile]);
 
   const openrouterStatus = getKeyStatus('openrouter');
   void keyTick; // re-renders trigger via the bump above
@@ -164,6 +170,13 @@ export function App() {
   const subtitleCopy = heroName
     ? [heroRace, heroClass].filter(Boolean).join(' · ') || 'An AI-spun saga of your hero.'
     : 'An AI-spun saga of your hero. Roll a character, then walk the world.';
+
+  // Mobile gets a dedicated reader-first shell (bottom nav, no BYOK, demo-first)
+  // rather than the desktop tab workshop. All hooks above still run, so the
+  // anonymous session + cloud sync are established identically on both surfaces.
+  if (isMobile) {
+    return <MobileShell />;
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>

@@ -7,6 +7,29 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — mobile-aware app shell: a reader-first phone surface *(2026-06-02)*
+
+The web app now renders a dedicated **MobileShell** below 760px instead of
+cramming the desktop tab workshop onto a phone. Design thesis: you can't play
+WoW on a phone, so mobile is a *read / react / notify / share* client while PC
+stays the *capture / author* surface — not the same app at two widths.
+
+- **Bottom nav** with four reader-first tabs: Chronicle, Tavern, Hero, You.
+- **Chronicle** is the default and renders read-only — authoring CTAs (manual
+  entry, purge, Inkwell jumps) are hidden via new `readOnly`/`demoBible` props
+  on `ChronicleReader`. Desktop behavior is unchanged (props default off).
+- **Magnus demo chronicle** (`src/lib/demoChronicle.ts`): a brand-new visitor
+  with no hero lands on a real, populated chronicle they can read immediately,
+  with a push-to-sign-in CTA — never a setup wall.
+- **No BYOK on mobile.** The first-run "paste your OpenRouter key" modal is
+  suppressed on phones; key management lives on PC.
+- **Tavern** (NPC chat) shows a premium locked-state stub; **Hero** is a
+  read-only character sheet; **You** is sign-in + a notifications placeholder.
+- Desktop↔mobile switch is reactive at the breakpoint (`useIsMobile`).
+
+Also fixed the underlying mobile horizontal-overflow bugs in the shared shell
+(modal, header cluster, preset grid) — see the css commit.
+
 ### Changed — Hub Overview redesign: the card system *(2026-06-01)*
 
 Rebuilt the in-game Hub on a rounded-card design system (`S.CreateCard` +

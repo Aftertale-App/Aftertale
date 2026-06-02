@@ -26,8 +26,19 @@ interface Chapter {
   endLevel?: number;
 }
 
-export function ChronicleReader() {
-  const [bible, setBible] = useState<CharacterBible | null>(() => loadBible());
+interface ChronicleReaderProps {
+  // When set, the reader renders this in-memory bible instead of the stored
+  // one and ignores store updates — used for the mobile Magnus demo. Implies
+  // read-only.
+  demoBible?: CharacterBible | null;
+  // Hide every authoring affordance (manual entry, purge, Inkwell jumps). The
+  // mobile shell is reader-first; capture/editing lives on PC.
+  readOnly?: boolean;
+}
+
+export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = false }: ChronicleReaderProps = {}) {
+  const readOnly = readOnlyProp || demoBible != null;
+  const [bible, setBible] = useState<CharacterBible | null>(() => demoBible ?? loadBible());
   const [mode, setMode] = useState<ReaderMode>('latest');
   const [addonRecords, setAddonRecords] = useState<AddonEventRecord[]>(() => loadAddonEventRecords());
   const [manualOpen, setManualOpen] = useState(false);
@@ -35,13 +46,14 @@ export function ChronicleReader() {
   const chapterRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   useEffect(() => {
+    if (demoBible) return; // demo content is fixed; ignore store updates
     const onUpdate = (e: Event) => {
       const detail = (e as CustomEvent<CharacterBible | null>).detail;
       setBible(detail ?? loadBible());
     };
     window.addEventListener('at:bible-updated', onUpdate);
     return () => window.removeEventListener('at:bible-updated', onUpdate);
-  }, []);
+  }, [demoBible]);
 
   useEffect(() => {
     const onAddonUpdate = () => setAddonRecords(loadAddonEventRecords());
@@ -83,6 +95,7 @@ export function ChronicleReader() {
   // that marker is fair game for a "write me up" CTA. Sorted oldest-first to
   // match committed-chapter order in the Arc Map.
   const ghostSessions = useMemo(() => {
+    if (readOnly) return []; // ghost pills are an authoring CTA (jump to Inkwell)
     if (sessions.length === 0) return [];
     const committed = new Set<string>();
     for (const e of entries) {
@@ -93,7 +106,7 @@ export function ChronicleReader() {
     return sessions
       .filter((s) => !committed.has(s.id))
       .sort((a, b) => a.startedAt - b.startedAt);
-  }, [sessions, entries]);
+  }, [sessions, entries, readOnly]);
   const latestEntries = useMemo(() => latestSessionEntries(entries), [entries]);
   const visibleEntries = mode === 'full' ? entries : latestEntries;
   const visibleChapters = useMemo(() => buildChapters(visibleEntries), [visibleEntries]);
@@ -225,14 +238,16 @@ export function ChronicleReader() {
           Full saga
         </button>
         <span className="at-chronicle-modebar-spacer" />
-        <button
-          className="at-btn at-btn-secondary"
-          onClick={() => setManualOpen(true)}
-          title="Add a chronicle entry by hand"
-        >
-          ✦ Add manual entry
-        </button>
-        {scopedAddonRecords.length > 0 && (
+        {!readOnly && (
+          <button
+            className="at-btn at-btn-secondary"
+            onClick={() => setManualOpen(true)}
+            title="Add a chronicle entry by hand"
+          >
+            ✦ Add manual entry
+          </button>
+        )}
+        {!readOnly && scopedAddonRecords.length > 0 && (
           <PurgeChronicleButton
             characterKey={characterKey}
             characterName={bible?.name ?? null}
@@ -242,26 +257,37 @@ export function ChronicleReader() {
       </div>
 
       {!hasStoryData ? (
-        <div className="at-chronicle-empty">
-          <p className="at-kicker">✦ Not yet written</p>
-          <h3 className="at-section-headline-sm">No story entries yet</h3>
-          <p className="at-section-sub">
-            Visit <strong>The Inkwell</strong> to import your <code>Aftertale.lua</code> and start writing your saga.
-          </p>
-          <div className="at-chronicle-empty-actions" style={{ marginTop: '1rem' }}>
-            <button className="at-btn at-btn-primary" onClick={() => requestTab('desk')}>
-              Open The Inkwell
-            </button>
-            {DEV_TOOLS_ENABLED && (
-              <button className="at-btn at-btn-secondary" onClick={() => requestTab('addon')}>
-                Addon Sim
-              </button>
-            )}
-            <button className="at-btn at-btn-secondary" onClick={() => setManualOpen(true)}>
-              Add manual entry
-            </button>
+        readOnly ? (
+          <div className="at-chronicle-empty">
+            <p className="at-kicker">✦ Not yet written</p>
+            <h3 className="at-section-headline-sm">Your saga starts on your PC</h3>
+            <p className="at-section-sub">
+              Install the Aftertale addon and play a session — your quests, levels, and
+              zones flow here automatically. Open Aftertale on your computer to set up capture.
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="at-chronicle-empty">
+            <p className="at-kicker">✦ Not yet written</p>
+            <h3 className="at-section-headline-sm">No story entries yet</h3>
+            <p className="at-section-sub">
+              Visit <strong>The Inkwell</strong> to import your <code>Aftertale.lua</code> and start writing your saga.
+            </p>
+            <div className="at-chronicle-empty-actions" style={{ marginTop: '1rem' }}>
+              <button className="at-btn at-btn-primary" onClick={() => requestTab('desk')}>
+                Open The Inkwell
+              </button>
+              {DEV_TOOLS_ENABLED && (
+                <button className="at-btn at-btn-secondary" onClick={() => requestTab('addon')}>
+                  Addon Sim
+                </button>
+              )}
+              <button className="at-btn at-btn-secondary" onClick={() => setManualOpen(true)}>
+                Add manual entry
+              </button>
+            </div>
+          </div>
+        )
       ) : (
         <>
           {insight && <InsightGrid insight={insight} mode={mode} />}
@@ -293,7 +319,7 @@ export function ChronicleReader() {
                           <span className="at-chronicle-chapter-num">Chapter {i + 1}</span>
                           <h4>{chapter.title}</h4>
                           <span>{formatDateRange(chapter.start, chapter.end)}</span>
-                          {characterKey && (
+                          {!readOnly && characterKey && (
                             <PurgeChapterButton
                               chapter={chapter}
                               characterKey={characterKey}
