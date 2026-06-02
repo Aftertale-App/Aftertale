@@ -7,6 +7,41 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — Hub Overview redesign: the card system *(2026-06-01)*
+
+Rebuilt the in-game Hub on a rounded-card design system (`S.CreateCard` +
+`S.AddGlow` + `SetGradient`): a lit violet-black ground, glassy gradient
+columns, glowing stat tiles, line-art icons, a 2×3 "Story at a Glance" grid,
+a denser 8-row Recent Moments feed, and gold-CTA / violet-ghost buttons.
+Replaced the busy, magenta-chroma-keyed 9-slice frame art with clean
+SVG-authored chrome (`frame-clean`, `inner-frame-clean`, `inner-cell-clean`,
+`card-white/stroke`, `glow-soft`). A new line-art icon set replaces the bronze
+`iconsheet.png`. Built and verified against `docs/hub_mockup.jpeg` with a
+headless render harness (`tools/hub-sim/`).
+
+### Removed — the 9-slice AftertaleFrame on the web Chronicle *(2026-06-01)*
+
+Pulled the ornate 9-slice frame off the Latest Session and Full Saga chronicle
+views and restored `.at-chronicle-chapter`'s original styling. Deleted the
+`AftertaleFrame` component, its CSS, and `public/frame/aftertale-9slice-frame.png`.
+
+### Added — durable sessions, cloud event backup, richer quest seeding *(2026-06-01)*
+
+- The addon stamps a per-login session id on every event (new on a cold login,
+  kept across `/reload`, fresh on relaunch), so sessions are **stable across
+  re-imports** — fixing re-narration of already-processed events even when a
+  session ends in a force-close rather than a clean logout. Ring-buffer default
+  raised 5,000 → 25,000.
+- Captured events now **back up to Supabase** (`public.events`, keyed by event
+  id) and **restore** on a new device or after cleared storage — the player's
+  story is no longer local-only.
+- Quest capture expanded to structured **facts** (objectives, rewards, tag),
+  threaded into the recap prompt. A dev-toggled prose-seeding mode (A/B/C)
+  drives the LLM with facts only (A), facts + verbatim quest prose (B, dev-only),
+  or facts + the model's own lore knowledge (**C, production default**).
+- IP posture recorded in `docs/ip-posture.md` (facts-only via the in-game Addon
+  API; no verbatim Blizzard prose to the LLM on the paid tier).
+
 ### Fixed — button assets: kill the pink chroma halo *(2026-05-31)*
 
 The four button textures (`button-idle/hover`, `cta-chronicle-idle/hover`)

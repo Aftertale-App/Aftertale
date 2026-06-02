@@ -7,9 +7,10 @@ import { AddonSimulator } from './components/AddonSimulator';
 import { ChronicleReader } from './components/ChronicleReader';
 import { ScribesDesk } from './components/ScribesDesk';
 import { getKeyStatus } from './lib/apiKeys';
-import { getShowScribesDesk } from './lib/featureFlags';
+import { getShowScribesDesk, getSeedMode, cycleSeedMode } from './lib/featureFlags';
 import { ensureAnonymousSession } from './lib/auth';
 import { initCloudSync } from './lib/cloudSync';
+import { isSupabaseConfigured } from './lib/supabase';
 import { DEV_TOOLS_ENABLED } from './lib/devTools';
 import { loadBible } from './lib/bibleStore';
 import type { CharacterBible } from './types';
@@ -92,6 +93,7 @@ export function App() {
   useEffect(() => {
     function onFlags() {
       setShowDesk(getShowScribesDesk());
+      setKeyTick((t) => t + 1); // force a re-render so dev flag pills reflect their new state
     }
     window.addEventListener('at:flags-updated', onFlags);
     return () => window.removeEventListener('at:flags-updated', onFlags);
@@ -165,6 +167,26 @@ export function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {DEV_TOOLS_ENABLED && isSupabaseConfigured() && (
+        <span
+          className="at-dev-pill"
+          style={{ position: 'fixed', bottom: 10, left: 10, zIndex: 9999, background: 'rgba(18, 11, 28, 0.9)' }}
+          title="Local dev build is connected to the PRODUCTION Supabase — auth + cloud writes hit live data."
+        >
+          Dev · Prod DB
+        </span>
+      )}
+      {DEV_TOOLS_ENABLED && (
+        <button
+          type="button"
+          className="at-dev-pill"
+          onClick={() => cycleSeedMode()}
+          style={{ position: 'fixed', bottom: 10, left: 116, zIndex: 9999, background: 'rgba(18, 11, 28, 0.9)', cursor: 'pointer' }}
+          title="Prose-seed mode (dev only) — click to cycle. A = structured facts only. B = facts + verbatim Blizzard quest prose (needs /aftertale richtext on). C = facts + 'use your own lore knowledge' (sends no Blizzard text)."
+        >
+          Seed: {getSeedMode()}
+        </button>
+      )}
       <SpendBar onOpenSettings={openSettings} hasAnyKey={anyKey} />
       <main className="at-app-shell">
         <header className="at-app-header at-hero-anim" style={{ animationDelay: '60ms' }}>

@@ -16,7 +16,7 @@ local CHAT_TAG = "|cFFFFD700[Aftertale]|r"
 -- Schema version for AftertaleDB. Bump when shape changes in a
 -- way old saves can't be loaded by new code. migrate() runs once per load
 -- and walks db.schemaVersion forward to CURRENT_SCHEMA.
-local CURRENT_SCHEMA = 2
+local CURRENT_SCHEMA = 3
 
 ------------------------------------------------------------------------
 -- Compat shims
@@ -128,7 +128,7 @@ local function ensureDB()
   -- Phase 2: ring buffer cap. FIFO trim oldest events when the buffer
   -- overflows. Bounds SavedVariables file size on long sessions. Tune
   -- with /aftertale max <N>; minimum 100, no hard upper limit.
-  if c.maxEvents == nil then c.maxEvents = 5000 end
+  if c.maxEvents == nil then c.maxEvents = 25000 end
   -- Phase 1.7: Tier-C enrichment. Paragraphs imported via /aftertale sync land
   -- here keyed by Templates.EntryID; ChronicleBook reads this first,
   -- falls back to procedural templates per entry.
@@ -170,7 +170,13 @@ end
 local function migrate(db)
   if db.schemaVersion == CURRENT_SCHEMA then return end
   local from = db.schemaVersion
-  -- No migrations yet. Future migrators land here, one branch per bump.
+  -- v2 -> v3: raise the old 5000-event ring buffer to 25000. The smaller cap
+  -- evicted long play sessions before they could be imported + backed up, and
+  -- captured events are the player's story -- we must not lose them. Only the
+  -- exact old default is bumped, so a deliberately-chosen value survives.
+  if (from or 0) < 3 and db.config and db.config.maxEvents == 5000 then
+    db.config.maxEvents = 25000
+  end
   db.schemaVersion = CURRENT_SCHEMA
   if NS and NS.Logger then
     NS.Logger:info(string.format("schema migrated %s -> %s",
@@ -391,8 +397,81 @@ local function captureLoot()
   return items
 end
 
-local function buildEnrichment(event, args)
+-- A (structured facts): quest objectives as DATA, not prose. C_QuestLog returns
+-- short factual lines ("Slay 10 Kobolds") plus type + counts -- the same tier of
+-- data Questie/QuestieDB stores. We deliberately do NOT pull the multi-paragraph
+-- quest-giver flavor text here; that lives behind the captureBlizzardText dev
+-- flag (see captureRichText). Only resolvable once the quest is in the log.
+local function captureQuestObjectives(questID)
+  local id = tonumber(questID)
+  if not id or not (C_QuestLog and C_QuestLog.GetQuestObjectives) then return nil end
+  local objs = safeCall(C_QuestLog.GetQuestObjectives, id)
+  if type(objs) ~= "table" or #objs == 0 then return nil end
+  local out = {}
+  for _, o in ipairs(objs) do
+    if type(o) == "table" then
+      table.insert(out, {
+        type = o.type,           -- "monster" | "item" | "object" | "reputation" | ...
+        text = o.text,           -- short factual line, e.g. "Slay 10 Kobolds"
+        need = o.numRequired,
+        have = o.numFulfilled,
+        done = o.finished and true or false,
+      })
+    end
+  end
+  if #out == 0 then return nil end
+  return out
+end
+
+-- A (structured facts): reward item NAMES/links + money/xp. Only readable while
+-- the turn-in (QUEST_COMPLETE) frame is open. Names/links are facts, not lore.
+local function captureQuestRewards()
+  if not GetNumQuestRewards then return nil end
+  local items = {}
+  local function grab(kind, n)
+    for i = 1, (n or 0) do
+      local name, _, qty = safeCall(GetQuestItemInfo, kind, i)
+      local link = safeCall(GetQuestItemLink, kind, i)
+      if name or link then
+        table.insert(items, { kind = kind, name = name, qty = qty, link = link })
+      end
+    end
+  end
+  grab("reward", safeCall(GetNumQuestRewards) or 0)
+  grab("choice", safeCall(GetNumQuestChoices) or 0)
+  local res = {}
+  if #items > 0 then res.items = items end
+  local money = safeCall(GetRewardMoney); if money and money > 0 then res.money = money end
+  local xp = safeCall(GetRewardXP); if xp and xp > 0 then res.xp = xp end
+  if next(res) == nil then return nil end
+  return res
+end
+
+-- B (DEV FLAG ONLY -- db.config.captureBlizzardText): verbatim Blizzard quest
+-- prose for the A/B prose-quality experiment. This is copyrighted text; it must
+-- NEVER be on by default and the web side gates it behind a dev flag before it
+-- ever reaches an LLM. See deep-research findings / IP caveats. safeCall returns
+-- nil for missing globals, so each line is best-effort.
+local function captureRichText(event)
+  local rt = {}
+  if event == "QUEST_DETAIL" then
+    rt.description = safeCall(GetQuestText)
+    rt.objectives = safeCall(GetObjectiveText)
+  elseif event == "QUEST_PROGRESS" then
+    rt.progress = safeCall(GetProgressText)
+  elseif event == "QUEST_COMPLETE" then
+    rt.reward = safeCall(GetRewardText)
+  end
+  for k, v in pairs(rt) do
+    if type(v) ~= "string" or v == "" then rt[k] = nil end
+  end
+  if next(rt) == nil then return nil end
+  return rt
+end
+
+local function buildEnrichment(db, event, args)
   local enr = snapshot()
+  local richOn = db and db.config and db.config.captureBlizzardText
 
   if event == "QUEST_ACCEPTED" or event == "QUEST_REMOVED"
       or event == "QUEST_TURNED_IN" or event == "QUEST_COMPLETE"
@@ -400,14 +479,41 @@ local function buildEnrichment(event, args)
     local questID = args and args[1]
     local title = questTitleFor(questID)
     if title then enr.questTitle = title end
+    if questID then enr.questID = tonumber(questID) end
+
+    -- A: structured objectives + tag/type (facts, not flavor prose).
+    local objs = captureQuestObjectives(questID)
+    if objs then enr.objectives = objs end
+    if C_QuestLog and C_QuestLog.GetQuestTagInfo and tonumber(questID) then
+      local tag = safeCall(C_QuestLog.GetQuestTagInfo, tonumber(questID))
+      if type(tag) == "table" and tag.tagName then enr.questTag = tag.tagName end
+    end
+    -- A: rewards are only readable while the turn-in frame is open.
+    if event == "QUEST_COMPLETE" then
+      local rewards = captureQuestRewards()
+      if rewards then enr.rewards = rewards end
+    end
+    -- B (dev flag): verbatim quest prose for the prose-quality A/B test.
+    if richOn then
+      local rt = captureRichText(event)
+      if rt then enr.richText = rt end
+    end
 
   elseif event == "QUEST_DETAIL" then
     if GetTitleText then
       local t = safeCall(GetTitleText)
       if t and t ~= "" then enr.questTitle = t end
     end
+    if GetQuestID then
+      local qid = safeCall(GetQuestID)
+      if qid and qid > 0 then enr.questID = qid end
+    end
     local npc = captureNpc()
     if npc then enr.npc = npc end
+    if richOn then
+      local rt = captureRichText(event)
+      if rt then enr.richText = rt end
+    end
 
   elseif event == "GOSSIP_SHOW" then
     local npc = captureNpc()
@@ -503,13 +609,14 @@ local function recordEvent(db, event, ...)
     t = GetTime(),
     ts = date("%Y-%m-%dT%H:%M:%S"),
     event = event,
+    session = db.currentSessionId,
     char = UnitGUID("player") or nil,
     charName = UnitName("player") or nil,
     args = args,
   }
   if db.enrichmentEnabled and event ~= "COMBAT_LOG_EVENT_UNFILTERED" then
     -- COMBAT_LOG is sampled and high-volume; skip enrichment for it.
-    rec.enrichment = buildEnrichment(event, args)
+    rec.enrichment = buildEnrichment(db, event, args)
   end
   table.insert(db.events, rec)
 
@@ -796,6 +903,20 @@ frame:SetScript("OnEvent", function(self, event, ...)
   end
 
   local db = ensureDB()
+
+  -- Per-login narrative session id, stamped onto every event (see recordEvent).
+  -- A genuine cold login (PLAYER_ENTERING_WORLD with isInitialLogin) starts a
+  -- new session; /reload and zoning keep the current one. A force-close +
+  -- relaunch is a cold login too, so sessions split cleanly at the real
+  -- boundary WITHOUT needing a captured PLAYER_LOGOUT. Persisted in
+  -- SavedVariables so it survives /reload. The web companion buckets sessions
+  -- by this id, so identity stays stable across re-imports.
+  if event == "PLAYER_ENTERING_WORLD" then
+    local isInitialLogin = ...
+    if isInitialLogin then db.currentSessionId = uuid() end
+  end
+  if not db.currentSessionId then db.currentSessionId = uuid() end
+
   recordEvent(db, event, ...)
 
   -- Phase 1.6: session counters + UI signal bus. UI/*.lua files subscribe
@@ -974,7 +1095,9 @@ local function cmdHelp()
   print("  /aftertale characters        -- list characters Aftertale has seen")
   print("  /aftertale character reset <guid>  -- force re-onboarding for a character")
   print("  /aftertale enrichment [on|off]  -- toggle per-event enrichment (zone/quest title/NPC/loot)")
+  print("  /aftertale richtext [on|off]    -- DEV: capture verbatim quest prose for A/B testing (copyrighted; off by default)")
   print("  /aftertale log               -- diagnostics logger (see /aftertale log for sub-commands)")
+  print("  /aftertale demo              -- seed the Stranglethorn sample data + open the Hub (dev)")
 end
 
 -- Diagnostics logger control. Routes to NS.Logger. Sub-commands:
@@ -1072,6 +1195,21 @@ local function cmdEnrichment(arg)
     db.enrichmentEnabled = false
   end
   print(string.format("%s enrichment is %s.", CHAT_TAG, db.enrichmentEnabled and "ON" or "OFF"))
+end
+
+-- DEV/EXPERIMENTAL: toggle capture of verbatim Blizzard quest prose
+-- (description / progress / reward dialogue) for the prose-quality A/B test.
+-- OFF by default. This is copyrighted text -- only for local testing, and the
+-- web side keeps it behind its own dev flag before any LLM ever sees it.
+local function cmdRichText(arg)
+  local db = ensureDB()
+  if arg == "on" or arg == "true" or arg == "1" then
+    db.config.captureBlizzardText = true
+  elseif arg == "off" or arg == "false" or arg == "0" then
+    db.config.captureBlizzardText = false
+  end
+  print(string.format("%s rich quest-text capture is %s (dev/experimental -- copyrighted text).",
+    CHAT_TAG, db.config.captureBlizzardText and "ON" or "OFF"))
 end
 
 local function cmdCount()
@@ -1290,6 +1428,43 @@ local function cmdChapters()
   print("  the in-game reader will be wired into /aftertale book in a follow-up.")
 end
 
+-- Seed the demo state used by the mockup (a level-27 Stranglethorn session):
+-- six populated stat tiles + a feed of FIVE DISTINCT recent moments. Lets us
+-- (and a fresh install) see the skinned Hub with representative data without
+-- having to actually play to those numbers. Writes only on explicit command;
+-- "/aftertale clear" wipes it. Stats are derived from the seeded events, so
+-- they stay internally consistent (Time Recorded tracks the earliest event).
+local function cmdDemo()
+  local db = NS and NS.GetDB and NS.GetDB()
+  if not db then print(CHAT_TAG .. " db not ready -- /reload and retry."); return end
+  local function iso(secAgo) return date("%Y-%m-%dT%H:%M:%S", time() - secAgo) end
+  local ev = {}
+  local function add(secAgo, event, enr, args)
+    ev[#ev + 1] = { ts = iso(secAgo), event = event, enrichment = enr, args = args }
+  end
+  -- Earliest event ~27h ago -> Time Recorded reads "27h".
+  add(27 * 3600, "ZONE_CHANGED_NEW_AREA", { zoneText = "Northshire" })
+  local zones = { "Elwynn Forest", "Westfall", "Redridge Mountains", "Duskwood",
+    "Loch Modan", "Wetlands", "Arathi Highlands", "Hillsbrad Foothills",
+    "Ashenvale", "The Barrens" }
+  for i, z in ipairs(zones) do add((26 - i) * 3600, "ZONE_CHANGED_NEW_AREA", { zoneText = z }) end
+  for i = 1, 42 do add(20 * 3600 - i * 120, "QUEST_TURNED_IN", { questTitle = "A Hero's Errand " .. i }, { "0", "150" }) end
+  for i = 1, 11 do add(18 * 3600 - i * 120, "ACHIEVEMENT_EARNED", { achievementName = "Milestone " .. i }) end
+  for i = 1, 3  do add(12 * 3600 - i * 300, "ENCOUNTER_END", { encounterName = "Boss " .. i, success = true }) end
+  -- The five newest DISTINCT moments (mockup feed), most-recent last.
+  add(6 * 3600 + 12 * 60, "ACHIEVEMENT_EARNED",    { achievementName = "Expert Treasure Hunter" })
+  add(5 * 3600 + 55 * 60, "ZONE_CHANGED_NEW_AREA", { zoneText = "Grom'gol Base Camp" })
+  add(5 * 3600 + 42 * 60, "PLAYER_LEVEL_UP",       { level = 27 })
+  add(5 * 3600 + 30 * 60, "QUEST_TURNED_IN",       { questTitle = "The Green Hills of Stranglethorn" }, { "0", "1234" })
+  add(5 * 3600 + 18 * 60, "ZONE_CHANGED_NEW_AREA", { zoneText = "Stranglethorn Vale" })
+  db.events = ev
+  db.marked = {}
+  for i = 1, 147 do db.marked[i] = { ts = iso(3600) } end
+  if NS.RefreshHub then NS.RefreshHub() end
+  if NS.OpenHub then NS.OpenHub() end
+  print(CHAT_TAG .. " demo data seeded (Stranglethorn sample). /aftertale clear to wipe.")
+end
+
 SlashCmdList.Aftertale = function(msg)
   msg = msg or ""
   local cmd, arg = msg:match("^(%S*)%s*(.-)$")
@@ -1309,9 +1484,14 @@ SlashCmdList.Aftertale = function(msg)
   elseif cmd == "version" then cmdVersion()
   elseif cmd == "chapters" then cmdChapters()
   elseif cmd == "stats" then cmdStats()
+  elseif cmd == "demo" then cmdDemo()
+  elseif cmd == "proto" then
+    if NS and NS.OpenProto then NS.OpenProto()
+    else print(CHAT_TAG .. " proto not loaded yet -- /reload and retry.") end
   elseif cmd == "characters" then cmdCharacters()
   elseif cmd == "character" then cmdCharacterReset(arg)
   elseif cmd == "enrichment" then cmdEnrichment(arg)
+  elseif cmd == "richtext" then cmdRichText(arg)
   elseif cmd == "log" or cmd == "logs" then cmdLog(arg)
   elseif cmd == "hub" or cmd == "open" or cmd == "window" then
     if NS and NS.OpenHub then NS.OpenHub()

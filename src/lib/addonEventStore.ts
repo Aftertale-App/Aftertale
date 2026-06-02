@@ -66,6 +66,30 @@ export function upsertAddonEventRecord(record: AddonEventRecord): 'inserted' | '
   return 'inserted';
 }
 
+/**
+ * Bulk-merge records into the store in a SINGLE read/write, skipping any whose
+ * event id already exists locally. Returns the number actually inserted. Used
+ * by the cloud-restore path (pulling a character's events back on a new device)
+ * where calling {@link appendAddonEventRecord} per row would be O(n^2) and fire
+ * thousands of update events.
+ */
+export function mergeAddonEventRecords(incoming: AddonEventRecord[]): number {
+  if (incoming.length === 0) return 0;
+  const records = loadAddonEventRecords();
+  const seen = new Set(records.map((r) => r.event.id));
+  let added = 0;
+  for (const rec of incoming) {
+    if (!rec || !rec.event || seen.has(rec.event.id)) continue;
+    seen.add(rec.event.id);
+    records.push(rec);
+    added++;
+  }
+  if (added === 0) return 0;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  fireAddonEventsUpdated();
+  return added;
+}
+
 export function clearAddonEventRecords(characterKey?: string): number {
   const records = loadAddonEventRecords();
   const keep = characterKey === undefined

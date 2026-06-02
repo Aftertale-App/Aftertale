@@ -1,4 +1,4 @@
-import type { AddonEvent, AddonEventKind } from './addonEvents';
+import type { AddonEvent, AddonEventKind, QuestObjective, QuestRewards } from './addonEvents';
 import type { AddonEventRecord } from './addonEventStore';
 import { pickStoryBeats } from './storyBeats';
 import type { StoryBeatSettings } from './storyBeatSettings';
@@ -232,9 +232,32 @@ export function sessionStoryBeats(
   return pickStoryBeats(session.records, settings);
 }
 
+function formatObjective(o: QuestObjective): string {
+  const label = o.text || o.type || 'objective';
+  const counts =
+    typeof o.have === 'number' && typeof o.need === 'number' ? ` (${o.have}/${o.need})` : '';
+  return `${label}${counts}`;
+}
+
+function formatRewards(r: QuestRewards): string | null {
+  const parts: string[] = [];
+  if (r.items?.length) parts.push(r.items.map((i) => i.name || 'item').join(', '));
+  if (r.money) parts.push(`${r.money}c`);
+  if (r.xp) parts.push(`${r.xp} xp`);
+  return parts.length ? `Rewards: ${parts.join(', ')}` : null;
+}
+
 export function eventFactLine(event: AddonEvent): string {
+  // A (structured facts): objectives/rewards/tag are DATA, safe to surface.
+  const objectives = event.questObjectives?.length
+    ? `Objectives: ${event.questObjectives.map(formatObjective).join('; ')}`
+    : null;
+  const rewards = event.questRewards ? formatRewards(event.questRewards) : null;
   const context = [
     event.questName ? `Quest: ${event.questName}` : null,
+    event.questTag ? `(${event.questTag})` : null,
+    objectives,
+    rewards,
     event.npcName ? `NPC: ${event.npcName}` : null,
     event.unitName ? `Unit: ${event.unitName}` : null,
     event.itemName ? `Item: ${event.itemName}` : null,

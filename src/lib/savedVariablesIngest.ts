@@ -11,7 +11,15 @@
 // byte-for-byte. Without that, the /aftertale sync round-trip silently skips.
 // ============================================================================
 
-import type { AddonEvent, AddonEventKind, LootItem, WowEventName } from './addonEvents';
+import type {
+  AddonEvent,
+  AddonEventKind,
+  LootItem,
+  WowEventName,
+  QuestObjective,
+  QuestRewards,
+  QuestRichText,
+} from './addonEvents';
 import { parseSavedVariables, type LuaValue, type ParsedSavedVariables } from './luaSavedVariables';
 
 export interface IngestSummary {
@@ -65,6 +73,67 @@ function asStringArray(v: LuaValue | undefined): string[] {
     if (entry === null) return '';
     return '';
   });
+}
+
+// Lua sequence tables usually parse to JS arrays, but tolerate a sparse/keyed
+// object too (Object.values) so we never drop captured rows.
+function asArray(v: LuaValue | undefined): LuaValue[] {
+  if (Array.isArray(v)) return v;
+  if (isObj(v)) return Object.values(v);
+  return [];
+}
+
+// A: structured objectives from enrichment.objectives (facts, not prose).
+function extractObjectives(enr: { [k: string]: LuaValue } | undefined): QuestObjective[] | undefined {
+  if (!enr) return undefined;
+  const rows = asArray(enr.objectives);
+  if (rows.length === 0) return undefined;
+  const out: QuestObjective[] = [];
+  for (const o of rows) {
+    if (!isObj(o)) continue;
+    out.push({
+      type: asString(o.type),
+      text: asString(o.text),
+      need: asNumber(o.need),
+      have: asNumber(o.have),
+      done: o.done === true,
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+// A: reward facts from enrichment.rewards (item names/links + money/xp).
+function extractRewards(enr: { [k: string]: LuaValue } | undefined): QuestRewards | undefined {
+  if (!enr || !isObj(enr.rewards)) return undefined;
+  const r = enr.rewards;
+  const out: QuestRewards = {};
+  const items = asArray(r.items)
+    .filter(isObj)
+    .map((it) => ({
+      kind: asString(it.kind),
+      name: asString(it.name),
+      qty: asNumber(it.qty),
+      link: asString(it.link),
+    }))
+    .filter((it) => it.name || it.link);
+  if (items.length) out.items = items;
+  const money = asNumber(r.money); if (money) out.money = money;
+  const xp = asNumber(r.xp); if (xp) out.xp = xp;
+  return Object.keys(out).length ? out : undefined;
+}
+
+// B (dev): verbatim quest prose from enrichment.richText. Only present when the
+// addon captureBlizzardText flag was on. We map it; whether it ever reaches the
+// LLM is gated separately by the web `richStorySeed` dev flag.
+function extractRichText(enr: { [k: string]: LuaValue } | undefined): QuestRichText | undefined {
+  if (!enr || !isObj(enr.richText)) return undefined;
+  const t = enr.richText;
+  const out: QuestRichText = {};
+  const d = asString(t.description); if (d) out.description = d;
+  const o = asString(t.objectives); if (o) out.objectives = o;
+  const p = asString(t.progress); if (p) out.progress = p;
+  const rw = asString(t.reward); if (rw) out.reward = rw;
+  return Object.keys(out).length ? out : undefined;
 }
 
 // Strip WoW item-link control codes so the LLM sees just the readable name.
@@ -267,12 +336,22 @@ function rowToEvent(
   const questName = enrichment ? asString(enrichment.questTitle) : undefined;
   const unitName = enrichment ? asString(enrichment.encounterName) : undefined;
   const loot = extractLoot(enrichment);
+  const questObjectives = extractObjectives(enrichment);
+  const questRewards = extractRewards(enrichment);
+  const questTag = enrichment ? asString(enrichment.questTag) : undefined;
+  const questRichText = extractRichText(enrichment);
+  const questIdFromEnr = enrichment ? asNumber(enrichment.questID) : undefined;
 
   return {
     id,
     source: 'wow-addon',
     kind: mapKind(wowEvent),
     wowEvent: wowEvent as WowEventName,
+    // Per-login session id stamped by the addon (schemaVersion 3+). Stable
+    // across re-imports, so sessionHistory buckets by this instead of the
+    // fragile logout/idle-gap fallback. Older events have no `session` and
+    // fall through to that fallback, which is fine.
+    sessionId: asString(row.session),
     char: asString(row.char),
     charName: asString(row.charName),
     timestamp: parsedTs,
@@ -283,8 +362,12 @@ function rowToEvent(
     zone,
     subZone,
     npcName,
-    questId,
+    questId: questId ?? questIdFromEnr,
     questName,
+    questObjectives,
+    questRewards,
+    questTag,
+    questRichText,
     playerLevel,
     unitName,
     loot,

@@ -46,6 +46,9 @@ import {
   SESSION_RECAPS_UPDATED_EVENT,
   type SessionRecapMap,
 } from './sessionRecapStore';
+import { pushEvents, pullEvents, hasUnpushedEvents } from './eventSync';
+
+const ADDON_EVENTS_UPDATED_EVENT = 'at:addon-events-updated';
 
 type Client = SupabaseClient<Database>;
 
@@ -574,6 +577,23 @@ async function hydrate(uid: string): Promise<void> {
       }
     }
 
+    // Restore each character's captured events from the cloud. This is the
+    // device-switch / cleared-storage recovery path: pull public.events down
+    // and merge so every session reconstructs. suppressPush keeps the local
+    // merge from bouncing straight back up as a redundant upload mid-hydrate.
+    suppressPush = true;
+    try {
+      for (const [key, cid] of Object.entries(readCharmap())) {
+        try {
+          await pullEvents(supabase, cid, key);
+        } catch (err) {
+          console.warn('[cloudSync] event pull threw', key, err);
+        }
+      }
+    } finally {
+      suppressPush = false;
+    }
+
     // Bring a synced BYOK key down to this device (or push this device's up).
     // Best-effort: a key hiccup shouldn't flip the whole sync to error.
     await reconcileKey(supabase, uid);
@@ -638,7 +658,10 @@ async function pushAll(): Promise<void> {
       dirty.push({ key, bible, mod });
     }
     const deletions = Object.keys(charmap).filter((key) => !localKeys.has(key));
-    if (dirty.length === 0 && deletions.length === 0) return; // nothing to do
+    // Event backup is independent of bundle dirtiness — an import that only adds
+    // events (no bible/level change) must still mirror them up.
+    const eventWork = [...localKeys].some((k) => !tombstones[k] && hasUnpushedEvents(k));
+    if (dirty.length === 0 && deletions.length === 0 && !eventWork) return; // nothing to do
 
     setStatus('syncing');
     let hadError = false;
@@ -650,6 +673,27 @@ async function pushAll(): Promise<void> {
     for (const { key, bible, mod } of dirty) {
       const ok = await pushCharacter(supabase, uid, key, bible, charmap, mod);
       if (!ok) hadError = true;
+    }
+
+    // Event backup pass: mirror every character's not-yet-pushed events up to
+    // public.events, independent of whether its bible bundle changed. Ensures
+    // the character row exists first (to get its uuid) for the rare case where
+    // events arrived but the bundle wasn't dirty.
+    for (const key of localKeys) {
+      if (tombstones[key]) continue;
+      if (!hasUnpushedEvents(key)) continue;
+      let cid = charmap[key];
+      if (!cid) {
+        const bible = getBibleByKey(key);
+        if (!bible) continue;
+        const mod = effectiveModifiedAt(key, bible, loadEnrichments(key), loadSessionRecaps(key));
+        await pushCharacter(supabase, uid, key, bible, charmap, mod);
+        cid = charmap[key];
+      }
+      if (cid) {
+        const ok = await pushEvents(supabase, cid, key);
+        if (!ok) hadError = true;
+      }
     }
 
     // Deletes: a key we have a cloud uuid for but no longer have locally was
@@ -769,6 +813,7 @@ export function initCloudSync(): void {
   window.addEventListener('at:bible-roster-updated', onLocalChange);
   window.addEventListener(ENRICHMENTS_UPDATED_EVENT, onLocalChange);
   window.addEventListener(SESSION_RECAPS_UPDATED_EVENT, onLocalChange);
+  window.addEventListener(ADDON_EVENTS_UPDATED_EVENT, onLocalChange); // import -> back up events
 }
 
 /**

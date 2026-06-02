@@ -6,6 +6,7 @@ import { ENRICHMENTS_UPDATED_EVENT, loadEnrichments, removeEnrichments, toParagr
 import { loadSessionRecaps, removeSessionRecap, saveSessionRecap, SESSION_RECAPS_UPDATED_EVENT, type SessionRecapMap, type SessionRecapRecord } from '../lib/sessionRecapStore';
 import { entryId } from '../lib/chronicleExport';
 import { eventFactLine, type ChronicleSession } from '../lib/sessionHistory';
+import { getSeedMode, type SeedMode } from '../lib/featureFlags';
 import { beatGlyph, beatLabel, pickStoryBeats } from '../lib/storyBeats';
 import type { CharacterBible, HistoryEntry, LLMResponse } from '../types';
 
@@ -521,6 +522,7 @@ function buildSessionRecapPrompt(bible: CharacterBible, session: ChronicleSessio
   const historyEntries = (bible.history ?? []).filter((entry) =>
     session.records.some((record) => entry.id === `addon_${record.event.id}`),
   );
+  const mode = getSeedMode();
 
   return [
     `Hero: ${bible.name}, ${bible.faction} ${bible.race} ${bible.class}`,
@@ -549,6 +551,12 @@ function buildSessionRecapPrompt(bible: CharacterBible, session: ChronicleSessio
     '',
     'Scope: selected addon-observed play session from The Inkwell.',
     'Write this as character story, not a stats dashboard. Use counters only when they support the narrative.',
+    'Write entirely ORIGINAL prose in the hero\'s own voice. Any line marked "reference lore" is context you may be inspired by but must NEVER copy or closely paraphrase — translate it into wholly original wording.',
+    // C arm: pull grounding from the model's OWN trained lore knowledge instead of
+    // sending Blizzard's quest text. IP-safe.
+    mode === 'C'
+      ? 'These quests, NPCs, and zones have established in-world lore. Where you recognize the specific quest, NPC, or location named in the facts below, you MAY draw on that established lore from your own knowledge to ground the scene with accurate detail (motivations, geography, stakes). Invent nothing that contradicts the captured facts; if you are unsure of a detail, stay general rather than fabricate.'
+      : null,
     `Session title: ${session.title}`,
     `Session window: ${formatDateRange(session.startedAt, session.finishedAt)}`,
     `Duration: ${formatDuration(session.finishedAt - session.startedAt)}`,
@@ -564,13 +572,13 @@ function buildSessionRecapPrompt(bible: CharacterBible, session: ChronicleSessio
     ...historyEntries.map((entry) => `- ${formatPromptTimestamp(entry.timestamp)}${entryContext(entry) ? ` (${entryContext(entry)})` : ''}: ${entry.text}`),
     historyEntries.length > 0 ? '' : null,
     'Addon-observed facts from this session, oldest first (telemetry included for context):',
-    ...session.records.map(sessionRecordPromptLine),
+    ...session.records.map((record) => sessionRecordPromptLine(record, mode)),
   ]
     .filter((line): line is string => line !== null)
     .join('\n');
 }
 
-function sessionRecordPromptLine(record: AddonEventRecord): string {
+function sessionRecordPromptLine(record: AddonEventRecord, mode: SeedMode): string {
   const event = record.event;
   const story = event.storyCard
     ? [
@@ -585,10 +593,26 @@ function sessionRecordPromptLine(record: AddonEventRecord): string {
   const questText = event.questTextEnrichment?.text.trim()
     ? `quest text note: ${event.questTextEnrichment.text.trim()}`
     : null;
+  // B (dev only): verbatim Blizzard quest prose, fed as REFERENCE the model may be
+  // inspired by but must never reproduce. Only in mode 'B', which is hard-gated to
+  // dev builds, so this can never reach the LLM in production.
+  let richText: string | null = null;
+  if (mode === 'B' && event.questRichText) {
+    const rt = event.questRichText;
+    const parts = [
+      rt.description ? `desc: ${rt.description}` : null,
+      rt.progress ? `progress: ${rt.progress}` : null,
+      rt.reward ? `turn-in: ${rt.reward}` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+    if (parts) richText = `reference lore (inspiration only — do NOT reproduce or closely paraphrase): ${parts}`;
+  }
   return [
     `- ${formatPromptTimestamp(event.timestamp)}: ${eventFactLine(event)}`,
     story ? ` [${story}]` : '',
     questText ? ` [${questText}]` : '',
+    richText ? ` [${richText}]` : '',
   ].join('');
 }
 

@@ -9,7 +9,10 @@
       "Bash(curl:*.supabase.com*)",
       "Bash(curl:*api.supabase.com*)",
       "Bash(npx supabase:*)",
-      "Bash(supabase:*)"
+      "Bash(supabase:*)",
+      "Bash(luac -p *)",
+      "mcp__Claude_Preview__preview_screenshot",
+      "mcp__Claude_Preview__preview_resize"
     ]
   },
   "hooks": {

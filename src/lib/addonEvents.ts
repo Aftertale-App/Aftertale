@@ -104,6 +104,36 @@ export interface QuestTextEnrichment {
   capturedAt: number;
 }
 
+// A (structured facts): quest objectives as DATA, from C_QuestLog.GetQuestObjectives.
+// Short factual lines + type + counts — the QuestieDB tier of data, never the
+// multi-paragraph quest-giver flavor prose. Safe to send to the LLM.
+export interface QuestObjective {
+  type?: string; // "monster" | "item" | "object" | "reputation" | ...
+  text?: string; // short factual line, e.g. "Slay 10 Kobolds"
+  need?: number;
+  have?: number;
+  done?: boolean;
+}
+
+// A (structured facts): reward facts captured at QUEST_COMPLETE — item
+// names/links + money/xp. Names are facts, not lore. Safe to send.
+export interface QuestRewards {
+  items?: Array<{ kind?: string; name?: string; qty?: number; link?: string }>;
+  money?: number;
+  xp?: number;
+}
+
+// B (DEV/EXPERIMENTAL ONLY): verbatim Blizzard quest prose for the prose-quality
+// A/B test. This is COPYRIGHTED text — only present when the addon's
+// captureBlizzardText dev flag is on, and only fed to the LLM behind the web
+// `richStorySeed` dev flag. NEVER ship to the default/paid pipeline.
+export interface QuestRichText {
+  description?: string;
+  objectives?: string;
+  progress?: string;
+  reward?: string;
+}
+
 // One item captured from a LOOT_OPENED event (mirrors what `captureLoot`
 // in the Lua addon emits). All fields are optional because Classic and
 // Retail expose slightly different shapes from GetLootSlotInfo.
@@ -132,6 +162,13 @@ export interface AddonEvent {
   questId?: number;
   questName?: string;
   questWowheadUrl?: string;
+  // A (structured facts): objectives/rewards/tag as DATA. Safe to send to the LLM.
+  questObjectives?: QuestObjective[];
+  questRewards?: QuestRewards;
+  questTag?: string;
+  // B (dev/experimental): verbatim copyrighted quest prose. Gated by the addon
+  // captureBlizzardText flag on capture + the web richStorySeed flag on use.
+  questRichText?: QuestRichText;
   faction?: CharacterBible['faction'];
   zone?: string;
   subZone?: string;
