@@ -73,24 +73,24 @@ export function PrivacyPage() {
       <h2>What we store if you create an account</h2>
       <p>
         Accounts are optional. Without one, your data lives only in your
-        browser. If you "Save your chronicle," we use Supabase to store:
+        browser. If you "Save your chronicle," we store:
       </p>
       <ul>
         <li>Your email address, used solely to sign you in (we use one-time
           email codes; we never store a password).</li>
-        <li>Your hero bibles, enrichments, and session recaps, so your
-          chronicle is backed up and available on a new device.</li>
+        <li>The heroes and chronicles you create, so your story is backed up
+          and available on a new device.</li>
       </ul>
       <p>
         We don't sell your data, don't run third-party advertising or tracking
         on it, and don't use your chronicles to train models.
       </p>
 
-      <h2>Hosting</h2>
+      <h2>Hosting and infrastructure</h2>
       <p>
-        The site is hosted on Cloudflare Pages and our database is Supabase.
-        Standard server logs (e.g. IP addresses for security and abuse
-        prevention) are handled by those providers.
+        Aftertale runs on established third-party cloud providers for hosting
+        and storage. They keep standard server logs (such as IP addresses) for
+        security and abuse prevention.
       </p>
 
       <h2>Retention and deletion</h2>
@@ -146,9 +146,10 @@ export function TermsPage() {
 
       <h2>Third parties</h2>
       <p>
-        Aftertale relies on third-party services (OpenRouter and your chosen AI
-        model provider, Supabase, Cloudflare). Your use of those services
-        through Aftertale is also subject to their terms.
+        Aftertale relies on third-party services — OpenRouter and your chosen
+        AI model provider (which generate prose from your own key), plus cloud
+        infrastructure providers for hosting and storage. Your use of those
+        services through Aftertale is also subject to their terms.
       </p>
 
       <h2>No warranty</h2>
