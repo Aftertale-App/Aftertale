@@ -230,19 +230,22 @@ On "generate" for a session:
 
 ---
 
-## 8. Build phasing
+## 8. Build phasing — ✅ COMPLETE (2026-06-02)
 
-- **P2a — Segmentation.** Session → 1–N chapters, biased-to-one, total-budget
-  distribution. Reader = one entry per chapter. Self-contained, testable in the
-  sim, ~80% of the felt value.
-- **P2b — Thread Ledger + continuity.** Quest-ID matching, payoff chapters,
-  the active/dormant/faded lifecycle, loose-threads mode.
-- **P2c — Arc Ledger + the closing.** The character spine, the *longer road*
-  closing section, arc-state carry-forward.
-- **P2d — Navigation polish.** Arcs view, "threads left behind," optional
-  thread agency.
+- [x] **P2a — Segmentation.** Session → 1–N chapters, biased-to-one,
+  total-budget distribution. One entry per chapter; recap = hard chapter
+  boundary. *(`chapterParse.ts`, SessionTrail prompt, bibleStore, reader.)*
+- [x] **P2b — Thread Ledger + continuity.** Derived (quest-ID) thread ledger,
+  payoff chapters, active/dormant/faded lifecycle, loose-threads prompt mode.
+  *(`threadLedger.ts`, SessionTrail CONTINUITY block.)*
+- [x] **P2c — Arc Ledger + the closing.** Persistent internal-journey state, the
+  *longer road* closing, `<<ARC>>` carry-forward. Derived; never edits the
+  bible. *(`arcLedger.ts`, SessionTrail.)*
+- [x] **P2d — Navigation.** "Threads left behind" saga-view surface.
+  *(ChronicleReader.)* Arcs-grouping view + thread agency deferred as polish.
 
-Each ships independently. P2a is the foundation; P2c is where the soul lands.
+Still derived-only / not yet cloud-synced: the arc ledger lives in localStorage
+(regenerable). Wiring it into cloudSync is a small follow-up.
 
 ---
 
