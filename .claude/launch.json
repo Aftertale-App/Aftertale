@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5180
+    },
+    {
       "name": "hub-sim",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8099", "--directory", "tools/hub-sim"],
