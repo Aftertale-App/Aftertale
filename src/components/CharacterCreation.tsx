@@ -84,9 +84,16 @@ export function CharacterCreation() {
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
 
-  // Refresh existingBible if another tab updates it.
+  // Refresh existingBible if another tab (or a hero switch / sync) updates it.
+  // If the active hero disappears while we're parked on the 'banner' step, fall
+  // back to the new-character flow — otherwise the banner renders nothing (it
+  // requires existingBible) and the user is wedged with no way to start.
   useEffect(() => {
-    const handler = () => setExistingBible(loadBible());
+    const handler = () => {
+      const b = loadBible();
+      setExistingBible(b);
+      setStep((s) => (s === 'banner' && !b ? 'welcome' : s));
+    };
     window.addEventListener('at:bible-updated', handler);
     window.addEventListener('storage', handler);
     return () => {
