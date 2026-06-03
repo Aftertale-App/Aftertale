@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { SpendBar } from './components/SpendBar';
-import { CharacterTab } from './components/CharacterTab';
+import { MeetYourHeroes } from './components/MeetYourHeroes';
 import { NpcChat } from './components/NpcChat';
 import { SettingsPanel, type SettingsSectionId } from './components/SettingsPanel';
 import { AddonSimulator } from './components/AddonSimulator';
@@ -127,7 +127,7 @@ export function App() {
 
   const tabSpecs = useMemo<TabSpec[]>(() => {
     const specs: TabSpec[] = [
-      { id: 'character', label: 'Character' },
+      { id: 'character', label: 'Heroes' },
       { id: 'chronicle', label: 'Chronicle' },
     ];
     if (showDesk) {
@@ -247,7 +247,7 @@ export function App() {
           aria-labelledby={`at-tab-${tab}`}
           tabIndex={0}
         >
-          {tab === 'character' && <CharacterTab />}
+          {tab === 'character' && <MeetYourHeroes />}
           {tab === 'chronicle' && <ChronicleReader />}
           {tab === 'desk' && showDesk && <ScribesDesk />}
           {tab === 'npc' && SHOW_DEV_TOOLS && <NpcChat />}

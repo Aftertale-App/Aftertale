@@ -8,14 +8,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CharacterBible } from '../types';
 import {
   findBibleByCharacterGuid,
-  getBibleByKey,
   loadBible,
   setActiveBible,
   setBibleCharacterBinding,
 } from '../lib/bibleStore';
-import { loadAddonEventRecords } from '../lib/addonEventStore';
-import { buildChronicleSessions } from '../lib/sessionHistory';
-import { recapSessionId } from '../lib/chapterParse';
+import { heroSessionStatus } from '../lib/heroStatus';
 import {
   commitImport,
   commitImportAll,
@@ -213,20 +210,15 @@ export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}
       return;
     }
 
+    // No active-bible requirement up front: an account-level import of a tagged
+    // file captures every character by GUID and needs no active hero — that's
+    // the brand-new-player first import. Legacy/single-hero paths below still
+    // require one (they attribute events to the active hero), guarded inline.
     const loadedBible = loadBible();
-    if (!loadedBible) {
-      setState({
-        status: 'error',
-        error: 'No active character bible. Roll or select a hero before importing addon events.',
-        fileName: file.name,
-        fileModified: file.lastModified,
-      });
-      return;
-    }
 
     const fileHash = await hashFileContents(text);
-    const characterKey = String(loadedBible.createdAt);
-    const previousRecord = loadImportRecord(characterKey);
+    const characterKey = loadedBible ? String(loadedBible.createdAt) : null;
+    const previousRecord = characterKey ? loadImportRecord(characterKey) : null;
 
     setState({
       status: 'parsing',
@@ -246,43 +238,58 @@ export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}
     try {
       const plan = buildImportPlan(text);
       let bible = loadedBible;
-      const autoClaim = matchingAutoclaim(plan, bible);
-      if (autoClaim) {
-        bible = bindBibleToCharacter(bible, autoClaim);
-      }
 
-      // Single-hero fast path: the file holds only the active hero's events.
-      // Nothing to adjudicate — just catch the hero up and show a receipt.
-      if (shouldSmartAutoCommit(plan, bible)) {
-        if (previousRecord?.fileHash === fileHash) {
-          setState({
-            status: 'up-to-date',
+      // The active-hero fast paths only apply when there *is* an active hero.
+      if (bible) {
+        const autoClaim = matchingAutoclaim(plan, bible);
+        if (autoClaim) {
+          bible = bindBibleToCharacter(bible, autoClaim);
+        }
+
+        // Single-hero fast path: the file holds only the active hero's events.
+        // Nothing to adjudicate — just catch the hero up and show a receipt.
+        if (shouldSmartAutoCommit(plan, bible)) {
+          if (previousRecord?.fileHash === fileHash) {
+            setState({
+              status: 'up-to-date',
+              fileName: file.name,
+              fileModified: file.lastModified,
+              fileHash,
+              fileSize: file.size,
+              bible,
+              previousRecord,
+            });
+            return;
+          }
+          await holdLoading(loadingStartedAt);
+          commitPreparedImport({
+            status: 'preview',
+            plan,
+            bible,
             fileName: file.name,
             fileModified: file.lastModified,
             fileHash,
             fileSize: file.size,
-            bible,
             previousRecord,
           });
           return;
         }
-        await holdLoading(loadingStartedAt);
-        commitPreparedImport({
-          status: 'preview',
-          plan,
-          bible,
-          fileName: file.name,
-          fileModified: file.lastModified,
-          fileHash,
-          fileSize: file.size,
-          previousRecord,
-        });
-        return;
       }
 
-      // Legacy untagged files can't attribute events per character, so they
-      // still need an explicit confirm — route them through the preview card.
+      // Legacy untagged files can't attribute events per character — they need
+      // an active hero to land on. Confirm via the preview card; error if none.
       if (plan.schemaVersion < 2) {
+        if (!bible) {
+          setState({
+            status: 'error',
+            error: 'This is an older, untagged save file — open or start a hero first so we know whose events these are.',
+            fileName: file.name,
+            fileModified: file.lastModified,
+            fileHash,
+            fileSize: file.size,
+          });
+          return;
+        }
         setState({
           status: 'preview',
           plan,
@@ -747,26 +754,6 @@ export function MultiHeroImportCard({
       )}
     </div>
   );
-}
-
-/**
- * Per-hero session status for the roster: how many observed sessions a hero
- * has, and how many are still unwritten (no published recap in bible.history).
- * This is the visibility layer — it surfaces the backlog the global import
- * creates under heroes you're not currently looking at.
- */
-function heroSessionStatus(key: string, name: string): { total: number; unwritten: number } {
-  const records = loadAddonEventRecords(key);
-  if (records.length === 0) return { total: 0, unwritten: 0 };
-  const sessions = buildChronicleSessions(records, name);
-  const bible = getBibleByKey(key);
-  const written = new Set<string>();
-  for (const entry of bible?.history ?? []) {
-    const sid = recapSessionId(entry.id);
-    if (sid) written.add(sid);
-  }
-  const writtenCount = sessions.filter((s) => written.has(s.id)).length;
-  return { total: sessions.length, unwritten: sessions.length - writtenCount };
 }
 
 /**
