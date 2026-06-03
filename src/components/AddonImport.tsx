@@ -296,20 +296,15 @@ export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}
         return;
       }
 
-      // Tagged multi-hero file: silently catch up the heroes we already
-      // chronicle, and leave brand-new toons for the receipt to offer opt-in.
-      // No checkbox form, no decision about bank alts you don't care about.
-      const knownGuids = plan.characters
-        .filter((c) => findBibleByCharacterGuid(c.guid))
-        .map((c) => c.guid);
-      const declineGuids = plan.characters
-        .map((c) => c.guid)
-        .filter((guid) => !knownGuids.includes(guid));
+      // Tagged multi-hero file: capture is account-wide. Every character's
+      // moments are banked immediately — established heroes update their own
+      // chronicle, and every other toon (≥ threshold) gets a *captured* record
+      // (started:false), out of the dropdown until the player begins it. Quiet
+      // bank alts below threshold stay a footnote. No decline, no decision.
       const active = loadBible();
       const result = commitImportAll(plan, {
         legacyBibleKey: active ? String(active.createdAt) : null,
         includeLegacy: false,
-        declineGuids,
       });
       for (const c of result.characters) {
         saveImportRecord(c.key, {
@@ -837,13 +832,13 @@ export function ImportDoneSummary({
                 ) : c.status.total > 0 ? (
                   <span className="at-import-hero-done">all written</span>
                 ) : null}
-                {c.created && <span className="at-import-hero-tag">✎ new draft</span>}
+                {!c.started && <span className="at-import-hero-tag">captured</span>}
                 <button
                   type="button"
-                  className="at-btn at-btn-secondary at-btn-sm at-import-hero-action"
+                  className={`at-btn at-btn-sm at-import-hero-action ${c.started ? 'at-btn-secondary' : 'at-btn-assist'}`}
                   onClick={() => onOpen(c.key)}
                 >
-                  Open {c.name} →
+                  {c.started ? `Open ${c.name} →` : `✦ Start ${c.name}`}
                 </button>
               </div>
             );

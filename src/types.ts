@@ -85,6 +85,16 @@ export interface CharacterBible {
    */
   needsSetup?: boolean;
 
+  /**
+   * True once the player has *begun* this hero (the "Start" / graduate moment).
+   * Absent or false = a **captured** character: identity + moments saved from an
+   * import, but not yet started — it stays out of the top character dropdown and
+   * shows grayed on Meet Your Heroes with a "Start" CTA. Orthogonal to
+   * `needsSetup` (which tracks "still needs authored prose"): a started hero can
+   * still be needsSetup; a captured hero is always needsSetup.
+   */
+  started?: boolean;
+
   createdAt: number;
   updatedAt: number;
   // Phase 1+ will add: relationships, scars, vows, contradictions, etc.

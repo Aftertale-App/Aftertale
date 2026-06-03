@@ -265,8 +265,9 @@ export interface PerCharacterCommit {
   key: string;
   imported: number;
   refreshed: number;
-  created: boolean;     // a draft hero was minted for this toon
+  created: boolean;     // a captured record was minted for this toon
   needsSetup: boolean;  // hero still needs its authored layer
+  started: boolean;     // player has begun this hero (vs captured-but-unstarted)
   level?: number;
 }
 
@@ -327,6 +328,7 @@ export function commitImportAll(plan: ImportPlan, opts: CommitAllOptions = {}): 
         refreshed: 0,
         created: false,
         needsSetup: Boolean(existing.needsSetup),
+        started: Boolean(existing.started),
         level: existing.level,
       });
       continue;
@@ -354,6 +356,9 @@ export function commitImportAll(plan: ImportPlan, opts: CommitAllOptions = {}): 
       refreshed: 0,
       created: true,
       needsSetup: true,
+      // Captured, not started — the import banks its moments; the player begins
+      // it later from Meet Your Heroes / the import roster.
+      started: false,
       level: stub.level,
     });
   }

@@ -578,10 +578,17 @@ async function hydrate(uid: string): Promise<void> {
       const tombs = readTombstones();
       const activeNow = listBibles().find((e) => e.isActive);
       if (!activeNow || tombs[activeNow.key]) {
+        // Prefer a *started* hero — never strand the user (and the started-only
+        // dropdown) on a captured-but-unstarted toon. Among equal started-ness,
+        // pick the most-recently-modified; only fall back to a captured hero if
+        // the account holds nothing else.
         let bestKey: string | null = null;
         let bestMod = -1;
+        let bestStarted = false;
         for (const [key, c] of cloud) {
-          if (c.mod >= bestMod) { bestMod = c.mod; bestKey = key; }
+          const started = Boolean(c.bundle?.bible?.started);
+          const better = (started && !bestStarted) || (started === bestStarted && c.mod >= bestMod);
+          if (better) { bestStarted = started; bestMod = c.mod; bestKey = key; }
         }
         if (bestKey) {
           suppressPush = true;

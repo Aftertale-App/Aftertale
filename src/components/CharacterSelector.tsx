@@ -7,13 +7,20 @@ import {
   setActiveBible,
 } from '../lib/bibleStore';
 
+// The dropdown is a quick-switcher between heroes the player has actually begun.
+// Captured-but-unstarted characters (imported identity + moments, not yet
+// started) live on Meet Your Heroes, never here.
+function listStartedBibles(): BibleRosterEntry[] {
+  return listBibles().filter((r) => r.started);
+}
+
 export function CharacterSelector() {
-  const [roster, setRoster] = useState<BibleRosterEntry[]>(() => listBibles());
+  const [roster, setRoster] = useState<BibleRosterEntry[]>(() => listStartedBibles());
   const [open, setOpen] = useState(false);
   const popRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const refresh = () => setRoster(listBibles());
+    const refresh = () => setRoster(listStartedBibles());
     // roster-updated fires when a hero is added/removed/switched OR pulled from
     // cloud sync (e.g. a non-active hero arriving on sign-in). Without it the
     // dropdown goes stale until an unrelated re-render. bible-updated covers

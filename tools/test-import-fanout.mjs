@@ -39,7 +39,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const { planImport, commitImportAll, STUB_MIN_EVENTS } = await import(join(root, 'src/lib/addonIngest.ts'));
 const { loadAddonEventRecords } = await import(join(root, 'src/lib/addonEventStore.ts'));
-const { listBibles, findBibleByCharacterGuid, saveBible } = await import(join(root, 'src/lib/bibleStore.ts'));
+const { listBibles, findBibleByCharacterGuid, saveBible, startBible } = await import(join(root, 'src/lib/bibleStore.ts'));
 
 const LUA = readFileSync(join(here, 'fixtures/multi-alt.lua'), 'utf8');
 const GUID_THAL = 'Player-100-AAAA0001';
@@ -95,6 +95,9 @@ console.log('\ncommitImportAll (fan-out into fresh roster)');
 
   check('Thaldris minted as draft', thal?.created === true && thal?.needsSetup === true);
   check('Grukmar minted as draft', gruk?.created === true && gruk?.needsSetup === true);
+  // Freshly-imported toons are *captured*, not started.
+  check('Thaldris captured (started=false)', thal?.started === false);
+  check('Grukmar captured (started=false)', gruk?.started === false);
   check('Thaldris 5 events imported', thal?.imported === 5, String(thal?.imported));
   check('Grukmar 4 events imported', gruk?.imported === 4, String(gruk?.imported));
 
@@ -113,10 +116,22 @@ console.log('\ncommitImportAll (fan-out into fresh roster)');
   const grukBible = findBibleByCharacterGuid(GUID_GRUK);
   check('Grukmar level 9 (max)', grukBible?.level === 9, String(grukBible?.level));
 
-  // Roster has exactly the two drafts, both flagged needsSetup.
+  // Roster has exactly the two drafts, both flagged needsSetup + captured.
   const roster = listBibles();
   check('roster has 2 heroes', roster.length === 2, String(roster.length));
   check('both flagged needsSetup', roster.every((r) => r.needsSetup === true));
+  // Captured heroes are in the roster but must be hidden from the started-only
+  // dropdown until the player begins them.
+  check('both captured (started=false)', roster.every((r) => r.started === false));
+  check('started-only filter hides both', roster.filter((r) => r.started).length === 0);
+
+  // startBible graduates a captured hero → started + active, in the dropdown.
+  startBible(roster[0].key);
+  const afterStart = listBibles();
+  const graduated = afterStart.find((r) => r.key === roster[0].key);
+  check('startBible flips started=true', graduated?.started === true);
+  check('graduated hero is active', graduated?.isActive === true);
+  check('started-only filter now shows 1', afterStart.filter((r) => r.started).length === 1);
 }
 
 // === 3. Idempotent re-import ===============================================

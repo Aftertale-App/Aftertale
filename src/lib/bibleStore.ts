@@ -38,6 +38,13 @@ export interface BibleRosterEntry {
   isActive: boolean;
   /** Draft hero (imported identity, not yet authored) — drives the setup badge. */
   needsSetup: boolean;
+  /**
+   * Player has begun this hero. Captured-but-unstarted characters are `false`
+   * and must be filtered OUT of the top dropdown. `listBibles()` itself returns
+   * every hero (started + captured) — filtering is each consumer's job, because
+   * cloud sync and GUID lookup depend on the full list.
+   */
+  started: boolean;
 }
 
 /**
@@ -69,6 +76,7 @@ export function validateBible(x: unknown): x is CharacterBible {
   if (b.realm !== undefined && typeof b.realm !== 'string') return false;
   if (b.wowClass !== undefined && typeof b.wowClass !== 'string') return false;
   if (b.wowRace !== undefined && typeof b.wowRace !== 'string') return false;
+  if (b.started !== undefined && typeof b.started !== 'boolean') return false;
   if (b.history !== undefined) {
     if (!Array.isArray(b.history)) return false;
     for (const entry of b.history) {
@@ -268,6 +276,7 @@ function fireRosterUpdated(): void {
 
 const BACKFILL_FLAG = 'at.migrations.fears-flaws-quote.v1';
 const PURGE_ADDON_HISTORY_FLAG = 'at.migrations.purge-addon-history.v1';
+const STARTED_FLAG_MIGRATION = 'at.migrations.started-flag.v1';
 
 interface BibleBackfill {
   createdAt: number;
@@ -367,6 +376,30 @@ function purgeAddonHistoryFromAllBibles(): void {
   }
 }
 
+// Started-flag migration: the captured/started axis is new, so every
+// pre-existing hero predates the `started` field. Stamp them all `started: true`
+// once, otherwise the started-only dropdown would hide every hero on upgrade.
+// New captured stubs are minted `started: false` and are unaffected.
+function backfillStartedFlag(): void {
+  try {
+    if (localStorage.getItem(STARTED_FLAG_MIGRATION)) return;
+    const roster = readRoster();
+    let patched = 0;
+    for (const key of roster.keys) {
+      const bible = readEntry(key);
+      if (!bible || bible.started !== undefined) continue;
+      writeEntry({ ...bible, started: true });
+      patched++;
+    }
+    localStorage.setItem(STARTED_FLAG_MIGRATION, String(Date.now()));
+    if (patched > 0) {
+      console.info(`[bibleStore] stamped started:true on ${patched} pre-existing hero(es)`);
+    }
+  } catch (err) {
+    console.warn('[bibleStore] started-flag migration failed:', err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // public API — single-active-bible (existing surface, preserved)
 // ---------------------------------------------------------------------------
@@ -375,6 +408,7 @@ export function loadBible(): CharacterBible | null {
   migrateLegacyIfPresent();
   applySeedBackfills();
   purgeAddonHistoryFromAllBibles();
+  backfillStartedFlag();
   const roster = readRoster();
   if (!roster.activeKey) return null;
   return readEntry(roster.activeKey);
@@ -433,6 +467,7 @@ export function clearBible(): void {
 
 export function listBibles(): BibleRosterEntry[] {
   migrateLegacyIfPresent();
+  backfillStartedFlag();
   const roster = readRoster();
   const entries: BibleRosterEntry[] = [];
   for (const key of roster.keys) {
@@ -447,6 +482,7 @@ export function listBibles(): BibleRosterEntry[] {
       updatedAt: bible.updatedAt,
       isActive: key === roster.activeKey,
       needsSetup: Boolean(bible.needsSetup),
+      started: Boolean(bible.started),
     });
   }
   entries.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -455,8 +491,15 @@ export function listBibles(): BibleRosterEntry[] {
 
 export function setActiveBible(key: string): CharacterBible | null {
   migrateLegacyIfPresent();
-  const bible = readEntry(key);
+  let bible = readEntry(key);
   if (!bible) return null;
+  // Invariant: the active hero is always *started*. Making a captured hero
+  // active IS the graduate moment, so stamp it here — this keeps a captured
+  // toon from ever appearing as the active hero in the (started-only) dropdown.
+  if (!bible.started) {
+    bible = { ...bible, started: true, updatedAt: Date.now() };
+    writeEntry(bible);
+  }
   const roster = readRoster();
   if (!roster.keys.includes(key)) roster.keys.push(key);
   roster.activeKey = key;
@@ -464,6 +507,16 @@ export function setActiveBible(key: string): CharacterBible | null {
   fireRosterUpdated();
   fireBibleUpdated(bible);
   return bible;
+}
+
+/**
+ * Begin a captured hero — the "Start" / graduate action on Meet Your Heroes and
+ * the import roster. Flips `started` and makes it the active hero. Delegates to
+ * `setActiveBible` (which enforces the active⇒started invariant), so this is
+ * really a semantic alias that reads clearly at the call site.
+ */
+export function startBible(key: string): CharacterBible | null {
+  return setActiveBible(key);
 }
 
 export function deleteBible(key: string): void {
@@ -607,6 +660,9 @@ export function createStubBibleFromCharacter(c: {
     wowClass: optionalTrimmed(c.wowClass),
     wowRace: optionalTrimmed(c.wowRace),
     needsSetup: true,
+    // A freshly-imported stub is *captured*, not started — it holds identity +
+    // moments but stays out of the dropdown until the player begins it.
+    started: false,
     createdAt,
     updatedAt: createdAt,
   };
