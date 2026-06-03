@@ -20,6 +20,10 @@ import { heroMomentCount, heroSessionStatus } from '../lib/heroStatus';
 import { AddonImport } from './AddonImport';
 import { CharacterCreation } from './CharacterCreation';
 
+// TODO(jeff): point at the real addon distribution (CurseForge / GitHub release)
+// once it's published. Placeholder so the install step has a target.
+const ADDON_DOWNLOAD_URL = 'https://www.curseforge.com/wow/addons/aftertale';
+
 interface HeroCard {
   entry: BibleRosterEntry;
   level?: number;
@@ -99,6 +103,12 @@ export function MeetYourHeroes() {
     );
   }
 
+  // First run: no heroes yet. Don't dump an empty roster — lead the player
+  // through the capture-first path (install → play → import).
+  if (cards.length === 0) {
+    return <FirstRunOnboarding onManual={() => setManual(true)} />;
+  }
+
   return (
     <div className="at-heroes">
       <header className="at-heroes-intro">
@@ -144,19 +154,86 @@ export function MeetYourHeroes() {
         </section>
       )}
 
-      {cards.length === 0 && (
-        <div className="at-callout at-heroes-empty">
-          No heroes yet. Drop your <code>Aftertale.lua</code> above to meet your characters — or
-          roll one by hand below.
-        </div>
-      )}
-
       <div className="at-heroes-sidedoor">
         <button type="button" className="at-btn at-btn-ghost at-btn-sm" onClick={() => setManual(true)}>
           Roll a hero by hand →
         </button>
         <span className="muted" style={{ fontSize: '0.8rem' }}>
           You'll need a matching character in WoW for imports to attach.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * First-run onboarding. A brand-new player has no play data yet, so we lead with
+ * the capture-first path — install → play → import — rather than an empty
+ * roster. Step 3 is the real import drop zone; once anything imports, the hub
+ * takes over. Pre-author is the clearly-warned side door.
+ */
+function FirstRunOnboarding({ onManual }: { onManual: () => void }) {
+  return (
+    <div className="at-onboard">
+      <header className="at-heroes-intro">
+        <p className="at-kicker">✦ Begin your tale</p>
+        <h2 className="at-section-headline">Three steps to your first chronicle</h2>
+        <p className="at-section-sub">
+          Aftertale turns your real play into a written saga. Here's how it gets made — only
+          the last step happens here.
+        </p>
+      </header>
+
+      <ol className="at-onboard-steps">
+        <li className="at-onboard-step">
+          <span className="at-onboard-num">1</span>
+          <div className="at-onboard-body">
+            <h3 className="at-onboard-step-title">Install the Aftertale addon</h3>
+            <p className="at-onboard-step-sub">
+              It records your adventures quietly while you play — quests, kills, levels, the
+              moments that matter. It never controls your character.
+            </p>
+            <a
+              className="at-btn at-btn-primary at-btn-sm"
+              href={ADDON_DOWNLOAD_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Get the addon →
+            </a>
+          </div>
+        </li>
+
+        <li className="at-onboard-step">
+          <span className="at-onboard-num">2</span>
+          <div className="at-onboard-body">
+            <h3 className="at-onboard-step-title">Play World of Warcraft</h3>
+            <p className="at-onboard-step-sub">
+              Just play. Aftertale is watching and remembering — your save file fills with your
+              story as you go.
+            </p>
+          </div>
+        </li>
+
+        <li className="at-onboard-step at-onboard-step-active">
+          <span className="at-onboard-num">3</span>
+          <div className="at-onboard-body">
+            <h3 className="at-onboard-step-title">Import your save file</h3>
+            <p className="at-onboard-step-sub">
+              Already played? Drop your <code>Aftertale.lua</code> below and meet your heroes.
+            </p>
+            <AddonImport />
+          </div>
+        </li>
+      </ol>
+
+      <div className="at-heroes-sidedoor">
+        <button type="button" className="at-btn at-btn-ghost at-btn-sm" onClick={onManual}>
+          Roll a hero by hand →
+        </button>
+        <span className="muted" style={{ fontSize: '0.8rem' }}>
+          Prefer to start writing before you play? You'll need a matching character in WoW for
+          imports to attach later.
         </span>
       </div>
     </div>

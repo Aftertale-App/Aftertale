@@ -231,6 +231,31 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
         </div>
       </header>
 
+      {/* Cold reveal: a just-started hero with captured play but no authored
+          story yet. Show their real adventures (below) framed as a skeleton, and
+          invite them to bring it to life. (The AI authoring + free-taste gating
+          behind this CTA is Phase 7 — for now it routes to The Inkwell.) */}
+      {!readOnly && bible.needsSetup && hasStoryData && (
+        <div className="at-coldreveal">
+          <div className="at-coldreveal-body">
+            <strong className="at-coldreveal-title">
+              ✦ This is {bible.name}'s saga — captured, not yet written.
+            </strong>
+            <p className="at-coldreveal-sub">
+              We remembered every step below. Bring {bible.name} to life — author their backstory
+              and pen these chapters in their own voice.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="at-btn at-btn-primary at-coldreveal-cta"
+            onClick={() => window.dispatchEvent(new CustomEvent('at:request-tab', { detail: 'desk' }))}
+          >
+            ✦ Bring {bible.name} to life
+          </button>
+        </div>
+      )}
+
       <div className="at-chronicle-modebar" role="tablist" aria-label="Chronicle view">
         <button
           className="at-btn at-btn-secondary"
