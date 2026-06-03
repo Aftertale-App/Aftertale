@@ -7,6 +7,19 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — multi-alt import: one Aftertale.lua, every hero *(2026-06-02)*
+WoW writes a single `Aftertale.lua` per account that accumulates every alt's
+events, so importing now fans out: one drop updates *all* your heroes at once,
+each landing in its own chronicle — no more switch-and-reimport per toon. The
+importer reads the WoW GUID baked into each event and routes the story to the
+hero it actually belongs to, so you can't accidentally write one character's
+session onto another. New toons you've actually played become **draft heroes**
+on the spot (identity pulled straight from WoW — race, class, faction, level),
+flagged with a ✎ Draft badge to finish setup later; quiet bank alts and mules
+are skipped until they've adventured. Fixed a latent bug along the way where a
+hero with an empty backstory/voice failed validation and could vanish from the
+roster.
+
 ### Added — chapters that scale with the session *(2026-06-02)*
 
 Session recaps no longer come out the same length regardless of how much you

@@ -21,6 +21,15 @@ Magnus's character key is `1779645176311`.
 ### 1. Build (E1)
 `npm run build` from the repo root — must pass.
 
+### 1b. Multi-alt import fan-out (G1) — headless logic test
+`npx vite-node tools/test-import-fanout.mjs` from the repo root. Exercises the
+deterministic core of the "one Aftertale.lua, many alts" import against the
+committed fixture `tools/fixtures/multi-alt.lua` (no key, no game, no Supabase):
+per-character bucketing + faction parse, fan-out routing to each hero's own
+chronicle, draft-hero auto-stub (`needsSetup`), quiet-toon skip (< `STUB_MIN_EVENTS`),
+idempotent re-import, `declineGuids` opt-out, and pre-bound-hero update-in-place.
+Must print `✅ PASS` (42 checks). A non-zero exit fails this test.
+
 ### 2. Boot preview + load Magnus
 - `preview_start` name `app`. Resize desktop (1280×820).
 - Navigate to `#app`, dismiss any settings modal (`.at-modal-close`).
@@ -37,6 +46,7 @@ Desktop, Magnus loaded:
 - **A8** Landing — navigate to `/` (clear `at.phaseA.bannerDismissed` first). Body text has: `.at-phasea-banner`, "Open the app", "free tier is always free", no `#magic`, "Currently supports World of Warcraft", `.at-pricing-phasea-note`, "What stage is Aftertale at?", 3 `.at-feature-soon-badge`.
 - **A9** Legal — navigate to `/privacy`; `.at-legal-title` = "Privacy Policy"; body has no "supabase"/"cloudflare".
 - **E3** Legacy recap — inject a single legacy `recap_legacy_test` history entry (no `__i`) with a `# Title`; Chronicle full mode renders it as a chapter. Clean up after.
+- **G2** Draft-hero badge — inject a stub bible into the roster (`at.bible.<key>` envelope with `needsSetup:true`, empty `backstory`/`voice`, a `characterGuid`, and add its key to `at.bible.roster.v1` `.keys`), dispatch `at:bible-roster-updated`, open the character selector (`.at-char-selector-trigger`), and confirm the draft row renders the **✎ Draft** badge (text `✎ Draft`). Confirms `listBibles()` surfaces `needsSetup` and the validator accepts an empty-narrative draft. Clean up the injected key + roster entry after.
 
 Mobile (resize 375×812, **reload** after resize — the headless harness doesn't fire `matchMedia` change events, so live-resize leaves `useIsMobile` stale; a reload re-inits it correctly):
 - **A1** `.at-mobile` present; bottom nav = Chronicle/Tavern/Hero/You; no `.at-modal`.
@@ -48,9 +58,14 @@ Mobile (resize 375×812, **reload** after resize — the headless harness doesn'
 - **A6** Resize desktop (1280) + reload + `#app` → `.at-mobile` gone, `.at-tab` count = 5.
 
 ### 4. Report
-Output a pass/fail table (test · result · evidence). Then list the **out-of-scope**
-tests that still need the user: B4–B7 + C1–C5/C7 (key + prose judgement), Track D
-(in-game), Track F (Supabase), E5 (real email). Reference `docs/test-matrix.md`.
+Output a pass/fail table (test · result · evidence), including **G1** (import
+fan-out logic) and **G2** (draft badge). Then list the **out-of-scope** tests that
+still need the user: B4–B7 + C1–C5/C7 (key + prose judgement), Track D (in-game),
+Track F (Supabase), E5 (real email). For the multi-alt feature specifically, the
+piece automation can't cover is the **real file-drop UX** (drag `tools/fixtures/multi-alt.lua`
+into the importer → multi-hero preview → Import → done summary → View picker);
+G1+G2 cover the logic and the badge, but eyeball the preview card + done summary
+once. Reference `docs/test-matrix.md`.
 
 ### 5. Clean up
 Remove every injected key (`auto_open_q`, `recap_legacy_test`, synthetic recaps),

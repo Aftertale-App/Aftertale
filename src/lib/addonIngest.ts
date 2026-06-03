@@ -5,7 +5,13 @@ import {
   hasAddonEvent,
   upsertAddonEventRecord,
 } from './addonEventStore';
-import { loadBible, updateActiveBible } from './bibleStore';
+import {
+  createStubBibleFromCharacter,
+  findBibleByCharacterGuid,
+  loadBible,
+  updateActiveBible,
+  updateBibleByKey,
+} from './bibleStore';
 import { ingestChroniclesSavedVariables } from './savedVariablesIngest';
 import { parseSavedVariables, type LuaValue } from './luaSavedVariables';
 
@@ -15,6 +21,7 @@ export interface ImportCharacter {
   realm?: string;
   wowClass?: string;
   wowRace?: string;
+  faction?: 'Alliance' | 'Horde' | 'Neutral';
   eventCount: number;
 }
 
@@ -73,6 +80,12 @@ interface CharacterRegistryEntry {
   realm?: string;
   wowClass?: string;
   wowRace?: string;
+  faction?: 'Alliance' | 'Horde' | 'Neutral';
+}
+
+function asFaction(v: LuaValue | undefined): 'Alliance' | 'Horde' | 'Neutral' | undefined {
+  const s = asString(v);
+  return s === 'Alliance' || s === 'Horde' || s === 'Neutral' ? s : undefined;
 }
 
 function getAftertaleDb(content: string): { db: { [k: string]: LuaValue } | null; rawEvents: AddonEvent[] } {
@@ -93,6 +106,7 @@ function readCharacterRegistry(db: { [k: string]: LuaValue } | null): Map<string
       realm: asString(value.realm),
       wowClass: asString(value.class) ?? asString(value.classFile),
       wowRace: asString(value.race) ?? asString(value.raceFile),
+      faction: asFaction(value.faction),
     });
   }
   return registry;
@@ -136,6 +150,7 @@ export function planImport(content: string): ImportPlan {
       realm: registered?.realm,
       wowClass: registered?.wowClass,
       wowRace: registered?.wowRace,
+      faction: registered?.faction,
       eventCount: 1,
     });
   }
@@ -221,6 +236,180 @@ export function commitImport(plan: ImportPlan, opts: CommitOptions): CommitResul
     skipped,
     characterKey: key,
     biblePatch: Object.keys(biblePatch).length > 0 ? biblePatch : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Multi-hero fan-out import — one Aftertale.lua holds every alt's events.
+// Route each event to the bible bound to its GUID, light-creating draft heroes
+// for unbound toons that have enough activity to be worth chronicling.
+// ---------------------------------------------------------------------------
+
+/** Min events before an unbound toon is auto-stubbed (keeps bank alts/mules out). */
+export const STUB_MIN_EVENTS = 3;
+
+export interface CommitAllOptions {
+  /** Where untagged (legacy schema 1) events land. Usually the active hero. */
+  legacyBibleKey?: string | null;
+  includeLegacy?: boolean;
+  /** GUIDs the player chose to import. Omit to import every eligible character. */
+  acceptGuids?: string[];
+  /** GUIDs the player explicitly opted OUT of (skip even if otherwise eligible). */
+  declineGuids?: string[];
+  autoStubThreshold?: number;
+}
+
+export interface PerCharacterCommit {
+  guid: string;
+  name: string;
+  key: string;
+  imported: number;
+  refreshed: number;
+  created: boolean;     // a draft hero was minted for this toon
+  needsSetup: boolean;  // hero still needs its authored layer
+  level?: number;
+}
+
+export interface CommitAllResult {
+  characters: PerCharacterCommit[];
+  /** Toons skipped because they're too quiet to chronicle yet. */
+  belowThreshold: Array<{ guid: string; name: string; eventCount: number }>;
+  legacyImported: number;
+  legacySkipped: number;
+}
+
+function maxLevelForGuid(plan: ImportPlan, guid: string): number | undefined {
+  const levels = plan.rawEvents
+    .filter((e) => e.char?.trim() === guid)
+    .map((e) => e.playerLevel)
+    .filter((l): l is number => typeof l === 'number' && l > 0);
+  return levels.length > 0 ? Math.max(...levels) : undefined;
+}
+
+function latestZoneForGuid(plan: ImportPlan, guid: string): string | undefined {
+  let latest: AddonEvent | undefined;
+  for (const e of plan.rawEvents) {
+    if (e.char?.trim() !== guid) continue;
+    if (!latest || e.timestamp > latest.timestamp) latest = e;
+  }
+  return latest?.zone;
+}
+
+/**
+ * Import every (chosen) character in the file in a single pass — established
+ * heroes update their own chronicle, and unbound toons with enough activity get
+ * a light-created draft hero. The active character is never changed here; the
+ * caller decides who to view afterward.
+ */
+export function commitImportAll(plan: ImportPlan, opts: CommitAllOptions = {}): CommitAllResult {
+  const threshold = opts.autoStubThreshold ?? STUB_MIN_EVENTS;
+  const accept = opts.acceptGuids ? new Set(opts.acceptGuids.map((g) => g.trim())) : null;
+  const decline = new Set((opts.declineGuids ?? []).map((g) => g.trim()));
+  const savedAt = Date.now();
+
+  // 1. Resolve each character → its target bible key (creating drafts as needed).
+  const targetKeyByGuid = new Map<string, PerCharacterCommit>();
+  const belowThreshold: CommitAllResult['belowThreshold'] = [];
+
+  for (const character of plan.characters) {
+    const guid = character.guid.trim();
+    if (!guid) continue;
+    if (decline.has(guid)) continue;
+    if (accept && !accept.has(guid)) continue;
+
+    const existing = findBibleByCharacterGuid(guid);
+    if (existing) {
+      targetKeyByGuid.set(guid, {
+        guid,
+        name: character.name,
+        key: String(existing.createdAt),
+        imported: 0,
+        refreshed: 0,
+        created: false,
+        needsSetup: Boolean(existing.needsSetup),
+        level: existing.level,
+      });
+      continue;
+    }
+
+    if (character.eventCount < threshold) {
+      belowThreshold.push({ guid, name: character.name, eventCount: character.eventCount });
+      continue;
+    }
+
+    const stub = createStubBibleFromCharacter({
+      guid,
+      name: character.name,
+      realm: character.realm,
+      wowClass: character.wowClass,
+      wowRace: character.wowRace,
+      faction: character.faction,
+      level: maxLevelForGuid(plan, guid),
+    });
+    targetKeyByGuid.set(guid, {
+      guid,
+      name: character.name,
+      key: String(stub.createdAt),
+      imported: 0,
+      refreshed: 0,
+      created: true,
+      needsSetup: true,
+      level: stub.level,
+    });
+  }
+
+  // 2. Route every event to its owner's chronicle.
+  let legacyImported = 0;
+  let legacySkipped = 0;
+  for (const event of plan.rawEvents) {
+    const guid = event.char?.trim();
+    if (!guid) {
+      if (opts.includeLegacy && opts.legacyBibleKey) {
+        const outcome = upsertAddonEventRecord({
+          event,
+          characterKey: opts.legacyBibleKey,
+          result: { status: 'ingested', message: 'Imported from SavedVariables.', changes: [], characterKey: opts.legacyBibleKey },
+          savedAt,
+        });
+        if (outcome === 'inserted') legacyImported++;
+        else legacyImported++;
+      } else {
+        legacySkipped++;
+      }
+      continue;
+    }
+    const target = targetKeyByGuid.get(guid);
+    if (!target) continue; // declined, below threshold, or unselected
+    const outcome = upsertAddonEventRecord({
+      event,
+      characterKey: target.key,
+      result: { status: 'ingested', message: 'Imported from SavedVariables.', changes: [], characterKey: target.key },
+      savedAt,
+    });
+    if (outcome === 'inserted') target.imported++;
+    else target.refreshed++;
+  }
+
+  // 3. Refresh each touched hero's current level/zone from the freshest events.
+  for (const target of targetKeyByGuid.values()) {
+    if (target.imported === 0 && target.refreshed === 0 && !target.created) continue;
+    const patch: Partial<CharacterBible> = {};
+    const level = maxLevelForGuid(plan, target.guid);
+    const zone = latestZoneForGuid(plan, target.guid);
+    if (typeof level === 'number' && level !== target.level) patch.level = level;
+    if (zone) patch.currentZone = zone;
+    if (Object.keys(patch).length > 0) updateBibleByKey(target.key, patch);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('at:addon-events-updated'));
+  }
+
+  return {
+    characters: Array.from(targetKeyByGuid.values()),
+    belowThreshold,
+    legacyImported,
+    legacySkipped,
   };
 }
 

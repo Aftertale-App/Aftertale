@@ -19,8 +19,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AddonImport,
+  ImportDoneSummary,
   ImportInlineMessage,
-  ImportPreviewCard,
+  MultiHeroImportCard,
   importButtonLabel,
   useAftertaleLuaImport,
 } from './AddonImport';
@@ -281,8 +282,8 @@ function InkwellImportStrip({
   const {
     state,
     handleFile,
-    commitPreparedImport,
-    bindCharacter,
+    commitAll,
+    viewHero,
     cancelPreview,
   } = useAftertaleLuaImport({ mode: 'smart' });
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -397,13 +398,15 @@ function InkwellImportStrip({
             ✨ Picked up {state.newEvents.toLocaleString()} new events since your last import
           </ImportInlineMessage>
         )}
-        {state.status === 'preview' && state.plan && state.bible && (
-          <ImportPreviewCard
+        {state.status === 'preview' && state.plan && (
+          <MultiHeroImportCard
             state={state}
-            onImport={() => commitPreparedImport()}
+            onImport={(sel) => commitAll(sel)}
             onCancel={cancelPreview}
-            onBind={bindCharacter}
           />
+        )}
+        {state.status === 'done' && state.multiResult && (
+          <ImportDoneSummary result={state.multiResult} onView={viewHero} />
         )}
         {state.status === 'error' && (
           <div

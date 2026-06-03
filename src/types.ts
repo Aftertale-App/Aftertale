@@ -77,6 +77,14 @@ export interface CharacterBible {
   wowClass?: string;
   wowRace?: string;
 
+  /**
+   * True for a "draft" hero light-created straight from WoW identity during a
+   * multi-alt import — identity is filled in, but the authored layer (backstory,
+   * beliefs, motivations, voice) is still empty. Auto-cleared the moment those
+   * fields are authored. Drives the "✎ Draft · finish setup" badge in the roster.
+   */
+  needsSetup?: boolean;
+
   createdAt: number;
   updatedAt: number;
   // Phase 1+ will add: relationships, scars, vows, contradictions, etc.

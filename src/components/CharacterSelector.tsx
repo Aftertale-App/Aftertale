@@ -43,6 +43,25 @@ export function CharacterSelector() {
   const active = useMemo(() => roster.find((r) => r.isActive) ?? null, [roster]);
   const others = useMemo(() => roster.filter((r) => !r.isActive), [roster]);
 
+  const DraftBadge = () => (
+    <span
+      style={{
+        marginLeft: '0.4rem',
+        padding: '0.05rem 0.4rem',
+        borderRadius: '0.4rem',
+        fontSize: '0.7rem',
+        fontWeight: 600,
+        color: 'var(--cp-accent, #a47ad1)',
+        border: '1px solid rgba(164,122,209,0.5)',
+        background: 'rgba(164,122,209,0.12)',
+        whiteSpace: 'nowrap',
+      }}
+      title="Draft hero — identity imported from WoW, still needs its story set up"
+    >
+      ✎ Draft
+    </span>
+  );
+
   function handleSwitch(key: string) {
     setActiveBible(key);
     setOpen(false);
@@ -98,7 +117,10 @@ export function CharacterSelector() {
               <div className="at-char-selector-section-label">Active</div>
               <div className="at-char-selector-row">
                 <div className="at-char-selector-row-main">
-                  <div className="at-char-selector-row-name">{active.name}</div>
+                  <div className="at-char-selector-row-name">
+                    {active.name}
+                    {active.needsSetup && <DraftBadge />}
+                  </div>
                   <div className="at-char-selector-row-meta">
                     {active.race} {active.class} · {active.faction}
                   </div>
@@ -126,7 +148,10 @@ export function CharacterSelector() {
                     onClick={() => handleSwitch(entry.key)}
                     title={`Switch to ${entry.name}`}
                   >
-                    <div className="at-char-selector-row-name">{entry.name}</div>
+                    <div className="at-char-selector-row-name">
+                      {entry.name}
+                      {entry.needsSetup && <DraftBadge />}
+                    </div>
                     <div className="at-char-selector-row-meta">
                       {entry.race} {entry.class} · {entry.faction}
                     </div>

@@ -9,11 +9,15 @@ import type { CharacterBible } from '../types';
 import {
   findBibleByCharacterGuid,
   loadBible,
+  setActiveBible,
   setBibleCharacterBinding,
 } from '../lib/bibleStore';
 import {
   commitImport,
+  commitImportAll,
   planImport as buildImportPlan,
+  STUB_MIN_EVENTS,
+  type CommitAllResult,
   type CommitResult,
   type ImportCharacter,
   type ImportPlan,
@@ -39,6 +43,8 @@ export interface ImportState {
   newEvents?: number;
   previousRecord?: ImportRecord | null;
   message?: string;
+  /** Per-hero outcome of a multi-alt fan-out import. */
+  multiResult?: CommitAllResult;
 }
 
 export function importButtonLabel(state: ImportState, idleLabel = '⬆ Choose file'): string {
@@ -193,18 +199,6 @@ export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}
     const fileHash = await hashFileContents(text);
     const characterKey = String(loadedBible.createdAt);
     const previousRecord = loadImportRecord(characterKey);
-    if (previousRecord?.fileHash === fileHash) {
-      setState({
-        status: 'up-to-date',
-        fileName: file.name,
-        fileModified: file.lastModified,
-        fileHash,
-        fileSize: file.size,
-        bible: loadedBible,
-        previousRecord,
-      });
-      return;
-    }
 
     setState({
       status: 'parsing',
@@ -224,7 +218,39 @@ export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}
         bible = bindBibleToCharacter(bible, autoClaim);
       }
 
-      const prepared: ImportState = {
+      // Single-hero fast path: the file holds only the active hero's events.
+      // Preserve the existing "already up to date" + smart auto-commit behavior.
+      if (shouldSmartAutoCommit(plan, bible)) {
+        if (previousRecord?.fileHash === fileHash) {
+          setState({
+            status: 'up-to-date',
+            fileName: file.name,
+            fileModified: file.lastModified,
+            fileHash,
+            fileSize: file.size,
+            bible,
+            previousRecord,
+          });
+          return;
+        }
+        if (mode === 'smart') {
+          commitPreparedImport({
+            status: 'preview',
+            plan,
+            bible,
+            fileName: file.name,
+            fileModified: file.lastModified,
+            fileHash,
+            fileSize: file.size,
+            previousRecord,
+          });
+          return;
+        }
+      }
+
+      // Otherwise show the multi-hero preview: every alt in the file, routed to
+      // its own chronicle on import (draft heroes minted for new toons).
+      setState({
         status: 'preview',
         plan,
         bible,
@@ -233,14 +259,7 @@ export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}
         fileHash,
         fileSize: file.size,
         previousRecord,
-      };
-
-      if (mode === 'smart' && shouldSmartAutoCommit(plan, bible)) {
-        commitPreparedImport(prepared);
-        return;
-      }
-
-      setState(prepared);
+      });
     } catch (err) {
       setState({
         status: 'error',
@@ -268,10 +287,56 @@ export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}
     setState({ status: 'idle' });
   }, []);
 
+  // Multi-hero fan-out: import every chosen alt in the file at once, each to its
+  // own chronicle. Draft heroes are minted for new toons. Active hero is left
+  // untouched — the done screen lets the player choose who to view.
+  const commitAll = useCallback((selection?: { acceptGuids?: string[]; declineGuids?: string[] }) => {
+    const current = state;
+    if (!current.plan) return null;
+    setState({ ...current, status: 'committing' });
+    try {
+      const active = loadBible();
+      const result = commitImportAll(current.plan, {
+        legacyBibleKey: active ? String(active.createdAt) : null,
+        includeLegacy: current.plan.schemaVersion < 2,
+        acceptGuids: selection?.acceptGuids,
+        declineGuids: selection?.declineGuids,
+      });
+      if (current.fileHash) {
+        for (const c of result.characters) {
+          saveImportRecord(c.key, {
+            fileHash: current.fileHash,
+            fileSize: current.fileSize ?? 0,
+            importedAt: Date.now(),
+            eventCount: c.imported + c.refreshed,
+            latestEventAt: 0,
+          });
+        }
+      }
+      setState({ ...current, status: 'done', multiResult: result });
+      return result;
+    } catch (err) {
+      setState({
+        ...current,
+        status: 'error',
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  }, [state]);
+
+  // Switch the active hero (used by the done-screen "view" picker).
+  const viewHero = useCallback((key: string) => {
+    setActiveBible(key);
+    setState({ status: 'idle' });
+  }, []);
+
   return {
     state,
     handleFile,
     commitPreparedImport,
+    commitAll,
+    viewHero,
     bindCharacter,
     cancelPreview,
     planImport: buildImportPlan,
@@ -280,7 +345,7 @@ export function useAftertaleLuaImport(options: UseAftertaleLuaImportOptions = {}
 }
 
 export function AddonImport() {
-  const { state, handleFile, commitPreparedImport, bindCharacter, cancelPreview } = useAftertaleLuaImport({ mode: 'preview' });
+  const { state, handleFile, commitAll, viewHero, cancelPreview } = useAftertaleLuaImport({ mode: 'preview' });
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const busy = state.status === 'checking' || state.status === 'parsing' || state.status === 'committing';
@@ -315,13 +380,16 @@ export function AddonImport() {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      {state.status === 'preview' && state.plan && state.bible && (
-        <ImportPreviewCard
+      {state.status === 'preview' && state.plan && (
+        <MultiHeroImportCard
           state={state}
-          onImport={() => commitPreparedImport()}
+          onImport={(sel) => commitAll(sel)}
           onCancel={cancelPreview}
-          onBind={bindCharacter}
         />
+      )}
+
+      {state.status === 'done' && state.multiResult && (
+        <ImportDoneSummary result={state.multiResult} onView={viewHero} />
       )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
@@ -382,30 +450,60 @@ export function AddonImport() {
   );
 }
 
-export function ImportPreviewCard({
+type HeroRowKind = 'update' | 'new' | 'quiet';
+
+interface HeroRow {
+  character: ImportCharacter;
+  kind: HeroRowKind;
+  boundName?: string;
+}
+
+function describeCharacter(c: ImportCharacter): string {
+  const bits = [c.wowRace, c.wowClass].filter(Boolean).join(' ');
+  const realm = c.realm ? `of ${c.realm}` : '';
+  return [bits, realm].filter(Boolean).join(' ');
+}
+
+/**
+ * Multi-hero import preview. One Aftertale.lua holds every alt — this lists each
+ * one and where its events will land: established heroes update their chronicle,
+ * active-enough new toons become draft heroes, and quiet toons (bank alts/mules)
+ * are surfaced but skipped. The player can opt any hero out before importing.
+ */
+export function MultiHeroImportCard({
   state,
   onImport,
   onCancel,
-  onBind,
 }: {
   state: ImportState;
-  onImport: () => void;
+  onImport: (selection: { declineGuids: string[] }) => void;
   onCancel: () => void;
-  onBind: (character: ImportCharacter) => void;
 }) {
-  if (!state.plan || !state.bible) return null;
-  const { plan, bible } = state;
+  const [declined, setDeclined] = useState<Set<string>>(() => new Set());
+  if (!state.plan) return null;
+  const { plan } = state;
+  const activeName = state.bible?.name;
   const isLegacy = plan.schemaVersion < 2 || plan.characters.length === 0;
   const fileLabel = state.fileName ?? 'Aftertale.lua';
-  const dateLabel = state.fileModified
-    ? new Date(state.fileModified).toLocaleString([], {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : 'loaded file';
+
+  const rows: HeroRow[] = plan.characters.map((character) => {
+    const bound = findBibleByCharacterGuid(character.guid);
+    if (bound) return { character, kind: 'update', boundName: bound.name };
+    if (character.eventCount >= STUB_MIN_EVENTS) return { character, kind: 'new' };
+    return { character, kind: 'quiet' };
+  });
+
+  const toggle = (guid: string) => {
+    setDeclined((prev) => {
+      const next = new Set(prev);
+      if (next.has(guid)) next.delete(guid);
+      else next.add(guid);
+      return next;
+    });
+  };
+
+  const eligible = rows.filter((r) => r.kind !== 'quiet');
+  const selectedCount = eligible.filter((r) => !declined.has(r.character.guid)).length;
 
   return (
     <div
@@ -419,52 +517,135 @@ export function ImportPreviewCard({
         lineHeight: 1.5,
       }}
     >
-      <strong>✦ Import preview — {fileLabel} ({isLegacy ? 'older format, no character tags' : dateLabel})</strong>
       {isLegacy ? (
-        <div style={{ marginTop: '0.45rem' }}>
-          ⚠ {plan.legacyEventCount.toLocaleString()} untagged events — will all import to "{bible.name}" bible. Update the addon to schemaVersion 2 to enable per-character attribution.
-        </div>
+        <>
+          <strong>✦ Import — {fileLabel} (older format)</strong>
+          <div style={{ marginTop: '0.45rem' }}>
+            ⚠ {plan.legacyEventCount.toLocaleString()} untagged events — these import to your active hero
+            {activeName ? ` "${activeName}"` : ''}. Update the addon to enable per-character attribution.
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+            <button type="button" className="at-btn at-btn-primary" onClick={() => onImport({ declineGuids: [] })}>Import</button>
+            <button type="button" className="at-btn" onClick={onCancel}>Cancel</button>
+          </div>
+        </>
       ) : (
         <>
-          <div className="muted">
-            schemaVersion {plan.schemaVersion} · {plan.totalEvents.toLocaleString()} events total
+          <strong>✦ {rows.length} hero{rows.length === 1 ? '' : 'es'} in this file</strong>
+          <div className="muted" style={{ fontSize: '0.82rem' }}>
+            Each lands in its own chronicle — we'll update the right hero for you.
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: '0.55rem 0 0' }}>
-            {plan.characters.map((character) => {
-              const isActive = bible.characterGuid === character.guid;
-              const boundBible = findBibleByCharacterGuid(character.guid);
-              const details = [character.realm ? `of ${character.realm}` : '', [character.wowRace, character.wowClass].filter(Boolean).join(' ')].filter(Boolean).join(' ');
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0.6rem 0 0' }}>
+            {rows.map(({ character, kind, boundName }) => {
+              const details = describeCharacter(character);
+              const isDeclined = declined.has(character.guid);
+              const selectable = kind !== 'quiet';
               return (
-                <li key={character.guid} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', alignItems: 'center', marginTop: '0.25rem' }}>
-                  <span>{isActive ? '✓' : '⚠'} {character.name}{details ? ` ${details}` : ''}</span>
-                  <span className="muted">· {character.eventCount.toLocaleString()} events</span>
-                  {isActive ? (
-                    <span style={{ color: 'var(--cp-success, #2f8f46)' }}>→ import to this bible</span>
-                  ) : (
-                    <span className="muted">· {boundBible ? `bound to ${boundBible.name}` : 'no bible bound'}</span>
+                <li
+                  key={character.guid}
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.45rem',
+                    alignItems: 'center',
+                    marginTop: '0.3rem',
+                    opacity: kind === 'quiet' || isDeclined ? 0.55 : 1,
+                  }}
+                >
+                  {selectable && (
+                    <input
+                      type="checkbox"
+                      checked={!isDeclined}
+                      onChange={() => toggle(character.guid)}
+                      style={{ accentColor: 'var(--cp-accent, #a47ad1)' }}
+                      aria-label={`Include ${character.name}`}
+                    />
                   )}
-                  {/* TODO(multi-bible): let the importer target/bind non-active bibles from this row. */}
-                  {!isActive && !bible.characterGuid && (
-                    <button type="button" className="at-btn" style={{ padding: '0.2rem 0.45rem', fontSize: '0.78rem' }} onClick={() => onBind(character)}>
-                      Bind '{bible.name}' bible to this character
-                    </button>
+                  <span style={{ fontWeight: 600 }}>{character.name}</span>
+                  {details && <span className="muted">· {details}</span>}
+                  <span className="muted">· {character.eventCount.toLocaleString()} events</span>
+                  {kind === 'update' && (
+                    <span style={{ color: 'var(--cp-success, #2f8f46)' }}>
+                      → updates {boundName === activeName ? 'this chronicle' : `${boundName}'s chronicle`}
+                    </span>
+                  )}
+                  {kind === 'new' && (
+                    <span style={{ color: 'var(--cp-accent, #a47ad1)' }}>✦ new draft hero</span>
+                  )}
+                  {kind === 'quiet' && (
+                    <span className="muted" title={`Fewer than ${STUB_MIN_EVENTS} events`}>
+                      · too quiet to chronicle yet
+                    </span>
                   )}
                 </li>
               );
             })}
           </ul>
-          {plan.legacyEventCount > 0 && (
-            <div className="muted" style={{ marginTop: '0.35rem' }}>
-              ⚠ {plan.legacyEventCount.toLocaleString()} untagged legacy events found; schemaVersion 2 imports skip them for safety.
+          {rows.some((r) => r.kind === 'quiet') && (
+            <div className="muted" style={{ marginTop: '0.4rem', fontSize: '0.8rem' }}>
+              Quiet toons (bank alts, mules) are skipped until they've actually adventured.
             </div>
           )}
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.8rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="at-btn at-btn-primary"
+              disabled={selectedCount === 0}
+              onClick={() => onImport({ declineGuids: Array.from(declined) })}
+            >
+              {selectedCount <= 1 ? 'Import' : `Import ${selectedCount} heroes`}
+            </button>
+            <button type="button" className="at-btn" onClick={onCancel}>Cancel</button>
+          </div>
         </>
       )}
-      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-        <button type="button" className="at-btn at-btn-primary" onClick={onImport}>Import</button>
-        <button type="button" className="at-btn" onClick={onCancel}>Cancel</button>
-      </div>
     </div>
+  );
+}
+
+/** Post-import summary: what landed where, plus a picker to jump to any hero. */
+export function ImportDoneSummary({
+  result,
+  onView,
+}: {
+  result: CommitAllResult;
+  onView: (key: string) => void;
+}) {
+  const touched = result.characters.filter((c) => c.imported + c.refreshed > 0 || c.created);
+  const created = touched.filter((c) => c.created);
+  return (
+    <ImportInlineMessage tone="fresh">
+      <strong>✓ Imported {touched.length} hero{touched.length === 1 ? '' : 'es'}</strong>
+      {created.length > 0 && (
+        <div className="muted" style={{ fontSize: '0.82rem', marginTop: '0.2rem' }}>
+          {created.map((c) => c.name).join(', ')} added as draft hero{created.length === 1 ? '' : 'es'} — finish setup anytime.
+        </div>
+      )}
+      <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
+        {touched.map((c) => (
+          <li key={c.key} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', alignItems: 'center', marginTop: '0.25rem' }}>
+            <span style={{ fontWeight: 600 }}>{c.name}</span>
+            <span className="muted">
+              · {c.imported.toLocaleString()} new{c.refreshed > 0 ? `, ${c.refreshed.toLocaleString()} refreshed` : ''}
+              {c.needsSetup ? ' · ✎ draft' : ''}
+            </span>
+            <button
+              type="button"
+              className="at-btn"
+              style={{ padding: '0.15rem 0.5rem', fontSize: '0.78rem' }}
+              onClick={() => onView(c.key)}
+            >
+              View
+            </button>
+          </li>
+        ))}
+      </ul>
+      {result.belowThreshold.length > 0 && (
+        <div className="muted" style={{ fontSize: '0.78rem', marginTop: '0.4rem' }}>
+          Skipped {result.belowThreshold.length} quiet toon{result.belowThreshold.length === 1 ? '' : 's'} ({result.belowThreshold.map((b) => b.name).join(', ')}).
+        </div>
+      )}
+    </ImportInlineMessage>
   );
 }
 

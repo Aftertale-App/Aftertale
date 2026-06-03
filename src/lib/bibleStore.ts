@@ -36,6 +36,8 @@ export interface BibleRosterEntry {
   faction: string;
   updatedAt: number;
   isActive: boolean;
+  /** Draft hero (imported identity, not yet authored) — drives the setup badge. */
+  needsSetup: boolean;
 }
 
 /**
@@ -52,7 +54,10 @@ export function validateBible(x: unknown): x is CharacterBible {
   if (typeof b.faction !== 'string' || !(VALID_FACTIONS as readonly string[]).includes(b.faction)) return false;
   if (b.age !== undefined && typeof b.age !== 'number') return false;
   if (b.homeland !== undefined && typeof b.homeland !== 'string') return false;
-  if (typeof b.backstory !== 'string' || !b.backstory.trim()) return false;
+  // backstory/voice may be empty on a draft hero (needsSetup) — identity is
+  // captured from WoW but the authored layer isn't written yet. They must still
+  // be strings; emptiness is allowed so drafts stay readable + syncable.
+  if (typeof b.backstory !== 'string') return false;
   if (!Array.isArray(b.beliefs) || !b.beliefs.every((v) => typeof v === 'string')) return false;
   if (!Array.isArray(b.motivations) || !b.motivations.every((v) => typeof v === 'string')) return false;
   if (b.fears !== undefined && (!Array.isArray(b.fears) || !b.fears.every((v) => typeof v === 'string'))) return false;
@@ -76,7 +81,7 @@ export function validateBible(x: unknown): x is CharacterBible {
       if (e.level !== undefined && typeof e.level !== 'number') return false;
     }
   }
-  if (typeof b.voice !== 'string' || !b.voice.trim()) return false;
+  if (typeof b.voice !== 'string') return false;
   if (typeof b.createdAt !== 'number' || typeof b.updatedAt !== 'number') return false;
   return true;
 }
@@ -375,8 +380,23 @@ export function loadBible(): CharacterBible | null {
   return readEntry(roster.activeKey);
 }
 
+/** A bible counts as "authored" once any of the narrative layers has content. */
+function isAuthored(bible: CharacterBible): boolean {
+  return Boolean(
+    bible.backstory?.trim() ||
+      bible.voice?.trim() ||
+      (bible.beliefs?.length ?? 0) > 0 ||
+      (bible.motivations?.length ?? 0) > 0,
+  );
+}
+
 export function saveBible(bible: CharacterBible): BibleEnvelope {
   migrateLegacyIfPresent();
+  // Authoring a draft hero clears its setup flag automatically, whatever the
+  // entry point (interview, manual edit, future auto-draft).
+  if (bible.needsSetup && isAuthored(bible)) {
+    bible = { ...bible, needsSetup: false };
+  }
   writeEntry(bible);
   const key = bibleKey(bible);
   const roster = readRoster();
@@ -426,6 +446,7 @@ export function listBibles(): BibleRosterEntry[] {
       faction: bible.faction,
       updatedAt: bible.updatedAt,
       isActive: key === roster.activeKey,
+      needsSetup: Boolean(bible.needsSetup),
     });
   }
   entries.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -546,6 +567,70 @@ function ensureBibleInRoster(bible: CharacterBible): void {
     roster.keys.push(key);
     writeRoster(roster);
   }
+}
+
+/**
+ * Light-create a "draft" hero straight from a WoW character's captured identity
+ * (name/race/class/faction/level), bound to its GUID. Narrative fields start
+ * empty and `needsSetup` is true so the roster nudges the player to flesh it out
+ * later. Added to the roster WITHOUT changing the active hero, so a multi-alt
+ * import can mint several at once without yanking the player around.
+ */
+export function createStubBibleFromCharacter(c: {
+  guid: string;
+  name: string;
+  realm?: string;
+  wowClass?: string;
+  wowRace?: string;
+  faction?: 'Alliance' | 'Horde' | 'Neutral';
+  level?: number;
+}): CharacterBible {
+  migrateLegacyIfPresent();
+  // createdAt doubles as the roster key, so guarantee uniqueness even when
+  // several stubs are minted inside the same millisecond.
+  const roster = readRoster();
+  let createdAt = Date.now();
+  while (roster.keys.includes(String(createdAt))) createdAt += 1;
+  const faction: 'Alliance' | 'Horde' = c.faction === 'Horde' ? 'Horde' : 'Alliance';
+  const bible: CharacterBible = {
+    name: c.name.trim() || 'Unknown Hero',
+    race: optionalTrimmed(c.wowRace) ?? 'Unknown',
+    class: optionalTrimmed(c.wowClass) ?? 'Adventurer',
+    faction,
+    backstory: '',
+    beliefs: [],
+    motivations: [],
+    voice: '',
+    level: typeof c.level === 'number' && c.level > 0 ? c.level : undefined,
+    characterGuid: c.guid.trim(),
+    realm: optionalTrimmed(c.realm),
+    wowClass: optionalTrimmed(c.wowClass),
+    wowRace: optionalTrimmed(c.wowRace),
+    needsSetup: true,
+    createdAt,
+    updatedAt: createdAt,
+  };
+  writeEntry(bible);
+  roster.keys.push(String(createdAt));
+  writeRoster(roster);
+  fireRosterUpdated();
+  return bible;
+}
+
+/**
+ * Patch a bible by its roster key without touching the active pointer. Fires a
+ * roster-updated event (and bible-updated only when this is the active hero).
+ * Used by the multi-hero importer to refresh level/zone on non-active alts.
+ */
+export function updateBibleByKey(key: string, patch: Partial<CharacterBible>): CharacterBible | null {
+  migrateLegacyIfPresent();
+  const existing = readEntry(key);
+  if (!existing) return null;
+  const updated: CharacterBible = { ...existing, ...patch, updatedAt: Date.now() };
+  writeEntry(updated);
+  fireRosterUpdated();
+  if (readRoster().activeKey === key) fireBibleUpdated(updated);
+  return updated;
 }
 
 function optionalTrimmed(value: string | undefined): string | undefined {

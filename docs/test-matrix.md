@@ -106,6 +106,20 @@ Use **Addon Sim** to make sessions, **Inkwell** to generate.
 | F3 | Arc survives | Generate (so arc ledger fills), check `localStorage['at.arc-ledger.<ck>']`, clear + re-sign-in | Arc state restores from cloud | ☐ |
 | F4 | Events survive | Import addon events, clear local, re-sign-in | Events restore → sessions + threads recompute | ☐ |
 
+## Track G — Multi-alt import (one Aftertale.lua, many toons) 🆓
+
+One account = one `Aftertale.lua` accumulating every alt's GUID-tagged events.
+Import fans out to each hero's own chronicle; active-enough new toons become
+**draft heroes** (`needsSetup`), quiet toons (bank alts/mules, < `STUB_MIN_EVENTS`)
+are skipped. Fixture: `tools/fixtures/multi-alt.lua` (Thaldris 5 ev, Grukmar 4 ev,
+Coinpurse 2 ev).
+
+| # | Test | Steps | Expected | ✓ |
+|---|---|---|---|---|
+| G1 | **Fan-out logic** 🆓 (automated) | `npx vite-node tools/test-import-fanout.mjs` | `✅ PASS` — 42 checks: per-char parse + faction, routing, auto-stub, quiet skip, idempotent re-import, decline opt-out, pre-bound update-in-place | ☐ |
+| G2 | **Draft badge** 🆓 (automated) | Inject a `needsSetup` stub bible into the roster, open the character selector | Row shows the **✎ Draft** badge; validator accepts an empty-narrative draft | ☐ |
+| G3 | **File-drop UX** 🆓 (manual eyeball) | Drag `tools/fixtures/multi-alt.lua` into the PC importer | Multi-hero preview: Thaldris/Grukmar → *new draft hero*, Coinpurse → *too quiet* (no checkbox). Import → done summary with per-hero counts + **View** picker; selector shows both with ✎ Draft. Delete the two demo heroes after | ☐ |
+
 ## Known limits (not bugs)
 - Tier A capture is **enUS** string-parsing for now.
 - Tier B PvP (battlegrounds/arenas/world-PvP) **not built** — pending live-client work.
