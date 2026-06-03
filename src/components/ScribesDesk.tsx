@@ -52,6 +52,43 @@ import {
 } from '../lib/storyBeatSettings';
 import type { CharacterBible } from '../types';
 
+/**
+ * Shown in Step 2 when the active hero has no observed play. A web-made hero
+ * (or one not in your save file) gets a story two ways — authored by hand here,
+ * or played in WoW and imported. No "switch to another hero" — that routing now
+ * lives in the import roster above; this is purely about *this* hero.
+ */
+function NoPlayYetPrompt({ heroName, onAuthor }: { heroName: string; onAuthor: () => void }) {
+  return (
+    <div
+      className="at-callout"
+      style={{
+        borderColor: 'rgba(212, 163, 115, 0.4)',
+        background: 'rgba(212, 163, 115, 0.08)',
+      }}
+    >
+      <strong style={{ color: 'var(--gold-bright)', fontFamily: 'var(--font-display)', fontSize: '1.05rem' }}>
+        {heroName} has no recorded play yet.
+      </strong>
+      <p className="muted" style={{ fontSize: '0.92rem', margin: '0.4rem 0 0.6rem', lineHeight: 1.5 }}>
+        This character isn't in your imported save file. Give {heroName} a story two ways:
+      </p>
+      <ul style={{ margin: '0 0 0.9rem', paddingLeft: '1.1rem', fontSize: '0.92rem', lineHeight: 1.6 }}>
+        <li>
+          <strong>Author by hand</strong> — write {heroName}'s chapters yourself, right here.
+        </li>
+        <li>
+          <strong>Play in World of Warcraft</strong> — create {heroName} in-game, play, then
+          import your <code>Aftertale.lua</code> to capture it.
+        </li>
+      </ul>
+      <button type="button" className="at-btn at-btn-primary" onClick={onAuthor}>
+        ✍ Author by hand
+      </button>
+    </div>
+  );
+}
+
 function formatInkwellBinding(bible: CharacterBible): string {
   const realm = bible.realm?.trim();
   const raceClass = [bible.wowRace?.trim(), bible.wowClass?.trim()].filter(Boolean).join(' ');
@@ -228,23 +265,29 @@ export function ScribesDesk() {
               title="Write session cards"
               helper="Generate, publish, unpublish, and enrich each observed play session."
             >
-              <div
-                className="at-chronicle-empty-actions"
-                style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}
-              >
-                <button className="at-btn at-btn-secondary" onClick={() => setManualOpen(true)}>
-                  ✦ Add manual entry
-                </button>
-                {characterKey && (
-                  <LootFloorPicker characterKey={characterKey} />
-                )}
-              </div>
-              <SessionTrail
-                sessions={sessions}
-                bible={bible}
-                defaultSessionId={focusedSessionId}
-                onSessionFocus={setFocusedSessionId}
-              />
+              {sessions.length === 0 ? (
+                <NoPlayYetPrompt heroName={bible.name} onAuthor={() => setManualOpen(true)} />
+              ) : (
+                <>
+                  <div
+                    className="at-chronicle-empty-actions"
+                    style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}
+                  >
+                    <button className="at-btn at-btn-secondary" onClick={() => setManualOpen(true)}>
+                      ✦ Add manual entry
+                    </button>
+                    {characterKey && (
+                      <LootFloorPicker characterKey={characterKey} />
+                    )}
+                  </div>
+                  <SessionTrail
+                    sessions={sessions}
+                    bible={bible}
+                    defaultSessionId={focusedSessionId}
+                    onSessionFocus={setFocusedSessionId}
+                  />
+                </>
+              )}
             </Step>
           )}
 
@@ -283,7 +326,8 @@ function InkwellImportStrip({
     state,
     handleFile,
     commitAll,
-    viewHero,
+    addHero,
+    openHero,
     cancelPreview,
   } = useAftertaleLuaImport({ mode: 'smart' });
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -406,7 +450,7 @@ function InkwellImportStrip({
           />
         )}
         {state.status === 'done' && state.multiResult && (
-          <ImportDoneSummary result={state.multiResult} onView={viewHero} />
+          <ImportDoneSummary state={state} onOpen={openHero} onAddHero={addHero} />
         )}
         {state.status === 'error' && (
           <div

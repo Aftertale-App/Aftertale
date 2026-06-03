@@ -446,6 +446,242 @@ select.at-input {
 .at-callout-danger code { color: #ffc8c0; }
 
 /* ===========================================================================
+   Addon import — "open the tome" surface
+   A crafted drop zone, a reading-the-file beat, and a receipt — all on the
+   warm leather palette with gold accents and the ✦ star motif.
+   =========================================================================== */
+
+.at-import {
+  position: relative;
+  margin-top: 1rem;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-strong);
+  background:
+    radial-gradient(ellipse 85% 55% at 50% -12%, rgba(164, 122, 209, 0.10), transparent 62%),
+    linear-gradient(180deg, var(--bg-elevated) 0%, #19130e 100%);
+  box-shadow: var(--sh-panel);
+  overflow: hidden;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.at-import::before {
+  /* tooled-leather gold hairline */
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: calc(var(--r-lg) - 3px);
+  border: 1px solid rgba(212, 163, 115, 0.07);
+  pointer-events: none;
+}
+.at-import[data-drag='true'] {
+  border-color: var(--gold);
+  box-shadow: var(--sh-panel), var(--sh-glow-gold);
+}
+
+/* ---- Emblem: glowing ✦ in a ring ---- */
+.at-import-emblem {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--gold-bright);
+  background: radial-gradient(circle at 50% 32%, rgba(212, 163, 115, 0.24), rgba(212, 163, 115, 0.03));
+  border: 1px solid rgba(212, 163, 115, 0.38);
+  box-shadow: 0 0 0 6px rgba(212, 163, 115, 0.04), inset 0 0 18px rgba(212, 163, 115, 0.14);
+}
+
+/* ---- Drop zone (idle) ---- */
+.at-import-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.7rem;
+  padding: 2.4rem 1.5rem;
+  border-radius: var(--r-lg);
+}
+.at-import-kicker {
+  margin: 0.4rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--at-accent);
+}
+.at-import-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+}
+.at-import-hint {
+  margin: 0;
+  max-width: 30rem;
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+.at-import-path {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--gold);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 0.32rem 0.7rem;
+  max-width: 100%;
+  word-break: break-all;
+}
+.at-import-cta {
+  margin-top: 0.5rem;
+  padding: 0.65rem 1.5rem;
+  font-size: 15px;
+}
+.at-import-rescan {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.7rem 1rem 0.9rem;
+}
+
+/* ---- Loading beat ---- */
+.at-import-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.85rem;
+  padding: 2.5rem 1.5rem;
+}
+.at-import-loading .at-import-emblem {
+  animation: at-import-breathe 1.5s ease-in-out infinite;
+}
+.at-import-phase {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+  animation: at-import-rise 260ms ease;
+}
+.at-import-file {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--fg-faint);
+}
+.at-import-bar {
+  width: min(280px, 72%);
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(212, 163, 115, 0.08), rgba(240, 200, 150, 0.9), rgba(212, 163, 115, 0.08));
+  background-size: 200% 100%;
+  animation: at-import-shimmer 1.15s linear infinite;
+}
+@keyframes at-import-breathe {
+  0%, 100% { transform: scale(0.94); box-shadow: 0 0 0 4px rgba(212, 163, 115, 0.04), inset 0 0 14px rgba(212, 163, 115, 0.10); }
+  50%      { transform: scale(1.07); box-shadow: 0 0 0 11px rgba(212, 163, 115, 0.07), inset 0 0 22px rgba(212, 163, 115, 0.22); }
+}
+@keyframes at-import-shimmer {
+  0%   { background-position: -180% 0; }
+  100% { background-position: 180% 0; }
+}
+@keyframes at-import-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Receipt ---- */
+.at-import-receipt {
+  padding: 1.4rem 1.5rem 1.2rem;
+  animation: at-import-rise 320ms ease;
+}
+.at-import-receipt-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--gold-bright);
+}
+.at-import-receipt-head .star { color: var(--gold); }
+.at-import-hero {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.at-import-hero:last-of-type { border-bottom: none; }
+.at-import-hero-name {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  color: var(--fg);
+}
+.at-import-hero-meta { font-size: 0.86rem; color: var(--fg-muted); }
+.at-import-hero-gain { color: var(--gold); font-weight: 600; }
+/* "N sessions to write" — the backlog surfaced per hero, in arcane purple */
+.at-import-hero-todo {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--magic);
+  border: 1px solid rgba(184, 158, 255, 0.4);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.at-import-hero-done { font-size: 0.78rem; color: var(--success); opacity: 0.85; }
+.at-import-hero-tag {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--at-accent);
+  border: 1px solid rgba(164, 122, 209, 0.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.at-import-hero-action { margin-left: auto; }
+
+/* New toons — demoted, opt-in */
+.at-import-newgroup {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed var(--border-strong);
+}
+.at-import-newgroup-label {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+.at-import-newrow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  padding: 0.4rem 0;
+}
+.at-import-newrow-name { font-weight: 600; color: var(--fg); }
+.at-import-skipped {
+  margin-top: 0.7rem;
+  font-size: 0.78rem;
+  color: var(--fg-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .at-import-loading .at-import-emblem,
+  .at-import-bar,
+  .at-import-phase,
+  .at-import-receipt { animation: none !important; }
+}
+
+/* ===========================================================================
    Tabs — grimoire chapter dividers
    =========================================================================== */
 

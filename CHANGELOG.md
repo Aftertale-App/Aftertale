@@ -7,6 +7,26 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — import reads as an account-level roster, with a real glow-up *(2026-06-03)*
+
+Dropping your `Aftertale.lua` no longer shows a 2007-era checkbox list. It now
+plays a "reading your adventures" loading beat, then presents a **roster** —
+every character in the save file, each with level, new moments, and **how many
+sessions are still unwritten** — framed as "Synced from your save file," not
+"caught up [active hero]." Heroes you already chronicle update silently; brand-new
+toons are an opt-in "Start"; quiet bank alts are a one-line footnote. `Open [hero]`
+makes them active and routes to The Inkwell. When the active hero has no recorded
+play, The Inkwell now explains the two real paths (author by hand, or play in WoW
+and import) instead of pushing you to switch heroes. This is an interim step
+toward the larger onboarding redesign in `docs/onboarding-redesign-spec.md`.
+
+### Fixed — Character tab no longer wedges when the active hero disappears *(2026-06-03)*
+
+If the active hero was cleared (e.g. a sync hiccup) while the Character tab sat
+on its existing-hero banner, the banner rendered nothing and "Interview (manual)"
+appeared dead — with no way to start a new character. `CharacterCreation` now
+falls the banner step back to the new-character flow the moment the hero vanishes.
+
 ### Fixed — Hub "Story at a Glance" now counts one character, not the account *(2026-06-03)*
 
 The Hub Overview was summing *every* character's events out of the account-wide
