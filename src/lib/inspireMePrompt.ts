@@ -51,7 +51,7 @@ export interface InspireMeCharacterContext {
   class: string;          // e.g. "Rogue"
   sex: 1 | 2 | 3;         // 1=neutral, 2=male, 3=female per Blizzard
   faction?: string;       // "Alliance" | "Horde" | "Neutral"
-  classification: 'brand-new' | 'boosted' | 'pre-existing';
+  classification: 'brand-new' | 'allied-race' | 'boosted' | 'pre-existing';
   level: number;
   zone?: string;
   subzone?: string;
@@ -138,6 +138,8 @@ function classificationGuidance(c: InspireMeCharacterContext['classification']):
   switch (c) {
     case 'brand-new':
       return 'just born into the world -- their story starts now, use birth/awakening framing';
+    case 'allied-race':
+      return 'a fresh beginning that carries an ancestral heritage -- frame as a new chapter for someone rooted in an established people; not amnesia (boosted) and not a blank slate (brand-new)';
     case 'boosted':
       return 'arrived in the middle of the world with no remembered beginning -- frame as veteran-summoned or amnesiac';
     case 'pre-existing':

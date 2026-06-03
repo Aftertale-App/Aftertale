@@ -7,6 +7,28 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — Hub "Story at a Glance" now counts one character, not the account *(2026-06-03)*
+
+The Hub Overview was summing *every* character's events out of the account-wide
+SavedVariables, so a brand-new toon opened to inherited totals ("82 quests
+completed", "Recording since" a date before it existed). `computeStats` now
+scopes all six stats — and the Recent Moments feed — to the current
+`UnitGUID("player")` (the demo-seed sample, which has no character stamp, still
+renders). Each character's dashboard finally reflects only its own story.
+
+### Added — allied races get their own classification, not "boosted" *(2026-06-03)*
+
+A freshly-created allied race (Vulpera, Nightborne, Earthen, the new Midnight
+Haranir, …) starts above level 1 by *design*, not because the player paid to
+skip a journey — so labeling them "boosted" gave them the wrong narrative voice
+("power without memory"). New `allied-race` lane treats them as a genuine new
+beginning that carries an ancestral heritage, threaded through the in-game
+character announcement and every web consumer (auto-import badge, seed question,
+Inspire-Me and prologue prompts). The full 12-race roster lives in a pure,
+unit-tested `Utils/Classify.lua`, and a low-level "boosted" verdict now logs a
+warning so an unrecognized fresh-start race surfaces instead of being silently
+mislabeled. Dracthyr (starts at 58) is deliberately left for its own lane later.
+
 ### Added — multi-alt import: one Aftertale.lua, every hero *(2026-06-02)*
 WoW writes a single `Aftertale.lua` per account that accumulates every alt's
 events, so importing now fans out: one drop updates *all* your heroes at once,

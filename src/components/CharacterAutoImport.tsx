@@ -46,6 +46,11 @@ const CLASSIFICATION_BADGES: Record<Classification, { label: string; tone: strin
     tone: 'success',
     blurb: 'A fresh face -- their story is still a blank page.',
   },
+  'allied-race': {
+    label: 'Allied race',
+    tone: 'success',
+    blurb: 'A new beginning that carries a heritage -- born to a people with a past.',
+  },
   boosted: {
     label: 'Boosted',
     tone: 'magic',
@@ -66,6 +71,8 @@ const CLASSIFICATION_BADGES: Record<Classification, { label: string; tone: strin
 const SEED_QUESTION_BY_CLASSIFICATION: Record<Classification, string> = {
   'brand-new':
     'What is the first thing your character remembers, and how do they feel about it?',
+  'allied-race':
+    'Your character begins their own journey, but belongs to a people with a long history. What does your character carry from that heritage, and what do they want to make their own?',
   boosted:
     'Your character has skill and power they do not remember earning. What is the first thing that gives them pause about that?',
   'pre-existing':

@@ -58,6 +58,8 @@ const DEFAULT_MAX_TOKENS = 1600;
 const LANE_VOICE: Record<IngestedCharacter['classification'], string> = {
   'brand-new':
     'This character is brand new -- level 1, just drew their first breath. The backstory should be the moments leading up to the very first step taken in-game. Childhood, family, the event that pulled them out the door TODAY. No epic past adventures.',
+  'allied-race':
+    'This character is a fresh start of an allied race -- they begin their own journey above level 1 by birthright, not because anything was skipped. They belong to an established people with a deep history (the heritage), but their personal story starts now. Write the backstory as the moment they step out from their homeland and people into a wider story of their own: rooted in heritage, but newly their own. Not amnesia, not epic past adventures.',
   boosted:
     'This character was boosted -- they arrived at high level with no memory of how. Lean into amnesia, a past summoned-by-magic, or a veteran adventurer whose history is deliberately fogged. Be intriguing about the gap, not exhaustive.',
   'pre-existing':

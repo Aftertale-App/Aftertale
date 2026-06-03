@@ -314,8 +314,18 @@ local function formatHours(secs)
 end
 
 -- One pass over db.events to compute the dashboard's six stats. Cheap
--- even for the full 5000-event ring buffer (single arithmetic loop).
+-- even for the full 25000-event ring buffer (single arithmetic loop).
+--
+-- SCOPED PER-CHARACTER. AftertaleDB is account-wide: every toon's events
+-- share one ring buffer (each stamped with e.char = UnitGUID). The Hub
+-- dashboard is a single character's story, so we count only the current
+-- player's events. char-less events (the /aftertale seed demo, which never
+-- stamps a guid) are always included so the mockup still renders.
 local function computeStats(db)
+  local myGuid = UnitGUID and UnitGUID("player") or nil
+  local myName = UnitName and UnitName("player") or nil
+  local function mine(char) return (not char) or (not myGuid) or char == myGuid end
+
   local s = {
     moments    = 0,
     quests     = 0,
@@ -328,28 +338,40 @@ local function computeStats(db)
   local seenZones = {}
 
   for _, e in ipairs(db.events or {}) do
-    if e.ts and (not s.earliestT or e.ts < s.earliestT) then
-      s.earliestT = e.ts
-    end
-    if e.event == "QUEST_TURNED_IN" then
-      s.quests = s.quests + 1
-    elseif e.event == "ACHIEVEMENT_EARNED" then
-      s.feats = s.feats + 1
-    elseif e.event == "ENCOUNTER_END" then
-      local enr = e.enrichment
-      if enr and enr.success then s.dungeons = s.dungeons + 1 end
-    elseif e.event == "ZONE_CHANGED_NEW_AREA" then
-      local enr = e.enrichment
-      local zone = enr and enr.zoneText
-      if zone and zone ~= "" and not seenZones[zone] then
-        seenZones[zone] = true
-        s.zones = s.zones + 1
+    if mine(e.char) then
+      if e.ts and (not s.earliestT or e.ts < s.earliestT) then
+        s.earliestT = e.ts
+      end
+      if e.event == "QUEST_TURNED_IN" then
+        s.quests = s.quests + 1
+      elseif e.event == "ACHIEVEMENT_EARNED" then
+        s.feats = s.feats + 1
+      elseif e.event == "ENCOUNTER_END" then
+        local enr = e.enrichment
+        if enr and enr.success then s.dungeons = s.dungeons + 1 end
+      elseif e.event == "ZONE_CHANGED_NEW_AREA" then
+        local enr = e.enrichment
+        local zone = enr and enr.zoneText
+        if zone and zone ~= "" and not seenZones[zone] then
+          seenZones[zone] = true
+          s.zones = s.zones + 1
+        end
       end
     end
   end
 
-  -- Marked moments (the popover "Hold this moment" button writes to db.marked)
-  if db.marked then s.moments = #db.marked end
+  -- Marked moments (the popover "Hold this moment" button writes to db.marked).
+  -- Stamps carry player NAME, not guid, so scope by name; demo seeds have no
+  -- player field (nil) and are counted like char-less events above.
+  if db.marked then
+    local n = 0
+    for _, m in ipairs(db.marked) do
+      if (not m.player) or (not myName) or m.player == myName then
+        n = n + 1
+      end
+    end
+    s.moments = n
+  end
 
   -- Time Recorded: parse the earliest "%Y-%m-%dT%H:%M:%S" stamp, compare to now.
   if s.earliestT then
@@ -393,7 +415,7 @@ local function computeStats(db)
   for i = #db.events, 1, -1 do
     if #picked >= 8 then break end
     local e = db.events[i]
-    if NARRATIVE[e.event] then
+    if NARRATIVE[e.event] and mine(e.char) then
       local enr = e.enrichment or {}
       local label = NARRATIVE[e.event]
       local tag = nil

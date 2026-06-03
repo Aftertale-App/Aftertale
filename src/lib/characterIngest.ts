@@ -10,7 +10,7 @@
 
 import type { LuaValue } from './luaSavedVariables';
 
-export type Classification = 'brand-new' | 'boosted' | 'pre-existing' | 'pending';
+export type Classification = 'brand-new' | 'allied-race' | 'boosted' | 'pre-existing' | 'pending';
 export type OnboardingState = 'pending' | 'seeded' | 'complete' | 'skipped';
 
 export interface IngestedCharacter {

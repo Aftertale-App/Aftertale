@@ -72,7 +72,7 @@ end
 --                     coords = { x, y }, addonBuild, project,
 --                     timePlayedSec, levelTimeSec },
 --       lastSeen = { timestamp, iso, level, zoneText, subzoneText },
---       classification = "brand-new" | "boosted" | "pre-existing" | "pending",
+--       classification = "brand-new" | "allied-race" | "boosted" | "pre-existing" | "pending",
 --       classificationReason = string,
 --       onboardingState = "pending" | "seeded" | "complete" | "skipped",
 --       onboardingPayloadVersion = number,
@@ -835,10 +835,14 @@ end
 -- deferred to the app side.
 --
 -- Classification fires once per character per Aftertale-installation,
--- the first time we see a GUID. Three lanes:
---   * brand-new      timePlayed <  60s, level == 1   -> birth voice
---   * boosted        timePlayed <  60s, level  > 1   -> arrival-w/o-memory voice
---   * pre-existing   timePlayed >= 60s               -> met-mid-journey voice
+-- the first time we see a GUID. Four lanes:
+--   * brand-new      timePlayed <  60s, level == 1            -> birth voice
+--   * allied-race    timePlayed <  60s, allied race, lvl<=20  -> heritage-start voice
+--   * boosted        timePlayed <  60s, level  > 1 (else)     -> arrival-w/o-memory voice
+--   * pre-existing   timePlayed >= 60s                        -> met-mid-journey voice
+-- An allied race starts above level 1 by design (a real beginning), so it is
+-- NOT a boost; the low-level gate separates a fresh allied race from a boosted
+-- one (which lands at ~70). See ALLIED_RACES / classify below.
 --
 -- GetTimePlayed is asynchronous: RequestTimePlayed() schedules
 -- TIME_PLAYED_MSG, which arrives moments later with (total, level).
@@ -891,15 +895,10 @@ local function snapshotLocation()
   }
 end
 
-local function classify(timePlayedSec, level)
-  if (timePlayedSec or 0) < 60 and (level or 0) == 1 then
-    return "brand-new", string.format("timePlayedSec=%s, level=1", tostring(timePlayedSec))
-  end
-  if (timePlayedSec or 0) < 60 and (level or 0) > 1 then
-    return "boosted", string.format("timePlayedSec=%s, level=%d", tostring(timePlayedSec), level)
-  end
-  return "pre-existing", string.format("timePlayedSec=%s, level=%d", tostring(timePlayedSec), level or 0)
-end
+-- classify(), the allied-race roster, and ALLIED_FRESH_CEILING now live in
+-- Utils/Classify.lua (a pure, dependency-free module loaded before this file)
+-- so they can be unit-tested without WoW stubs. Use NS.classify /
+-- NS.ALLIED_RACES / NS.ALLIED_FRESH_CEILING. See that file for the lane docs.
 
 local function announceNewCharacter(record)
   local lvl = record.firstSeen.level or 0
@@ -975,7 +974,7 @@ local function beginCharacterDetection(db)
   else
     -- No async return channel available; classify with what we have.
     record.firstSeen.timePlayedSec = -1
-    record.classification, record.classificationReason = classify(9999, record.firstSeen.level)
+    record.classification, record.classificationReason = NS.classify(9999, record.firstSeen.level, record.identity.raceFile)
     record.classificationReason = record.classificationReason .. " (RequestTimePlayed unavailable)"
     if not record.announced then
       announceNewCharacter(record)
@@ -995,12 +994,25 @@ local function finalizeCharacterDetection(db, totalTimeSec, levelTimeSec)
   end
   record.firstSeen.timePlayedSec = totalTimeSec
   record.firstSeen.levelTimeSec = levelTimeSec
-  record.classification, record.classificationReason = classify(totalTimeSec, record.firstSeen.level)
+  record.classification, record.classificationReason = NS.classify(totalTimeSec, record.firstSeen.level, record.identity.raceFile)
   if NS and NS.Logger then
     NS.Logger:info(string.format("character %s-%s classified as '%s' (%s)",
       tostring(record.identity.name), tostring(record.identity.realm),
       tostring(record.classification), tostring(record.classificationReason)),
       NS.Logger.Categories.character)
+    -- Safety net: a "boosted" verdict at a low starting level is the signature
+    -- of a freshly-created character we failed to route to allied-race -- i.e.
+    -- an allied race whose clientFileString is missing from ALLIED_RACES (a new
+    -- one Blizzard shipped), or a hero-class start. Surface it so the roster
+    -- can be corrected instead of silently mislabeling the character.
+    if record.classification == "boosted"
+        and (record.firstSeen.level or 99) <= NS.ALLIED_FRESH_CEILING then
+      NS.Logger:warn(string.format(
+        "%s-%s classified 'boosted' at level %d -- unrecognized fresh-start race '%s'? Check ALLIED_RACES.",
+        tostring(record.identity.name), tostring(record.identity.realm),
+        record.firstSeen.level or 0, tostring(record.identity.raceFile)),
+        NS.Logger.Categories.character)
+    end
   end
   if not record.announced then
     announceNewCharacter(record)
