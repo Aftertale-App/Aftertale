@@ -120,6 +120,20 @@ Coinpurse 2 ev).
 | G2 | **Draft badge** 🆓 (automated) | Inject a `needsSetup` stub bible into the roster, open the character selector | Row shows the **✎ Draft** badge; validator accepts an empty-narrative draft | ☐ |
 | G3 | **File-drop UX** 🆓 (manual eyeball) | Drag `tools/fixtures/multi-alt.lua` into the PC importer | Multi-hero preview: Thaldris/Grukmar → *new draft hero*, Coinpurse → *too quiet* (no checkbox). Import → done summary with per-hero counts + **View** picker; selector shows both with ✎ Draft. Delete the two demo heroes after | ☐ |
 
+## Track H — Character classification (birth / allied / boosted / pre-existing) 🆓/🎮
+
+First time Aftertale sees a GUID it picks a narrative lane from playtime + level
++ race: **brand-new** (lvl 1), **allied-race** (allied race at its lvl-10
+heritage start), **boosted** (fresh but high level), **pre-existing** (real
+playtime). Logic is pure in `addon/Aftertale/Utils/Classify.lua`; a low-level
+"boosted" verdict logs a warn so an unrecognized fresh-start race surfaces.
+
+| # | Test | Steps | Expected | ✓ |
+|---|---|---|---|---|
+| H1 | **Decision table + roster** 🆓 (automated) | `npm run classify:smoke` | `30 passed, 0 failed` — all four lanes, boosted-vs-allied boundary, nil-safety, and the full 12-race allied roster (incl. Haranir) | ☐ |
+| H2 | **Allied race, in-game** 🎮 | Roll a **fresh** allied race (e.g. Vulpera/Haranir), log in within its first <60s of playtime | Chat: `New character detected: … -- allied-race`; registry record `classification = "allied-race"`. (Token check: `/dump select(2, UnitRace("player"))` on a Haranir → `"Haranir"`) | ☐ |
+| H3 | **Hub stats scope per char** 🎮 | On a char with a *fresh* alt on the same account, open Hub → Overview | "Story at a Glance" + Recent Moments reflect **only this character** — not account-wide totals; "Recording since" = this char's first event | ☐ |
+
 ## Known limits (not bugs)
 - Tier A capture is **enUS** string-parsing for now.
 - Tier B PvP (battlegrounds/arenas/world-PvP) **not built** — pending live-client work.
