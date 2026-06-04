@@ -541,6 +541,13 @@ export function deleteBible(key: string): void {
   } catch (err) {
     console.warn('[bibleStore] failed to sweep NPC threads for', key, err);
   }
+  // Tell cloud sync to tombstone this key BEFORE the roster-updated push fires,
+  // so a deleted hero propagates as a delete and can't be re-hydrated from the
+  // cloud. (No-op when signed out / sync inactive — there's no cloud to zombie
+  // it back from.)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('at:bible-deleted', { detail: key }));
+  }
   fireRosterUpdated();
   if (wasActive) fireBibleUpdated(null);
 }

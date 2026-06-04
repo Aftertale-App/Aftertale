@@ -829,6 +829,20 @@ export function initCloudSync(): void {
   const onLocalChange = () => {
     if (!suppressPush) schedulePush();
   };
+  // A local hero deletion must tombstone immediately — otherwise the next
+  // hydrate sees the hero still in the cloud and re-adds it (zombie). The
+  // tombstone makes the delete win on the next sync (push or hydrate), so a
+  // deleted hero stays deleted even if the push is delayed or offline.
+  const onLocalDelete = (e: Event) => {
+    if (suppressPush) return;
+    const key = (e as CustomEvent<string>).detail;
+    if (!key) return;
+    const tombs = readTombstones();
+    tombs[key] = Date.now();
+    writeTombstones(tombs);
+    schedulePush();
+  };
+  window.addEventListener('at:bible-deleted', onLocalDelete);
   window.addEventListener('at:bible-updated', onLocalChange);
   window.addEventListener('at:bible-roster-updated', onLocalChange);
   window.addEventListener(ENRICHMENTS_UPDATED_EVENT, onLocalChange);
