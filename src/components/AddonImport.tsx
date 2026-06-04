@@ -544,7 +544,21 @@ export function AddonImport({
           drop zone only belongs on the first-run screen. */}
       {busy ? (
         <ImportLoading fileName={state.fileName} />
-      ) : compact ? null : state.status === 'done' || state.status === 'preview' ? (
+      ) : compact ? (
+        // Returning player: offer a re-sync. But right after a fresh import
+        // ('done') it's redundant — the roster already updated — so hide it then.
+        state.status === 'done' ? null : (
+          <div className="at-import-compact-row">
+            <button
+              className="at-btn at-btn-secondary at-btn-sm"
+              onClick={() => inputRef.current?.click()}
+              disabled={busy}
+            >
+              ⬆ Sync from your save file
+            </button>
+          </div>
+        )
+      ) : state.status === 'done' || state.status === 'preview' ? (
         <div className="at-import-rescan">
           <button
             className="at-btn at-btn-secondary at-btn-sm"

@@ -711,9 +711,14 @@ select.at-input {
   gap: 1rem;
 }
 
-/* Compact import in the populated hub renders nothing when idle (the addon /
-   companion will drive re-sync) — it only shows the loading beat mid-import. */
-.at-import-compact { margin: 0; }
+/* Compact import in the populated hub: a small right-aligned "Sync" button for
+   returning players, hidden only right after a fresh import (the roster already
+   reflects it). Shows the loading beat mid-import. */
+.at-import-compact { margin: 0.2rem 0 1rem; }
+.at-import-compact-row {
+  display: flex;
+  justify-content: flex-end;
+}
 .at-heroes-empty {
   margin-top: 1.4rem;
   text-align: center;
