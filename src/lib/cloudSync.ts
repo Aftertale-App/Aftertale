@@ -520,9 +520,15 @@ async function hydrate(uid: string): Promise<void> {
           if (!cloud.has(key)) tombstones[key] = stamp;
         }
         for (const [key, c] of cloud) {
-          applyCloudBundle(key, c.bundle);
+          // Remember the cloud id either way so the next push can delete the
+          // cloud copy of a tombstoned hero.
           charmap[key] = c.uuid;
-          delete tombstones[key]; // cloud-present keys are live, not abandoned
+          // A tombstoned key was deliberately deleted/abandoned locally — do NOT
+          // resurrect it, and KEEP its tombstone (the old `delete tombstones[key]`
+          // here wiped genuine deletions, so deleted heroes zombied back on the
+          // next hydrate). The deletion propagates to the cloud on the next push.
+          if (tombstones[key]) continue;
+          applyCloudBundle(key, c.bundle);
         }
       } finally {
         suppressPush = false;
