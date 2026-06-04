@@ -45,10 +45,18 @@ function buildCards(): HeroCard[] {
 }
 
 function openHero(key: string, isCaptured: boolean): void {
-  // Starting a captured hero graduates it (active ⇒ started); opening a started
-  // one just switches. Either way we land on their Chronicle.
-  if (isCaptured) startBible(key);
-  else setActiveBible(key);
+  // Starting a captured hero graduates it (active ⇒ started) and lands on The
+  // Inkwell, where their imported sessions are waiting to be authored — the
+  // Chronicle would be empty/confusing for a hero with no published chapters
+  // yet. Opening an already-started hero goes straight to their Chronicle to read.
+  if (isCaptured) {
+    startBible(key);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('at:request-tab', { detail: 'desk' }));
+    }
+    return;
+  }
+  setActiveBible(key);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('at:request-tab', { detail: 'chronicle' }));
   }

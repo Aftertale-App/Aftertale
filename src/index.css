@@ -2734,6 +2734,33 @@ button.at-sheet-pill:focus-visible {
   gap: 0.85rem;
 }
 
+/* Sort + filter chip bar above the collapsed session cards. */
+.at-session-sortbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+  padding: 0.35rem 0;
+  margin-bottom: 0.15rem;
+}
+.at-session-sortbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.at-session-sortbar-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  margin-right: 0.15rem;
+}
+.at-session-empty-filter {
+  padding: 1.25rem 0.5rem;
+  text-align: center;
+}
+
 .at-session-card {
   border: 1px solid var(--border);
   border-radius: var(--r-md);

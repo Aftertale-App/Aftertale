@@ -7,6 +7,26 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — The Inkwell, refocused on the free-tier authoring flow *(2026-06-04)*
+
+Starting a captured hero now lands on **The Inkwell** (their session cards),
+not the Chronicle — a hero with no published chapters had nothing to read, so
+the old routing dropped new players on a confusing empty page. The Inkwell
+itself got a pass: the page no longer re-prompts for the `Aftertale.lua` once a
+save has been imported (the "last imported" strip handles re-imports), the
+cryptic "🛡️ Bound to <hero>" line is gone, and the header copy is rewritten.
+The tiers/upsell sidebar is removed for now to keep the focus on the free
+experience. The AI that writes chapters is correctly named the **Loremaster**
+(the Scribe is the in-game addon that takes the notes), so "Scribe's Note"
+labels now read "Loremaster's Note." The prominent "Add manual entry" button is
+hidden once real session cards exist.
+
+Session cards are now **collapsible and collapsed by default**, sorted
+**oldest-first** so the saga reads in lived order, with a chip bar above them to
+re-sort (newest, longest session, most levels, most quests) and filter by status
+(all / to-write / published). The "Unwritten" status label is now
+**"Unpublished."**
+
 ### Changed — first-run onboarding copy: more in-world, less utility-app *(2026-06-04)*
 
 A full copy pass over the empty-roster onboarding. The top page header for a

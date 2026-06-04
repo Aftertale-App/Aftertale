@@ -145,6 +145,21 @@ async function requestCampfireRecap(
   });
 }
 
+type SortKey = 'oldest' | 'newest' | 'duration' | 'levels' | 'quests';
+type StatusFilter = 'all' | 'unpublished' | 'published';
+
+const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
+  { key: 'oldest', label: 'Oldest first' },
+  { key: 'newest', label: 'Newest first' },
+  { key: 'duration', label: 'Longest session' },
+  { key: 'levels', label: 'Most levels' },
+  { key: 'quests', label: 'Most quests' },
+];
+
+function sessionDuration(s: ChronicleSession): number {
+  return Math.max(0, s.finishedAt - s.startedAt);
+}
+
 export function SessionTrail({
   sessions,
   bible,
@@ -160,6 +175,14 @@ export function SessionTrail({
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(defaultSessionId ?? null);
   const [busySessionId, setBusySessionId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  // Every card starts collapsed; opening one (click, deep-link, or "jump to")
+  // adds it here. This is independent collapse, not an accordion — open as many
+  // as you like.
+  const [openIds, setOpenIds] = useState<Set<string>>(
+    () => new Set(defaultSessionId ? [defaultSessionId] : []),
+  );
+  const [sortKey, setSortKey] = useState<SortKey>('oldest');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const characterKey = String(bible.createdAt);
   const [sessionRecaps, setSessionRecaps] = useState<SessionRecapMap>(() =>
     loadSessionRecaps(characterKey),
@@ -226,7 +249,25 @@ export function SessionTrail({
   function focusSession(sessionId: string) {
     setSelectedSessionId(sessionId);
     setSessionError(null);
+    setOpenIds((prev) => (prev.has(sessionId) ? prev : new Set(prev).add(sessionId)));
     onSessionFocus?.(sessionId);
+  }
+
+  // Summary click: collapse if open, otherwise expand + focus (so generate /
+  // error state attaches to the card the user just opened).
+  function toggleSession(sessionId: string) {
+    const willOpen = !openIds.has(sessionId);
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (willOpen) next.add(sessionId);
+      else next.delete(sessionId);
+      return next;
+    });
+    if (willOpen) {
+      setSelectedSessionId(sessionId);
+      setSessionError(null);
+      onSessionFocus?.(sessionId);
+    }
   }
 
   useEffect(() => {
@@ -356,6 +397,39 @@ export function SessionTrail({
     0,
   );
 
+  const publishedCount = useMemo(
+    () => sessions.filter((s) => isPublished(s)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sessions, committedEntries],
+  );
+
+  // Filter by publish status, then sort. Oldest-first is the default so a new
+  // player reads their saga in the order they lived it.
+  const visibleSessions = useMemo(() => {
+    const filtered = sessions.filter((s) => {
+      if (statusFilter === 'published') return isPublished(s);
+      if (statusFilter === 'unpublished') return !isPublished(s);
+      return true;
+    });
+    const arr = [...filtered];
+    switch (sortKey) {
+      case 'newest': arr.sort((a, b) => b.startedAt - a.startedAt); break;
+      case 'duration': arr.sort((a, b) => sessionDuration(b) - sessionDuration(a)); break;
+      case 'levels': arr.sort((a, b) => b.stats.levelsGained - a.stats.levelsGained); break;
+      case 'quests': arr.sort((a, b) => b.stats.questsCompleted - a.stats.questsCompleted); break;
+      case 'oldest':
+      default: arr.sort((a, b) => a.startedAt - b.startedAt); break;
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions, sortKey, statusFilter, committedEntries]);
+
+  const statusFilters: Array<{ key: StatusFilter; label: string; count: number }> = [
+    { key: 'all', label: 'All', count: sessions.length },
+    { key: 'unpublished', label: 'To write', count: sessions.length - publishedCount },
+    { key: 'published', label: 'Published', count: publishedCount },
+  ];
+
   return (
     <section className="at-chronicle-book at-session-trail">
       <header>
@@ -363,7 +437,11 @@ export function SessionTrail({
           <p className="at-kicker">The Inkwell</p>
           <h3>Session cards</h3>
         </div>
-        <span className="at-chronicle-count">{sessions.length} sessions</span>
+        <span className="at-chronicle-count">
+          {visibleSessions.length === sessions.length
+            ? `${sessions.length} session${sessions.length === 1 ? '' : 's'}`
+            : `${visibleSessions.length} of ${sessions.length}`}
+        </span>
       </header>
 
       {sessions.length === 0 ? (
@@ -375,44 +453,78 @@ export function SessionTrail({
           {totalBeats > 0 && (
             <div className={enrichedHere === totalBeats ? 'at-chronicle-enrich-nudge at-chronicle-enrich-nudge-done' : 'at-chronicle-enrich-nudge'} role="status">
               <span>
-                <strong>{enrichedHere}</strong> of <strong>{totalBeats}</strong> story beats have a Scribe’s Note.
+                <strong>{enrichedHere}</strong> of <strong>{totalBeats}</strong> story beats have a Loremaster’s Note.
               </span>
               {enrichedHere > 0 && enrichedHere < totalBeats && (
                 <span className="at-chronicle-enrich-nudge-actions">
                   <button type="button" className="at-btn at-btn-primary" onClick={jumpToEnrichedSession}>
-                    Jump to scribed session ↓
+                    Jump to authored session ↓
                   </button>
                 </span>
               )}
             </div>
           )}
-          {sessions.map((session) => {
-            const recap = sessionRecaps[session.id];
-            const published = isPublished(session);
-            return (
-              <SessionCard
-                key={session.id}
-                session={session}
-                bible={bible}
-                pricingKey={MODEL_CHOICES[modelIdx].pricingKey}
-                recap={recap}
-                published={published}
-                committedEntry={committedEntries.get(session.id)?.[0]}
-                selected={selectedSessionId === session.id}
-                busy={busySessionId === session.id}
-                sessionError={selectedSessionId === session.id ? sessionError : null}
-                characterKey={characterKey}
-                enrichments={enrichments}
-                manualEntries={manualEntriesBySession.get(session.id) ?? []}
-                onSelect={() => focusSession(session.id)}
-                onGenerate={(length) => generateSelectedSessionRecap(session, length)}
-                onCommit={() => commitRecapToChronicle(session)}
-                onUnpublish={() => removeRecapFromChronicle(session)}
-                onDiscard={() => discardRecap(session)}
-                onRead={() => readInChronicle(session)}
-              />
-            );
-          })}
+
+          <div className="at-session-sortbar">
+            <div className="at-session-sortbar-group" role="group" aria-label="Filter sessions">
+              <span className="at-session-sortbar-label">Show</span>
+              {statusFilters.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className={`at-pill ${statusFilter === f.key ? 'at-pill-active' : ''}`}
+                  onClick={() => setStatusFilter(f.key)}
+                >
+                  {f.label} ({f.count})
+                </button>
+              ))}
+            </div>
+            <div className="at-session-sortbar-group" role="group" aria-label="Sort sessions">
+              <span className="at-session-sortbar-label">Sort</span>
+              {SORT_OPTIONS.map((o) => (
+                <button
+                  key={o.key}
+                  type="button"
+                  className={`at-pill ${sortKey === o.key ? 'at-pill-active' : ''}`}
+                  onClick={() => setSortKey(o.key)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {visibleSessions.length === 0 ? (
+            <p className="muted at-session-empty-filter">No sessions match this filter.</p>
+          ) : (
+            visibleSessions.map((session) => {
+              const recap = sessionRecaps[session.id];
+              const published = isPublished(session);
+              return (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  bible={bible}
+                  pricingKey={MODEL_CHOICES[modelIdx].pricingKey}
+                  recap={recap}
+                  published={published}
+                  committedEntry={committedEntries.get(session.id)?.[0]}
+                  open={openIds.has(session.id)}
+                  busy={busySessionId === session.id}
+                  sessionError={selectedSessionId === session.id ? sessionError : null}
+                  characterKey={characterKey}
+                  enrichments={enrichments}
+                  manualEntries={manualEntriesBySession.get(session.id) ?? []}
+                  onToggle={() => toggleSession(session.id)}
+                  onGenerate={(length) => generateSelectedSessionRecap(session, length)}
+                  onCommit={() => commitRecapToChronicle(session)}
+                  onUnpublish={() => removeRecapFromChronicle(session)}
+                  onDiscard={() => discardRecap(session)}
+                  onRead={() => readInChronicle(session)}
+                />
+              );
+            })
+          )}
         </div>
       )}
     </section>
@@ -426,13 +538,13 @@ function SessionCard({
   recap,
   published,
   committedEntry,
-  selected,
+  open,
   busy,
   sessionError,
   characterKey,
   enrichments,
   manualEntries,
-  onSelect,
+  onToggle,
   onGenerate,
   onCommit,
   onUnpublish,
@@ -445,20 +557,20 @@ function SessionCard({
   recap?: SessionRecapRecord;
   published: boolean;
   committedEntry?: HistoryEntry;
-  selected: boolean;
+  open: boolean;
   busy: boolean;
   sessionError: string | null;
   characterKey: string;
   enrichments: Record<string, string>;
   manualEntries: HistoryEntry[];
-  onSelect: () => void;
+  onToggle: () => void;
   onGenerate: (length: ChapterLength) => void;
   onCommit: () => void;
   onUnpublish: () => void;
   onDiscard: () => void;
   onRead: () => void;
 }) {
-  const stateLabel = published ? 'Published' : recap ? 'Draft' : 'Unwritten';
+  const stateLabel = published ? 'Published' : recap ? 'Draft' : 'Unpublished';
   const slimTitle = recap ? extractRecapTitle(recap.text) ?? session.title : session.title;
 
   // Narrative weight → recommended chapter length (the player can override).
@@ -480,12 +592,12 @@ function SessionCard({
     <details
       id={`at-session-${session.id}`}
       className={`at-session-card at-session-card-${stateLabel.toLowerCase()}`}
-      open={!published || selected}
+      open={open}
     >
       <summary
         onClick={(event) => {
           event.preventDefault();
-          onSelect();
+          onToggle();
         }}
       >
         <div>
@@ -523,7 +635,7 @@ function SessionCard({
           <div>
             <p className="at-kicker">✒ At The Inkwell</p>
             <h4>{published ? 'Published chapter' : recap ? 'Draft chapter' : 'Ink this chapter into the Chronicle'}</h4>
-            <p className="muted">The scribe draws from story beats, manual notes, and session context to shape a proper chapter.</p>
+            <p className="muted">The loremaster draws from story beats, manual notes, and session context to shape a proper chapter.</p>
           </div>
           <div className="at-chronicle-generate-controls">
             {!published && (
@@ -1038,9 +1150,9 @@ function SessionMarginNotes({
             type="button"
             className={`at-pill at-pill-scribed ${scribedOnly ? 'at-pill-active' : ''}`}
             onClick={() => setScribedOnly((v) => !v)}
-            title="Show only story beats with a Scribe's Note"
+            title="Show only story beats with a Loremaster's Note"
           >
-            ✦ Scribe's notes ({scribedCount})
+            ✦ Loremaster's notes ({scribedCount})
           </button>
         )}
         {kindsPresent.map((kind) => (
@@ -1078,7 +1190,7 @@ function SessionMarginNotes({
                   <div className="at-enriched-block">
                     <p className="at-enriched-prose">{prose}</p>
                     <small className="at-enriched-fact">{beatGlyph(record.event.kind)} {beatLabel(record.event)} · {eventFactLine(record.event)}</small>
-                    <span className="at-enriched-chip" title="Generated at The Inkwell">✦ Scribe’s Note</span>
+                    <span className="at-enriched-chip" title="Generated at The Inkwell">✦ Loremaster’s Note</span>
                   </div>
                 ) : (
                   <p><strong>{beatGlyph(record.event.kind)} {beatLabel(record.event)}</strong><br /><small>{eventFactLine(record.event)}</small></p>

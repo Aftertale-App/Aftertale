@@ -89,12 +89,6 @@ function NoPlayYetPrompt({ heroName, onAuthor }: { heroName: string; onAuthor: (
   );
 }
 
-function formatInkwellBinding(bible: CharacterBible): string {
-  const realm = bible.realm?.trim();
-  const raceClass = [bible.wowRace?.trim(), bible.wowClass?.trim()].filter(Boolean).join(' ');
-  return `🛡️ Bound to ${bible.name}${realm ? ` of ${realm}` : ''}${raceClass ? ` · ${raceClass}` : ''}`;
-}
-
 export function ScribesDesk() {
   const [bible, setBible] = useState<CharacterBible | null>(() => loadBible());
   const [records, setRecords] = useState<AddonEventRecord[]>(() => loadAddonEventRecords());
@@ -154,27 +148,22 @@ export function ScribesDesk() {
     () => (bible ? buildChronicleSessions(scopedRecords, bible.name) : []),
     [bible, scopedRecords],
   );
-  const bindingLabel = bible?.characterGuid ? formatInkwellBinding(bible) : null;
 
   return (
     <>
       <style>{`
-        .desk-layout {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 1.5rem;
-          align-items: start;
-        }
         .desk-main {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
           min-width: 0;
         }
-        .desk-sidebar {
+        .inkwell-cards-controls {
           display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
         }
         .inkwell-import-strip {
           display: flex;
@@ -214,28 +203,15 @@ export function ScribesDesk() {
           align-items: center;
           gap: 0.5rem;
         }
-        @media (min-width: 960px) {
-          .desk-layout {
-            grid-template-columns: minmax(0, 1fr) 320px;
-          }
-          .desk-sidebar {
-            position: sticky;
-            top: 1rem;
-            max-height: calc(100vh - 2rem);
-            overflow-y: auto;
-          }
-        }
       `}</style>
-      <div className="desk-layout">
-        <div className="desk-main">
+      <div className="desk-main">
           <header className="at-desk-intro">
-            <p className="at-kicker">✦ The Inkwell · Artisan workflow</p>
-            <h2 className="at-section-headline">Turn raw play into chapters, your way</h2>
-            {bindingLabel && (
-              <p className="at-kicker" style={{ marginTop: '0.35rem' }}>{bindingLabel}</p>
-            )}
+            <p className="at-kicker">✦ The Inkwell</p>
+            <h2 className="at-section-headline">Turn your sessions into chapters</h2>
             <p className="at-section-sub">
-              Import your save file, bind manual notes to sessions, pen Scribe's Notes, and publish session recaps into the Chronicle. Your hands on every step.
+              Each session you've imported is waiting below. Open one, let the loremaster draft it
+              into prose in your hero's voice, add notes of your own, then publish the chapter to
+              your Chronicle. Nothing reaches the page until you say so.
             </p>
           </header>
 
@@ -243,52 +219,37 @@ export function ScribesDesk() {
             <InkwellImportStrip importRecord={importRecord} sessionCount={sessions.length} />
           )}
 
-          <Step
-            number={1}
-            title="Import your save file"
-            helper="The importer will walk you through where to find it."
-          >
-            <AddonImport />
-            {scopedRecords.length > 0 && (
-              <p className="muted" style={{ marginTop: '0.5rem', fontSize: 13 }}>
-                ✓ {scopedRecords.length.toLocaleString()} addon event
-                {scopedRecords.length === 1 ? '' : 's'} loaded for{' '}
-                <strong>{bible?.name ?? 'your hero'}</strong>.
-              </p>
-            )}
-          </Step>
-
+          {/* Only ask for the file when nothing has been imported yet. Once a save
+              is in (the strip above shows "last imported"), re-imports happen from
+              that strip's button — never re-prompt the full drop zone again. */}
+          {!importRecord && scopedRecords.length === 0 && (
+            <Step
+              number={1}
+              title="Import your save file"
+              helper="The importer will walk you through where to find it."
+            >
+              <AddonImport />
+            </Step>
+          )}
 
           {bible && (
-            <Step
-              number={2}
-              title="Write session cards"
-              helper="Generate, publish, unpublish, and enrich each observed play session."
-            >
-              {sessions.length === 0 ? (
-                <NoPlayYetPrompt heroName={bible.name} onAuthor={() => setManualOpen(true)} />
-              ) : (
-                <>
-                  <div
-                    className="at-chronicle-empty-actions"
-                    style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}
-                  >
-                    <button className="at-btn at-btn-secondary" onClick={() => setManualOpen(true)}>
-                      ✦ Add manual entry
-                    </button>
-                    {characterKey && (
-                      <LootFloorPicker characterKey={characterKey} />
-                    )}
+            sessions.length === 0 ? (
+              <NoPlayYetPrompt heroName={bible.name} onAuthor={() => setManualOpen(true)} />
+            ) : (
+              <section className="inkwell-cards-section">
+                {characterKey && (
+                  <div className="inkwell-cards-controls">
+                    <LootFloorPicker characterKey={characterKey} />
                   </div>
-                  <SessionTrail
-                    sessions={sessions}
-                    bible={bible}
-                    defaultSessionId={focusedSessionId}
-                    onSessionFocus={setFocusedSessionId}
-                  />
-                </>
-              )}
-            </Step>
+                )}
+                <SessionTrail
+                  sessions={sessions}
+                  bible={bible}
+                  defaultSessionId={focusedSessionId}
+                  onSessionFocus={setFocusedSessionId}
+                />
+              </section>
+            )
           )}
 
           {!bible && (
@@ -296,11 +257,6 @@ export function ScribesDesk() {
               Roll or select a character first — The Inkwell needs a bible to know whose voice it's writing in.
             </div>
           )}
-        </div>
-
-        <aside className="desk-sidebar">
-          <CompanionPitchCompact />
-        </aside>
       </div>
 
       {bible && (
@@ -608,163 +564,6 @@ export const TIERS: TierDef[] = [
     ctaVariant: 'secondary',
   },
 ];
-
-function CompanionPitchCompact() {
-  const [showAll, setShowAll] = useState(false);
-  const companionTier = TIERS.find((t) => t.id === 'companion')!;
-
-  function upgrade(tierId: string) {
-    window.dispatchEvent(new CustomEvent('at:upgrade-clicked', { detail: tierId }));
-  }
-
-  return (
-    <>
-      <aside
-        style={{
-          padding: '1rem 1rem 1rem',
-          border: '1px solid var(--cp-accent, #a47ad1)',
-          borderRadius: '0.7rem',
-          background:
-            'linear-gradient(135deg, rgba(107,74,142,0.12), rgba(107,74,142,0.03))',
-          color: 'var(--cp-text, #f0e6d2)',
-        }}
-      >
-        <p className="at-kicker" style={{ margin: 0 }}>
-          ✦ Beyond the logout
-        </p>
-        <h3
-          style={{
-            margin: '0.2rem 0 0.5rem',
-            fontFamily: 'var(--font-display)',
-            fontSize: 19,
-            lineHeight: 1.25,
-          }}
-        >
-          Your story, everywhere, the moment it exists
-        </h3>
-        <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, opacity: 0.92 }}>
-          Log out, walk to the kitchen, and your phone buzzes:{' '}
-          <em>New chapter ready.</em> The run you just played becomes prose you
-          read at the sink.
-        </p>
-      </aside>
-
-      <TierCard tier={companionTier} onUpgrade={() => upgrade(companionTier.id)} />
-
-      <button
-        type="button"
-        className="at-btn at-btn-secondary at-btn-sm"
-        onClick={() => setShowAll(true)}
-        style={{ width: '100%' }}
-      >
-        Compare all tiers →
-      </button>
-
-      <p
-        className="muted"
-        style={{ margin: '0.25rem 0 0', fontSize: 11.5, textAlign: 'center', lineHeight: 1.5 }}
-      >
-        Cancel anytime. Your chronicle stays yours, and Free is always there when you want the artisan path.
-      </p>
-
-      {showAll && <TierComparisonModal onClose={() => setShowAll(false)} onUpgrade={upgrade} />}
-    </>
-  );
-}
-
-function TierComparisonModal({
-  onClose,
-  onUpgrade,
-}: {
-  onClose: () => void;
-  onUpgrade: (tierId: string) => void;
-}) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      onClick={onClose}
-      role="presentation"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.65)',
-        backdropFilter: 'blur(4px)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        padding: '3rem 1rem 2rem',
-        overflowY: 'auto',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="at-tier-compare-title"
-        style={{
-          width: '100%',
-          maxWidth: 1100,
-          background: 'var(--cp-bg, #1a0e2e)',
-          color: 'var(--cp-text, #f0e6d2)',
-          padding: '1.6rem 1.6rem 1.8rem',
-          borderRadius: '0.9rem',
-          border: '1px solid rgba(255,255,255,0.15)',
-          boxShadow: '0 24px 70px rgba(0,0,0,0.55)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-          <h2 id="at-tier-compare-title" style={{ margin: 0, fontFamily: 'var(--font-display)' }}>
-            Compare all tiers
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            title="Close (Esc)"
-            style={{
-              background: 'transparent',
-              color: 'inherit',
-              border: '1px solid rgba(255,255,255,0.18)',
-              borderRadius: 6,
-              padding: '4px 10px',
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
-            ✕
-          </button>
-        </div>
-        <p style={{ margin: '0 0 1.2rem', fontSize: 14, opacity: 0.85 }}>
-          Cancel anytime. Your chronicle stays yours, and Free is always there when you want the artisan path.
-        </p>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '1rem',
-          }}
-        >
-          {TIERS.map((tier) => (
-            <TierCard key={tier.id} tier={tier} onUpgrade={() => onUpgrade(tier.id)} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 export function TierCard({ tier, onUpgrade }: { tier: TierDef; onUpgrade: () => void }) {
   const isHighlight = !!tier.highlight;
