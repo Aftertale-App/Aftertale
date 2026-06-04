@@ -202,12 +202,19 @@ export function App() {
       )}
       <SpendBar onOpenSettings={openSettings} hasAnyKey={anyKey} />
       <main className="at-app-shell">
-        <header className="at-app-header at-hero-anim" style={{ animationDelay: '60ms' }}>
-          <p className="at-kicker">{kickerCopy}</p>
-          <h1 className="at-app-headline">{headlineCopy}</h1>
-          <p className="at-app-subtitle">{subtitleCopy}</p>
-          <div className="at-app-ornament" aria-hidden="true">✦</div>
-        </header>
+        {/* The Heroes tab renders its own contextual header (MeetYourHeroes:
+            "Three steps…" when empty, "Meet your heroes" once populated), so the
+            global app header would just double it — and stack two identical
+            "Begin your tale" kickers. Suppress it there; keep it on Chronicle /
+            The Inkwell, where it titles the page with the active hero. */}
+        {tab !== 'character' && (
+          <header className="at-app-header at-hero-anim" style={{ animationDelay: '60ms' }}>
+            <p className="at-kicker">{kickerCopy}</p>
+            <h1 className="at-app-headline">{headlineCopy}</h1>
+            <p className="at-app-subtitle">{subtitleCopy}</p>
+            <div className="at-app-ornament" aria-hidden="true">✦</div>
+          </header>
+        )}
 
         <nav
           className="at-tabs at-hero-anim"
