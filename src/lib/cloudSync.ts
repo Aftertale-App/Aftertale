@@ -419,6 +419,64 @@ async function deleteCloudCharacter(supabase: Client, uuid: string, key: string)
 }
 
 // ---------------------------------------------------------------------------
+// account-wide kill switch (Settings → delete all data)
+// ---------------------------------------------------------------------------
+
+/**
+ * Delete ALL of the signed-in account's chronicle data from the cloud — every
+ * character (bible / chapters / events cascade off it) — and clear the synced
+ * OpenRouter key. Returns an error string on failure. Used by the Settings
+ * kill switch; pair with wipeLocalChronicleData() + a reload for a full reset.
+ */
+export async function deleteAllAccountData(): Promise<{ error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: 'Cloud sync is not configured.' };
+  try {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return { error: 'You must be signed in to delete cloud data.' };
+
+    const { error } = await supabase.from('characters').delete().eq('owner_id', uid);
+    if (error) {
+      console.warn('[cloudSync] deleteAllAccountData: characters delete failed:', error.message);
+      return { error: error.message };
+    }
+    // Best-effort: clear the synced key (non-fatal if it fails).
+    await supabase.from('profiles').update({ openrouter_key: null }).eq('id', uid);
+    return {};
+  } catch (err) {
+    console.warn('[cloudSync] deleteAllAccountData threw:', err);
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Wipe every chronicle + sync localStorage key (`at.*`), preserving only the
+ * user's pasted API key and UI prefs (model, feature flags). Returns the count
+ * removed. The caller should reload the page afterward to reset module state.
+ */
+export function wipeLocalChronicleData(): number {
+  const preserve = ['at.apikey.', 'at.modelIdx', 'at.flags.'];
+  let removed = 0;
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('at.')) continue;
+      if (preserve.some((p) => key.startsWith(p))) continue;
+      toRemove.push(key);
+    }
+    for (const key of toRemove) {
+      localStorage.removeItem(key);
+      removed += 1;
+    }
+  } catch (err) {
+    console.warn('[cloudSync] wipeLocalChronicleData error:', err);
+  }
+  return removed;
+}
+
+// ---------------------------------------------------------------------------
 // cloud -> local
 // ---------------------------------------------------------------------------
 

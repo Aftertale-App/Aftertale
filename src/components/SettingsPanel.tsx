@@ -9,7 +9,7 @@ import {
   type KeyStatus,
 } from '../lib/apiKeys';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { syncOpenRouterKey } from '../lib/cloudSync';
+import { syncOpenRouterKey, deleteAllAccountData, wipeLocalChronicleData } from '../lib/cloudSync';
 import { getShowScribesDesk, setShowScribesDesk } from '../lib/featureFlags';
 import { ModelPicker } from './ModelPicker';
 import { useSelectedModelIdx } from '../lib/modelChoices';
@@ -531,7 +531,102 @@ function DataSection() {
           </p>
         )}
       </div>
+
+      <DeleteAllAccountData />
     </SectionShell>
+  );
+}
+
+/**
+ * The "double kill switch": permanently delete ALL chronicle data — every hero,
+ * event, recap — from this device AND the cloud. Two required confirmation
+ * switches gate the button; on fire it deletes the cloud rows, wipes local
+ * storage (keeping the API key + model pref), signs out, and reloads to a clean
+ * slate. Cannot be undone.
+ */
+function DeleteAllAccountData() {
+  const { status } = useAuth();
+  const [ackDevice, setAckDevice] = useState(false);
+  const [ackCloud, setAckCloud] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const ready = ackDevice && ackCloud && !busy;
+
+  async function nuke() {
+    if (!ready) return;
+    setBusy(true);
+    setMsg('Deleting everything…');
+    let cloudErr: string | undefined;
+    if (status === 'authed') {
+      const res = await deleteAllAccountData();
+      cloudErr = res.error;
+    }
+    wipeLocalChronicleData();
+    try {
+      await signOut();
+    } catch {
+      /* best effort — local is already wiped */
+    }
+    setMsg(
+      cloudErr
+        ? `Local data cleared, but cloud deletion couldn't be confirmed (${cloudErr}). Reloading…`
+        : 'All account data deleted. Reloading to a clean slate…',
+    );
+    setTimeout(() => window.location.reload(), 1400);
+  }
+
+  return (
+    <div
+      className="at-desk-dangerzone"
+      style={{ marginTop: '1rem', borderColor: 'rgba(220, 60, 60, 0.6)', background: 'rgba(60, 16, 14, 0.28)' }}
+    >
+      <div className="at-desk-dangerzone-head">
+        <span className="at-desk-dangerzone-label">⚡ Delete all account data</span>
+        <span className="at-desk-dangerzone-hint">
+          Permanently deletes <strong>every hero, chronicle, event, and recap</strong> — on this
+          device <strong>and</strong> in the cloud. Your API key and model preference are kept.
+          <strong> This cannot be undone.</strong> Flip both switches to enable.
+        </span>
+      </div>
+      <label className="at-settings-toggle">
+        <input
+          type="checkbox"
+          checked={ackDevice}
+          onChange={(e) => setAckDevice(e.target.checked)}
+          disabled={busy}
+        />
+        <span>
+          Delete everything from <strong>this device</strong>.
+        </span>
+      </label>
+      <label className="at-settings-toggle">
+        <input
+          type="checkbox"
+          checked={ackCloud}
+          onChange={(e) => setAckCloud(e.target.checked)}
+          disabled={busy}
+        />
+        <span>
+          Delete everything from <strong>the cloud</strong> (and any other devices).
+        </span>
+      </label>
+      <div className="at-desk-dangerzone-actions" style={{ marginTop: '0.6rem' }}>
+        <button
+          type="button"
+          className={`at-btn at-btn-danger at-btn-danger-strong${ready ? ' at-btn-danger-armed' : ''}`}
+          disabled={!ready}
+          onClick={nuke}
+        >
+          {busy ? 'Deleting…' : '⚡ Permanently delete everything'}
+        </button>
+      </div>
+      {msg && (
+        <p className="at-desk-dangerzone-flash" role="status">
+          {msg}
+        </p>
+      )}
+    </div>
   );
 }
 
