@@ -9,8 +9,11 @@ Phase 1 ships.
 
 ### Changed — first-run onboarding copy: more in-world, less utility-app *(2026-06-04)*
 
-A full copy pass over the empty-roster "Three steps to your first chronicle"
-screen. Step 1 now describes what Aftertale records in story terms (quests
+A full copy pass over the empty-roster onboarding. The top page header for a
+new visitor now reads **"Meet your heroes — Your adventures, retold as legend.
+Play in Azeroth, then watch your story take shape,"** replacing the more generic
+"Meet a hero / An AI-spun saga…" line. Below it, the "Three steps to your first
+chronicle" screen gets the rewrite: Step 1 now describes what Aftertale records in story terms (quests
 completed, foes defeated, places explored) and drops the unprompted "it never
 controls your character" reassurance. Step 2 frames play as your hero gathering
 the raw threads of their own story; step 3 is retitled **"Import your story"**

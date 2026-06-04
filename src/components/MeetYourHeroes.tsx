@@ -119,7 +119,8 @@ export function MeetYourHeroes() {
           <p className="at-kicker">✦ Your roster</p>
           <h2 className="at-section-headline">Meet your heroes</h2>
           <p className="at-section-sub">
-            Your adventures, retold as legend. Play in Azeroth, then watch your story take shape.
+            Sync your characters from one save file, then begin whichever you like. Your other
+            heroes keep recording in the background until you do.
           </p>
         </header>
       )}

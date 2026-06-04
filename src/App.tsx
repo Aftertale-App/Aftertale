@@ -166,10 +166,10 @@ export function App() {
 
   // Subtitle / kicker copy that adapts to whether the user has a hero yet.
   const kickerCopy = heroName ? '✦ Your chronicle' : '✦ Begin your tale';
-  const headlineCopy = heroName ? `${heroName}'s Aftertale` : 'Meet a hero';
+  const headlineCopy = heroName ? `${heroName}'s Aftertale` : 'Meet your heroes';
   const subtitleCopy = heroName
     ? [heroRace, heroClass].filter(Boolean).join(' · ') || 'An AI-spun saga of your hero.'
-    : 'An AI-spun saga of your hero. Roll a character, then walk the world.';
+    : 'Your adventures, retold as legend. Play in Azeroth, then watch your story take shape.';
 
   // Mobile gets a dedicated reader-first shell (bottom nav, no BYOK, demo-first)
   // rather than the desktop tab workshop. All hooks above still run, so the
