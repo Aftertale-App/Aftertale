@@ -103,24 +103,31 @@ export function MeetYourHeroes() {
     );
   }
 
-  // First run: no heroes yet. Don't dump an empty roster — lead the player
-  // through the capture-first path (install → play → import).
-  if (cards.length === 0) {
-    return <FirstRunOnboarding onManual={() => setManual(true)} />;
-  }
+  // First run (no heroes) leads with the capture-first three steps; once
+  // anything imports, the hub header takes over. CRUCIAL: the <AddonImport/>
+  // stays a single, stable sibling across that transition — if it remounted
+  // when the roster populates, the just-finished import's state would be lost
+  // and the new instance would ask the player to drop the file all over again.
+  const empty = cards.length === 0;
 
   return (
     <div className="at-heroes">
-      <header className="at-heroes-intro">
-        <p className="at-kicker">✦ Your roster</p>
-        <h2 className="at-section-headline">Meet your heroes</h2>
-        <p className="at-section-sub">
-          Sync your characters from one save file, then begin whichever you like. Your other
-          heroes keep recording in the background until you do.
-        </p>
-      </header>
+      {empty ? (
+        <FirstRunSteps />
+      ) : (
+        <header className="at-heroes-intro">
+          <p className="at-kicker">✦ Your roster</p>
+          <h2 className="at-section-headline">Meet your heroes</h2>
+          <p className="at-section-sub">
+            Sync your characters from one save file, then begin whichever you like. Your other
+            heroes keep recording in the background until you do.
+          </p>
+        </header>
+      )}
 
-      <AddonImport />
+      {/* The roster below is the source of truth for results, so the import's
+          own receipt is suppressed here — no duplicate hero list. */}
+      <AddonImport hideReceipt />
 
       {started.length > 0 && (
         <section className="at-heroes-section">
@@ -167,14 +174,14 @@ export function MeetYourHeroes() {
 }
 
 /**
- * First-run onboarding. A brand-new player has no play data yet, so we lead with
- * the capture-first path — install → play → import — rather than an empty
- * roster. Step 3 is the real import drop zone; once anything imports, the hub
- * takes over. Pre-author is the clearly-warned side door.
+ * First-run framing: the capture-first three steps. Steps 1 & 2 are guidance;
+ * step 3 points at the real import drop zone, which is rendered as a STABLE
+ * sibling just below this (not inside it) so it survives the empty→hub
+ * transition without remounting.
  */
-function FirstRunOnboarding({ onManual }: { onManual: () => void }) {
+function FirstRunSteps() {
   return (
-    <div className="at-onboard">
+    <>
       <header className="at-heroes-intro">
         <p className="at-kicker">✦ Begin your tale</p>
         <h2 className="at-section-headline">Three steps to your first chronicle</h2>
@@ -220,23 +227,12 @@ function FirstRunOnboarding({ onManual }: { onManual: () => void }) {
           <div className="at-onboard-body">
             <h3 className="at-onboard-step-title">Import your save file</h3>
             <p className="at-onboard-step-sub">
-              Already played? Drop your <code>Aftertale.lua</code> below and meet your heroes.
+              Already played? Drop your <code>Aftertale.lua</code> just below and meet your heroes.
             </p>
-            <AddonImport />
           </div>
         </li>
       </ol>
-
-      <div className="at-heroes-sidedoor">
-        <button type="button" className="at-btn at-btn-ghost at-btn-sm" onClick={onManual}>
-          Roll a hero by hand →
-        </button>
-        <span className="muted" style={{ fontSize: '0.8rem' }}>
-          Prefer to start writing before you play? You'll need a matching character in WoW for
-          imports to attach later.
-        </span>
-      </div>
-    </div>
+    </>
   );
 }
 

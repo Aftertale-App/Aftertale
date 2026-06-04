@@ -491,7 +491,7 @@ export function ImportLoading({ fileName }: { fileName?: string }) {
   );
 }
 
-export function AddonImport() {
+export function AddonImport({ hideReceipt = false }: { hideReceipt?: boolean } = {}) {
   const { state, handleFile, commitAll, addHero, openHero, cancelPreview } = useAftertaleLuaImport({ mode: 'preview' });
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -526,7 +526,7 @@ export function AddonImport() {
         />
       )}
 
-      {state.status === 'done' && state.multiResult && (
+      {!hideReceipt && state.status === 'done' && state.multiResult && (
         <ImportDoneSummary state={state} onOpen={openHero} onAddHero={addHero} />
       )}
 
