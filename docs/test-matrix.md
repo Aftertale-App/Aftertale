@@ -71,7 +71,7 @@ Use **Addon Sim** to make sessions, **Inkwell** to generate.
 | # | Test | Steps | Expected | ✓ |
 |---|---|---|---|---|
 | D1 | Addon version | In WoW, `/reload` | Load line says **`Aftertale loaded v0.6.0 … N events armed`** | ☐ |
-| D2 | Profession rollup | **Fish ~15 casts** (or cook/mine several). `/reload`. App → **Inkwell → Auto-import** the SavedVariables `Aftertale.lua` | Beats: "Took up Fishing", "Fishing N to M" rollup; session classifies **Downtime** | ☐ |
+| D2 | Profession rollup | **Fish ~15 casts** (or cook/mine several). `/reload`. App → **Heroes** → drop the SavedVariables `Aftertale.lua` | Beats: "Took up Fishing", "Fishing N to M" rollup; session classifies **Downtime** | ☐ |
 | D3 | Profession rank | Cross skill **75/150/225** (Journeyman/Expert/Artisan) → reload → import | "Reached Journeyman/Expert/Artisan in X" beat | ☐ |
 | D4 | Wealth milestone | Sell/loot so gold crosses **10g/100g/1000g** → reload → import | A wealth beat narrated as **aspiration** ("a mount now within reach"), not a number | ☐ |
 | D5 | Recipe | Learn a recipe from a trainer → reload → import | "Learned to craft X" beat | ☐ |
@@ -109,16 +109,17 @@ Use **Addon Sim** to make sessions, **Inkwell** to generate.
 ## Track G — Multi-alt import (one Aftertale.lua, many toons) 🆓
 
 One account = one `Aftertale.lua` accumulating every alt's GUID-tagged events.
-Import fans out to each hero's own chronicle; active-enough new toons become
-**draft heroes** (`needsSetup`), quiet toons (bank alts/mules, < `STUB_MIN_EVENTS`)
-are skipped. Fixture: `tools/fixtures/multi-alt.lua` (Thaldris 5 ev, Grukmar 4 ev,
-Coinpurse 2 ev).
+Import is account-wide: it banks **every** character's moments. Known heroes
+update in place; new toons become **captured** records (`started: false`,
+`needsSetup`) shown on the **Heroes** hub until you Start them; quiet toons
+(bank alts/mules, < `STUB_MIN_EVENTS`) are a skipped footnote. Fixture:
+`tools/fixtures/multi-alt.lua` (Thaldris 5 ev, Grukmar 4 ev, Coinpurse 2 ev).
 
 | # | Test | Steps | Expected | ✓ |
 |---|---|---|---|---|
-| G1 | **Fan-out logic** 🆓 (automated) | `npx vite-node tools/test-import-fanout.mjs` | `✅ PASS` — 42 checks: per-char parse + faction, routing, auto-stub, quiet skip, idempotent re-import, decline opt-out, pre-bound update-in-place | ☐ |
-| G2 | **Draft badge** 🆓 (automated) | Inject a `needsSetup` stub bible into the roster, open the character selector | Row shows the **✎ Draft** badge; validator accepts an empty-narrative draft | ☐ |
-| G3 | **File-drop UX** 🆓 (manual eyeball) | Drag `tools/fixtures/multi-alt.lua` into the PC importer | Multi-hero preview: Thaldris/Grukmar → *new draft hero*, Coinpurse → *too quiet* (no checkbox). Import → done summary with per-hero counts + **View** picker; selector shows both with ✎ Draft. Delete the two demo heroes after | ☐ |
+| G1 | **Fan-out logic** 🆓 (automated) | `npx vite-node tools/test-import-fanout.mjs` | `✅ PASS` — 49 checks: per-char parse + faction, routing, auto-stub, quiet skip, idempotent re-import, decline opt-out, pre-bound update-in-place, captured/started flags, `startBible` graduate | ☐ |
+| G2 | **Captured card** 🆓 (manual eyeball) | After G3, open the **Heroes** hub | Captured toons appear as grayed cards with a `✦ Start` CTA and a "captured" tag; they're **not** in the top dropdown until Started | ☐ |
+| G3 | **File-drop UX** 🆓 (manual eyeball) | Drag `tools/fixtures/multi-alt.lua` onto the **Heroes** hub (or the first-run step 3 drop zone) | Loading beat → roster: Thaldris/Grukmar appear as **captured** cards (level + moments + "N to write"); Coinpurse skipped (too quiet). `Start` one → it joins the dropdown + lands on its Chronicle; the other stays captured. Delete the demo heroes after (Settings → Data kill switch, or per-hero) | ☐ |
 
 ## Track H — Character classification (birth / allied / boosted / pre-existing) 🆓/🎮
 

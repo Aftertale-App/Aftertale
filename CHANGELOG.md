@@ -7,18 +7,55 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
-### Changed — import reads as an account-level roster, with a real glow-up *(2026-06-03)*
+### Added — Meet Your Heroes: an account-level hero hub *(2026-06-03)*
 
-Dropping your `Aftertale.lua` no longer shows a 2007-era checkbox list. It now
-plays a "reading your adventures" loading beat, then presents a **roster** —
-every character in the save file, each with level, new moments, and **how many
-sessions are still unwritten** — framed as "Synced from your save file," not
-"caught up [active hero]." Heroes you already chronicle update silently; brand-new
-toons are an opt-in "Start"; quiet bank alts are a one-line footnote. `Open [hero]`
-makes them active and routes to The Inkwell. When the active hero has no recorded
-play, The Inkwell now explains the two real paths (author by hand, or play in WoW
-and import) instead of pushing you to switch heroes. This is an interim step
-toward the larger onboarding redesign in `docs/onboarding-redesign-spec.md`.
+The old "Character" tab is now **Heroes** — an account-level hub (see
+`docs/onboarding-redesign-spec.md`). Import lives here: one `Aftertale.lua`
+syncs *every* character at once, no longer scoped to whoever's active. The
+roster shows your **started** heroes (open → their Chronicle) alongside
+**captured** characters — identity + moments saved from an import, not yet begun
+— as grayed cards with a `✦ Start` CTA. The most-adventured captured hero is
+highlighted; each card carries a faction-tinted monogram, level, moments, and
+how many sessions are still unwritten. The top character dropdown now shows
+**started heroes only**, so captured bank alts never clutter it.
+
+### Added — capture is account-wide; nothing is lost by starting with your main *(2026-06-03)*
+
+Importing now banks **every** character's moments immediately — not just the
+ones you pick. Each toon becomes a *captured* record (out of the dropdown until
+you Start it), so your other heroes' adventures are saved and waiting the moment
+you import. A new `started` flag formalizes captured-vs-started; a one-time
+migration stamps every pre-existing hero `started` so nothing disappears on
+upgrade.
+
+### Added — capture-first onboarding: three steps + cold reveal *(2026-06-03)*
+
+A brand-new player (empty roster) gets a "Three steps to your first chronicle"
+guide — install the addon → play → import — instead of a blank page; step 3 is
+the real drop zone. Starting a captured hero lands on their Chronicle, which
+renders their real captured adventures, topped by a **"Bring [hero] to life"**
+cold-reveal banner. (The AI authoring behind that CTA is still to come — see the
+spec's open items.)
+
+### Added — delete all account data (double kill switch) *(2026-06-03)*
+
+Settings → Data now has a two-switch danger zone that permanently wipes every
+hero, event, and recap from this device **and** the cloud, then signs out to a
+clean slate. Your API key and model preference are preserved.
+
+### Fixed — deleted heroes no longer zombie back from the cloud *(2026-06-03)*
+
+Deleting a hero now writes a sync tombstone, and the cloud-authoritative hydrate
+path no longer wipes it — so a deleted hero stays deleted across reloads and
+devices instead of being silently re-pulled from the cloud.
+
+### Changed — import is now an account-level roster, with a real glow-up *(2026-06-03)*
+
+Dropping your `Aftertale.lua` no longer shows a 2007-era checkbox list. It plays
+a "reading your adventures" loading beat, then the Heroes hub reflects the result
+— every character it found, framed as "synced from your save file," not "caught
+up [active hero]." Heroes you already chronicle update silently; quiet bank alts
+are a one-line footnote.
 
 ### Fixed — Character tab no longer wedges when the active hero disappears *(2026-06-03)*
 

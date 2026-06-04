@@ -1,10 +1,17 @@
 # Onboarding & AI Tiers — Design Spec
 
-**Status:** Design agreed, not yet built. Supersedes the in-Inkwell import flow.
+**Status:** Phases 1–2 + onboarding shipped to prod (2026-06-03). AI tiers +
+gateway and the Inkwell cleanup remain. See §9 for the live to-do.
 **Date:** 2026-06-03
 **Origin:** Real-world testing with multiple WoW toons exposed that the import
 experience is confusing for multi-character players. This spec is the
 ground-up redesign that resolves it.
+
+**Shipped so far:** captured/started character states · account-wide capture ·
+the Meet Your Heroes hub (started + captured cards, glow-up) · started-only
+dropdown · three-steps first-run onboarding · cold-reveal banner · two sync
+fixes (deleted heroes no longer zombie back) · the Settings delete-all kill
+switch.
 
 ---
 
@@ -225,38 +232,48 @@ you set.**
 
 ---
 
-## 9. Open / not-yet-designed
+## 9. Status — built vs. open
 
-- Beat 4 past the cold reveal: personality/trait step? exact backstory-generation
-  flow (the "one-click from play history" we discussed earlier in the thread).
-- The pre-author (manual, side-door) path in detail.
-- **Name-match merge:** when a pre-authored hero (e.g. "Theron") is later played
-  in WoW and imported in a multi-toon file, the in-game character must **merge
-  into** the existing hand-made hero instead of spawning a duplicate "Start"
-  draft. Today's auto-name-match only fires for single-character files
-  (`matchingAutoclaim`, AddonImport.tsx).
-- Tab/route restructure: physically introducing "Meet Your Heroes" as a primary
-  page and moving import there; retiring the old hero-scoped import in Inkwell.
-- Migration from current data/architecture.
-- Gateway implementation choice: Cloudflare Worker vs Supabase Edge Function.
+**Built & shipped (2026-06-03):**
+- Phase 1 — captured/started states + account-wide capture.
+- Phase 2 — the Meet Your Heroes hub, started-only dropdown, glow-up cards.
+- Three-steps first-run onboarding + cold-reveal banner.
+- The `started` data migration; two sync "zombie hero" fixes; the kill switch.
+
+**Still open:**
+- **Phase 3 — Inkwell cleanup.** Import still *also* renders in The Inkwell
+  (`ScribesDesk.tsx` Step 1). Pull it out so the Inkwell is purely authoring;
+  the hub is the one import home.
+- **Phase 7 — AI tiers + server gateway.** The bounded free taste, BYOK, paid
+  hosted, abuse controls + the daily spend ceiling (§6, §7). This is what makes
+  the cold reveal's **"Bring [hero] to life"** actually *generate* — today the
+  CTA just routes to The Inkwell.
+- **Beat 4 authoring detail:** the one-click backstory-from-play-history (+
+  optional personality/trait step).
+- **Pre-author (side-door) path** in detail.
+- **Name-match merge:** a pre-authored hero (e.g. "Theron") later played in WoW
+  and imported in a multi-toon file must **merge into** the existing hand-made
+  hero, not spawn a duplicate "Start" draft. Auto-name-match currently fires
+  only for single-character files (`matchingAutoclaim`, `AddonImport.tsx`).
+- **Gateway implementation choice:** Cloudflare Worker vs Supabase Edge Function.
+- **Tabled bug:** localhost cloud-sync failure (memory `sync-localhost-failure`)
+  — the root cause behind the owner-key path that the zombie fixes work around.
 
 ---
 
-## 10. Relationship to current code
+## 10. Where it lives in code (shipped)
 
-This session produced **uncommitted** changes that partially explored this
-direction but predate the full IA decision:
-- An account-level import **roster** ("Synced from your save file"), a loading
-  beat, a visual glow-up, per-hero "sessions to write" counts, and a
-  "no play yet → author/play" prompt — all in `AddonImport.tsx` / `ScribesDesk.tsx`
-  / `index.css`.
-- A `CharacterCreation.tsx` fix (no longer wedges on the `banner` step when the
-  active hero vanishes) — this one is a genuine bug fix worth keeping regardless.
-
-The roster work feeds Meet Your Heroes conceptually, but this spec **restructures
-where it lives** (a primary hub, not Inkwell Step 1). Decide before building
-whether to ship the CharacterCreation fix on its own and rebuild the rest atop
-this spec.
-
-Related tabled item: localhost cloud-sync failure (see memory
-`sync-localhost-failure`).
+- **Hub:** `src/components/MeetYourHeroes.tsx` (the "Heroes" tab, wired in
+  `src/App.tsx`; first-run three-steps + cold-reveal routing live here).
+- **Import + roster + loading beat:** `src/components/AddonImport.tsx`
+  (`compact` vs full drop zone via props; `hideReceipt` so the hub roster owns
+  results).
+- **Captured/started + migration + `startBible`:** `src/lib/bibleStore.ts`.
+  Account-wide capture: `commitImportAll` in `src/lib/addonIngest.ts`.
+- **Per-hero status** (moments, unwritten sessions): `src/lib/heroStatus.ts`.
+- **Cold-reveal banner:** `src/components/ChronicleReader.tsx`.
+- **Sync zombie fixes + kill-switch backend:** `src/lib/cloudSync.ts`
+  (`deleteAllAccountData`, `wipeLocalChronicleData`, tombstone-on-delete,
+  cloudAuthoritative tombstone respect). Kill-switch UI: `src/components/SettingsPanel.tsx`.
+- **Still in The Inkwell** (`src/components/ScribesDesk.tsx`): a second copy of
+  the importer (Phase 3 removes it) and the "no play yet → author/play" prompt.
