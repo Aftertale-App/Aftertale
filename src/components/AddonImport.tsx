@@ -491,7 +491,14 @@ export function ImportLoading({ fileName }: { fileName?: string }) {
   );
 }
 
-export function AddonImport({ hideReceipt = false }: { hideReceipt?: boolean } = {}) {
+export function AddonImport({
+  hideReceipt = false,
+  compact = false,
+}: {
+  hideReceipt?: boolean;
+  /** Render as a small button (the populated hub) instead of the full drop zone. */
+  compact?: boolean;
+} = {}) {
   const { state, handleFile, commitAll, addHero, openHero, cancelPreview } = useAftertaleLuaImport({ mode: 'preview' });
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -509,7 +516,7 @@ export function AddonImport({ hideReceipt = false }: { hideReceipt?: boolean } =
 
   return (
     <section
-      className="at-import"
+      className={compact ? 'at-import-compact' : 'at-import'}
       data-drag={dragging ? 'true' : undefined}
       onDragOver={(e) => {
         e.preventDefault();
@@ -532,9 +539,21 @@ export function AddonImport({ hideReceipt = false }: { hideReceipt?: boolean } =
 
       {/* While a file is being read/committed, replace the static instructions
           with the loading beat. Once a result/receipt is showing, the "where to
-          find it" copy is dead weight — collapse to a slim re-import affordance. */}
+          find it" copy is dead weight — collapse to a slim re-import affordance.
+          In compact mode (the populated hub) it's just a small button — the big
+          drop zone only belongs on the first-run screen. */}
       {busy ? (
         <ImportLoading fileName={state.fileName} />
+      ) : compact ? (
+        <div className="at-import-compact-row">
+          <button
+            className="at-btn at-btn-secondary at-btn-sm"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+          >
+            ⬆ {importButtonLabel(state, 'Sync from your save file')}
+          </button>
+        </div>
       ) : state.status === 'done' || state.status === 'preview' ? (
         <div className="at-import-rescan">
           <button
@@ -581,13 +600,13 @@ export function AddonImport({ hideReceipt = false }: { hideReceipt?: boolean } =
         }}
       />
 
-      {state.status === 'up-to-date' && (
+      {!compact && state.status === 'up-to-date' && (
         <ImportInlineMessage tone="passive">
           No new entries — your save file matches your last import.
         </ImportInlineMessage>
       )}
 
-      {state.status === 'done' && state.message && (
+      {!compact && state.status === 'done' && state.message && (
         <ImportInlineMessage tone="fresh">{state.message}</ImportInlineMessage>
       )}
 

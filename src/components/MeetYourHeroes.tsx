@@ -126,8 +126,11 @@ export function MeetYourHeroes() {
       )}
 
       {/* The roster below is the source of truth for results, so the import's
-          own receipt is suppressed here — no duplicate hero list. */}
-      <AddonImport hideReceipt />
+          own receipt is suppressed here. On the first-run screen it's the full
+          drop zone (step 3); once heroes exist it collapses to a small button so
+          the hero cards are the centerpiece. The single stable instance keeps
+          the loading beat from being interrupted mid-import. */}
+      <AddonImport compact={!empty} hideReceipt />
 
       {started.length > 0 && (
         <section className="at-heroes-section">
@@ -236,6 +239,10 @@ function FirstRunSteps() {
   );
 }
 
+// Stub heroes carry these placeholder identity values until real race/class is
+// known — don't surface them as "Unknown Adventurer".
+const PLACEHOLDER_IDENTITY = new Set(['Unknown', 'Adventurer', '']);
+
 function HeroCardView({
   card,
   captured,
@@ -248,29 +255,39 @@ function HeroCardView({
   onPick: () => void;
 }) {
   const { entry, level, moments, unwritten } = card;
-  const meta = [entry.race, entry.class].filter(Boolean).join(' ');
+  const identity = [entry.race, entry.class]
+    .filter((v) => v && !PLACEHOLDER_IDENTITY.has(v))
+    .join(' ');
+  const monogram = entry.name.trim().charAt(0).toUpperCase() || '✦';
+  const faction = entry.faction === 'Horde' ? 'horde' : entry.faction === 'Alliance' ? 'alliance' : 'neutral';
+
   return (
     <button
       type="button"
       className={`at-hero-card${captured ? ' at-hero-card-captured' : ''}${lead ? ' at-hero-card-lead' : ''}`}
       onClick={onPick}
     >
-      <div className="at-hero-card-top">
-        <span className="at-hero-card-name">{entry.name}</span>
+      <div className="at-hero-card-head">
+        <span className="at-hero-card-emblem" data-faction={faction} aria-hidden>
+          {monogram}
+        </span>
+        <div className="at-hero-card-headtext">
+          <span className="at-hero-card-name">{entry.name}</span>
+          <span className="at-hero-card-meta">
+            {typeof level === 'number' ? `Level ${level}` : 'New hero'}
+            {identity ? ` · ${identity}` : ''}
+          </span>
+        </div>
         {lead && <span className="at-hero-card-lead-tag">most-adventured</span>}
         {captured && !lead && <span className="at-hero-card-captured-tag">captured</span>}
       </div>
-      <div className="at-hero-card-meta">
-        {typeof level === 'number' ? `Level ${level}` : 'Level —'}
-        {meta ? ` · ${meta}` : ''}
-      </div>
+
       <div className="at-hero-card-stats">
         <span>{moments.toLocaleString()} moments</span>
-        {unwritten > 0 && (
-          <span className="at-hero-card-todo">{unwritten} to write</span>
-        )}
+        {unwritten > 0 && <span className="at-hero-card-todo">{unwritten} to write</span>}
       </div>
-      <div className="at-hero-card-cta">{captured ? `✦ Start ${entry.name}` : 'Open →'}</div>
+
+      <span className="at-hero-card-cta">{captured ? `✦ Start ${entry.name}` : 'Open →'}</span>
     </button>
   );
 }
