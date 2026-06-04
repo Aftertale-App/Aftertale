@@ -14,7 +14,7 @@ import { ensureAnonymousSession } from './lib/auth';
 import { initCloudSync } from './lib/cloudSync';
 import { isSupabaseConfigured } from './lib/supabase';
 import { DEV_TOOLS_ENABLED } from './lib/devTools';
-import { loadBible } from './lib/bibleStore';
+import { loadBible, listBibles } from './lib/bibleStore';
 import type { CharacterBible } from './types';
 
 // Dev-only UI surfaces (Tavern + Addon Simulator) are gated by
@@ -50,6 +50,25 @@ function useActiveBible(): CharacterBible | null {
   return bible;
 }
 
+/** True when the account has no characters at all (brand-new, first-run). */
+function useEmptyRoster(): boolean {
+  const [empty, setEmpty] = useState<boolean>(() => listBibles().length === 0);
+  useEffect(() => {
+    function refresh() {
+      setEmpty(listBibles().length === 0);
+    }
+    window.addEventListener('at:bible-updated', refresh);
+    window.addEventListener('at:bible-roster-updated', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('at:bible-updated', refresh);
+      window.removeEventListener('at:bible-roster-updated', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return empty;
+}
+
 export function App() {
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<Tab>('character');
@@ -68,6 +87,11 @@ export function App() {
     character: null, chronicle: null, desk: null, npc: null, addon: null,
   });
   const bible = useActiveBible();
+  const emptyRoster = useEmptyRoster();
+  // First run: brand-new player on the Heroes tab with nothing yet. Strip the
+  // chrome (global header + tab nav) so they're funneled straight into the
+  // three-step onboarding instead of being offered empty Chronicle / Inkwell tabs.
+  const firstRun = tab === 'character' && emptyRoster;
   const heroName = bible?.name?.trim() || '';
   const heroClass = bible?.class?.trim() || '';
   const heroRace = bible?.race?.trim() || '';
@@ -216,6 +240,7 @@ export function App() {
           </header>
         )}
 
+        {!firstRun && (
         <nav
           className="at-tabs at-hero-anim"
           style={{ animationDelay: '120ms' }}
@@ -245,13 +270,14 @@ export function App() {
             );
           })}
         </nav>
+        )}
 
         <div
           className="at-app-panel at-hero-anim"
           style={{ animationDelay: '180ms' }}
           role="tabpanel"
           id={`at-panel-${tab}`}
-          aria-labelledby={`at-tab-${tab}`}
+          aria-labelledby={firstRun ? undefined : `at-tab-${tab}`}
           tabIndex={0}
         >
           {tab === 'character' && <MeetYourHeroes />}
