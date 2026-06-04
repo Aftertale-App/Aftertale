@@ -700,7 +700,10 @@ select.at-input {
 .at-heroes-group-sub {
   margin: 0 0 0.8rem;
   font-size: 0.9rem;
-  max-width: 40rem;
+  line-height: 1.5;
+  max-width: 52ch;
+  text-align: left;
+  text-wrap: pretty;
 }
 .at-heroes-grid {
   display: grid;
@@ -708,12 +711,9 @@ select.at-input {
   gap: 1rem;
 }
 
-/* Compact import affordance for the populated hub — a small button, not a bar. */
-.at-import-compact { margin: 0.2rem 0 1.2rem; }
-.at-import-compact-row {
-  display: flex;
-  justify-content: flex-end;
-}
+/* Compact import in the populated hub renders nothing when idle (the addon /
+   companion will drive re-sync) — it only shows the loading beat mid-import. */
+.at-import-compact { margin: 0; }
 .at-heroes-empty {
   margin-top: 1.4rem;
   text-align: center;
