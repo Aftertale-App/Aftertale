@@ -48,7 +48,7 @@ export interface ImportState {
   multiResult?: CommitAllResult;
 }
 
-export function importButtonLabel(state: ImportState, idleLabel = '⬆ Choose file'): string {
+export function importButtonLabel(state: ImportState, idleLabel = 'Choose file'): string {
   if (state.status === 'checking') return 'Checking...';
   if (state.status === 'parsing') return 'Parsing...';
   if (state.status === 'committing') return 'Importing...';
@@ -573,11 +573,11 @@ export function AddonImport({
           <span className="at-import-emblem" aria-hidden>
             ✦
           </span>
-          <p className="at-import-kicker">Import from WoW</p>
+          <p className="at-import-kicker">Import from World of Warcraft</p>
           <h3 className="at-import-title">Drop your Aftertale.lua here</h3>
           <p className="at-import-hint">
-            The addon writes this file on <code>/reload</code> or logout. Drop it in and
-            we'll catch every hero up — your raw timeline stays intact.
+            Aftertale updates this file when you log out or type <code>/reload</code> in game.
+            Import it here to bring your heroes home and continue their chronicle.
           </p>
           <code className="at-import-path">
             WoW\WTF\Account\&lt;you&gt;\SavedVariables\Aftertale.lua

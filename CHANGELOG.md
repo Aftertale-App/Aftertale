@@ -7,6 +7,19 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — first-run onboarding copy: more in-world, less utility-app *(2026-06-04)*
+
+A full copy pass over the empty-roster "Three steps to your first chronicle"
+screen. Step 1 now describes what Aftertale records in story terms (quests
+completed, foes defeated, places explored) and drops the unprompted "it never
+controls your character" reassurance. Step 2 frames play as your hero gathering
+the raw threads of their own story; step 3 is retitled **"Import your story"**
+(was "Import your save file"). The import panel reads "Import from World of
+Warcraft" with warmer "bring your heroes home" framing, and its button loses the
+⬆ glyph to read simply **Choose file**. The manual side-door is now **"Introduce
+a Hero Manually"** instead of the murky "Roll a hero by hand," with a subline
+that explains the path. No behavior change — copy only.
+
 ### Added — Meet Your Heroes: an account-level hero hub *(2026-06-03)*
 
 The old "Character" tab is now **Heroes** — an account-level hub (see

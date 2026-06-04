@@ -119,8 +119,7 @@ export function MeetYourHeroes() {
           <p className="at-kicker">✦ Your roster</p>
           <h2 className="at-section-headline">Meet your heroes</h2>
           <p className="at-section-sub">
-            Sync your characters from one save file, then begin whichever you like. Your other
-            heroes keep recording in the background until you do.
+            Your adventures, retold as legend. Play in Azeroth, then watch your story take shape.
           </p>
         </header>
       )}
@@ -166,10 +165,10 @@ export function MeetYourHeroes() {
 
       <div className="at-heroes-sidedoor">
         <button type="button" className="at-btn at-btn-ghost at-btn-sm" onClick={() => setManual(true)}>
-          Roll a hero by hand →
+          Introduce a Hero Manually →
         </button>
         <span className="muted" style={{ fontSize: '0.8rem' }}>
-          You'll need a matching character in WoW for imports to attach.
+          Create their profile now, then let their true story unfold in World of Warcraft.
         </span>
       </div>
     </div>
@@ -189,8 +188,8 @@ function FirstRunSteps() {
         <p className="at-kicker">✦ Begin your tale</p>
         <h2 className="at-section-headline">Three steps to your first chronicle</h2>
         <p className="at-section-sub">
-          Aftertale turns your real play into a written saga. Here's how it gets made — only
-          the last step happens here.
+          Aftertale turns the adventures you actually play into a written saga. Your journey
+          begins in World of Warcraft and continues here.
         </p>
       </header>
 
@@ -200,8 +199,8 @@ function FirstRunSteps() {
           <div className="at-onboard-body">
             <h3 className="at-onboard-step-title">Install the Aftertale addon</h3>
             <p className="at-onboard-step-sub">
-              It records your adventures quietly while you play — quests, kills, levels, the
-              moments that matter. It never controls your character.
+              Aftertale quietly records the story of your play: quests completed, foes defeated,
+              places explored, levels earned, and moments worth remembering.
             </p>
             <a
               className="at-btn at-btn-primary at-btn-sm"
@@ -219,8 +218,8 @@ function FirstRunSteps() {
           <div className="at-onboard-body">
             <h3 className="at-onboard-step-title">Play World of Warcraft</h3>
             <p className="at-onboard-step-sub">
-              Just play. Aftertale is watching and remembering — your save file fills with your
-              story as you go.
+              Adventure as you normally would. As your hero travels through Azeroth, Aftertale
+              gathers the raw threads of their unfolding story.
             </p>
           </div>
         </li>
@@ -228,9 +227,10 @@ function FirstRunSteps() {
         <li className="at-onboard-step at-onboard-step-active">
           <span className="at-onboard-num">3</span>
           <div className="at-onboard-body">
-            <h3 className="at-onboard-step-title">Import your save file</h3>
+            <h3 className="at-onboard-step-title">Import your story</h3>
             <p className="at-onboard-step-sub">
-              Already played? Drop your <code>Aftertale.lua</code> just below and meet your heroes.
+              Already begun your journey? Drop your <code>Aftertale.lua</code> file below to bring
+              your heroes and their adventures into Aftertale.
             </p>
           </div>
         </li>
