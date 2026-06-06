@@ -7,6 +7,12 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — Build stamp in the corner *(2026-06-06)*
+
+A small version badge (git short SHA, with build time on hover) pinned
+bottom-right in the app, so it's obvious which build is live in prod. Injected
+at build time — `CF_PAGES_COMMIT_SHA` on Cloudflare, local git otherwise.
+
 ### Added — The "meet your hero" reveal ceremony + AI portraits *(2026-06-06)*
 
 "Bring [hero] to life" is now a *moment*, not a quiet page swap. A full-screen

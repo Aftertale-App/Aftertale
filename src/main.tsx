@@ -1,6 +1,7 @@
 import { lazy, StrictMode, Suspense, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LandingPage } from './components/LandingPage';
+import { VersionBadge } from './components/VersionBadge';
 import './index.css';
 
 // The app tree (and everything it pulls in — Supabase, the providers, the
@@ -132,9 +133,12 @@ function Root() {
   // shows the marketing landing page.
   if (hash.startsWith('#app')) {
     return (
-      <Suspense fallback={<RouteFallback />}>
-        <App />
-      </Suspense>
+      <>
+        <Suspense fallback={<RouteFallback />}>
+          <App />
+        </Suspense>
+        <VersionBadge />
+      </>
     );
   }
   return <LandingPage />;

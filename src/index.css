@@ -1148,6 +1148,21 @@ select.at-input {
   }
 }
 
+/* Build stamp (VersionBadge.tsx) — which build is live, bottom-right. */
+.at-version-badge {
+  position: fixed;
+  right: 8px;
+  bottom: 6px;
+  z-index: 90;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.03em;
+  color: var(--fg-muted);
+  opacity: 0.4;
+  user-select: none;
+}
+.at-version-badge:hover { opacity: 0.85; }
+
 /* ===========================================================================
    Tabs — grimoire chapter dividers
    =========================================================================== */
