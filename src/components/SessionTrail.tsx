@@ -18,7 +18,6 @@ import {
   type ChapterLength, type ChapterLengthId,
 } from '../lib/storyBeats';
 import type { SessionRegister } from '../lib/storyBeats';
-import { calculateCost } from '../pricing';
 import type { CharacterBible, HistoryEntry, LLMResponse } from '../types';
 
 // Strip the LLM's markdown formatting before we display the recap as a
@@ -504,8 +503,6 @@ export function SessionTrail({
                 <SessionCard
                   key={session.id}
                   session={session}
-                  bible={bible}
-                  pricingKey={MODEL_CHOICES[modelIdx].pricingKey}
                   recap={recap}
                   published={published}
                   committedEntry={committedEntries.get(session.id)?.[0]}
@@ -533,8 +530,6 @@ export function SessionTrail({
 
 function SessionCard({
   session,
-  bible,
-  pricingKey,
   recap,
   published,
   committedEntry,
@@ -552,8 +547,6 @@ function SessionCard({
   onRead,
 }: {
   session: ChronicleSession;
-  bible: CharacterBible;
-  pricingKey: string;
   recap?: SessionRecapRecord;
   published: boolean;
   committedEntry?: HistoryEntry;
@@ -577,16 +570,6 @@ function SessionCard({
   const recommendedId = useMemo(() => recommendChapterLength(sessionNarrativeScore(session.records)), [session.records]);
   const [lengthId, setLengthId] = useState<ChapterLengthId>(recommendedId);
   const chosen = CHAPTER_LENGTHS[lengthId];
-  // Estimated prompt size, for the "~4¢" cost cue. Input is the same across the
-  // three sizes; only the output (length.estOutputTokens) differs.
-  const estInputTokens = useMemo(
-    () => Math.ceil(buildSessionRecapPrompt(bible, session).length / 4),
-    [bible, session],
-  );
-  const centsFor = (len: ChapterLength): number | null => {
-    const dollars = calculateCost(pricingKey, estInputTokens, 0, len.estOutputTokens);
-    return dollars > 0 ? Math.max(1, Math.round(dollars * 100)) : null;
-  };
   const significance = describeSessionSignificance(session, recommendedId);
   return (
     <details
@@ -658,7 +641,6 @@ function SessionCard({
             chosenId={lengthId}
             recommendedId={recommendedId}
             onPick={setLengthId}
-            centsFor={centsFor}
             disabled={busy}
           />
         )}
@@ -797,14 +779,12 @@ function ChapterLengthControl({
   chosenId,
   recommendedId,
   onPick,
-  centsFor,
   disabled,
 }: {
   significance: string;
   chosenId: ChapterLengthId;
   recommendedId: ChapterLengthId;
   onPick: (id: ChapterLengthId) => void;
-  centsFor: (len: ChapterLength) => number | null;
   disabled: boolean;
 }) {
   return (
@@ -814,7 +794,6 @@ function ChapterLengthControl({
       <div className="at-chapter-length-options" role="group" aria-label="Chapter length">
         {CHAPTER_LENGTH_ORDER.map((id) => {
           const len = CHAPTER_LENGTHS[id];
-          const cents = centsFor(len);
           const isChosen = chosenId === id;
           const isRec = recommendedId === id;
           return (
@@ -828,14 +807,14 @@ function ChapterLengthControl({
               title={len.blurb}
             >
               <span className="at-chapter-length-opt-label">{len.label}</span>
-              <span className="at-chapter-length-opt-cost">{cents != null ? `~${cents}¢` : len.blurb}</span>
+              <span className="at-chapter-length-opt-cost">{len.blurb}</span>
               {isRec && <span className="at-chapter-length-rec">Recommended</span>}
             </button>
           );
         })}
       </div>
       <p className="at-chapter-length-help">
-        Longer chapters capture more of what happened and use a bit more of your AI credits.
+        Longer chapters capture more of what happened.
       </p>
     </div>
   );

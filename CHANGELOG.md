@@ -7,6 +7,14 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — Drop per-chapter cost cues from session cards *(2026-06-05)*
+
+The chapter-length picker on session cards no longer shows a "~4¢" per-length
+cost estimate or the "uses a bit more of your AI credits" line — with the free
+hosted tier, dollar cues are misleading. Each length option now shows its
+descriptive blurb ("Short and sweet" / "The whole session, as a chapter" / "A
+long, varied session") instead.
+
 ### Added — "Bring [hero] to life": the cold-reveal free generation *(2026-06-05)*
 
 The cold-reveal CTA now actually authors. For a captured-but-unwritten hero,
