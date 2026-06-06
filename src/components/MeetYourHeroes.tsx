@@ -17,6 +17,7 @@ import {
   startBible,
 } from '../lib/bibleStore';
 import { heroMomentCount, heroSessionStatus } from '../lib/heroStatus';
+import { requestBringToLife } from '../lib/revealSignal';
 import { AddonImport } from './AddonImport';
 import { CharacterCreation } from './CharacterCreation';
 
@@ -45,11 +46,12 @@ function buildCards(): HeroCard[] {
 }
 
 function openHero(key: string, isCaptured: boolean): void {
-  // Starting a captured hero graduates it (active ⇒ started); opening an already
-  // started hero just activates it. Both land on the Chronicle — for a captured
-  // hero that's the cold reveal (their captured sessions as a skeleton + the
-  // "Bring to life" CTA); for a started one it's their story.
+  // Starting a captured hero graduates it (active ⇒ started) and launches the
+  // bring-to-life ceremony directly (requestBringToLife — ChronicleReader picks
+  // it up on arrival). Opening an already-started hero just activates it and
+  // lands on their Chronicle to read. Both route to the Chronicle tab.
   if (isCaptured) {
+    requestBringToLife();
     startBible(key);
   } else {
     setActiveBible(key);

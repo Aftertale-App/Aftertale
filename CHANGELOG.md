@@ -7,6 +7,15 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — "Start" launches the reveal directly; portraits actually appear *(2026-06-06)*
+
+`✦ Start [hero]` now launches the bring-to-life ceremony **immediately** instead
+of dropping the player on the cold-reveal skeleton first. The reveal always runs
+through the hosted gateway so the **portrait is actually generated** (BYOK keys
+apply to ongoing chapter authoring, not this one-time identity moment), and the
+CSP `img-src` now allows Supabase-hosted portrait images to load — previously
+they'd have been blocked even when generated.
+
 ### Added — Build stamp in the corner *(2026-06-06)*
 
 A small version badge (git short SHA, with build time on hover) pinned

@@ -103,6 +103,11 @@ export class GatewayProvider implements LLMProvider {
       );
     }
 
+    if (payload.portraitError) {
+      // Portrait is best-effort; surface why it failed without breaking the reveal.
+      console.warn('[GatewayProvider] portrait generation failed:', payload.portraitError);
+    }
+
     const finishReason = payload.finishReason ?? 'stop';
     const stopReason: LLMResponse['stopReason'] =
       finishReason === 'length' ? 'truncated' : finishReason === 'stop' ? 'end' : 'other';

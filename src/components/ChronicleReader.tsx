@@ -12,11 +12,10 @@ import { computeThreads, type StoryThread } from '../lib/threadLedger';
 import { Reveal } from './Reveal';
 import ManualEntryDialog from './ManualEntryDialog';
 import { useAuth } from '../lib/auth';
-import { getKeyStatus } from '../lib/apiKeys';
-import { MODEL_CHOICES, getSelectedModelIdx } from '../lib/modelChoices';
+import { consumeBringToLife } from '../lib/revealSignal';
 import { SaveChronicleModal, type AuthModalMode } from './SaveChronicleModal';
 import { HeroReveal } from './HeroReveal';
-import type { CharacterBible, HistoryEntry, LLMProvider } from '../types';
+import type { CharacterBible, HistoryEntry } from '../types';
 
 const SESSION_WINDOW_MS = 9 * 60 * 60 * 1000;
 
@@ -145,20 +144,13 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
     setGenError(null);
     setRevealPhase('conjuring');
     try {
-      const hasKey = getKeyStatus('openrouter').hasKey;
-      // Lazy-load the generation path so it stays out of the initial bundle.
+      // The bring-to-life reveal always runs through the hosted gateway (free
+      // bundle: backstory + portrait under one credit). BYOK keys apply to
+      // ongoing chapter authoring, not this one-time identity moment — and the
+      // portrait can only be generated + stored server-side.
       const { generateFromPlayHistory } = await import('../lib/playHistoryGenerator');
-      // BYOK power users author on their own key + chosen model; everyone else
-      // (the default) authors their free generation through the hosted gateway.
-      let provider: LLMProvider;
-      if (hasKey) {
-        provider = await MODEL_CHOICES[getSelectedModelIdx()].factory();
-      } else {
-        const { GatewayProvider } = await import('../providers/GatewayProvider');
-        provider = new GatewayProvider();
-      }
-      const model = MODEL_CHOICES[getSelectedModelIdx()].pricingKey; // ignored by the gateway
-      const result = await generateFromPlayHistory({ bible, sessions }, provider, { model });
+      const { GatewayProvider } = await import('../providers/GatewayProvider');
+      const result = await generateFromPlayHistory({ bible, sessions }, new GatewayProvider());
       saveBible(result.bible); // persist now; the ceremony just celebrates it
       setRevealBible(result.bible);
       setRevealPhase('reveal');
@@ -169,9 +161,9 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
   }
 
   function handleBringToLife() {
-    // The free hosted path needs a real (email) account; BYOK is browser-direct.
-    const hasKey = getKeyStatus('openrouter').hasKey;
-    if (!hasKey && auth.status !== 'authed') {
+    // The reveal runs through the hosted gateway, which needs a real (email)
+    // account — gate on sign-in first.
+    if (auth.status !== 'authed') {
       setAuthMode(auth.status === 'anonymous' ? 'save' : 'signin');
       setPendingGenerate(true);
       setAuthOpen(true);
@@ -189,6 +181,16 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingGenerate, auth.status]);
+
+  // "Start [hero]" from Meet Your Heroes launches the ceremony directly: once
+  // the captured hero's bible + sessions are loaded, auto-begin (no skeleton
+  // step). consumeBringToLife() is one-shot, so this fires at most once.
+  useEffect(() => {
+    if (revealPhase === 'idle' && bible?.needsSetup && hasStoryData && consumeBringToLife()) {
+      handleBringToLife();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bible, hasStoryData, revealPhase]);
 
   // Arc Map active-pill tracking: watch each rendered chapter heading and mark
   // the most-visible one as active. The pill list highlights it so the user
