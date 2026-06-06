@@ -26,11 +26,17 @@ interface Props {
   phase: 'conjuring' | 'reveal';
   heroName: string;
   bible: CharacterBible | null;
-  onBegin: () => void;
+  /** Persist the (possibly edited) bible and dismiss the reveal. */
+  onSave: (bible: CharacterBible) => void;
 }
 
-export function HeroReveal({ phase, heroName, bible, onBegin }: Props) {
+export function HeroReveal({ phase, heroName, bible, onSave }: Props) {
   const [stepIdx, setStepIdx] = useState(0);
+  // The reveal is a "read it back to yourself" beat — let the player tweak the
+  // prose before it's theirs. Drafts seed from the generated bible.
+  const [editing, setEditing] = useState(false);
+  const [draftBackstory, setDraftBackstory] = useState('');
+  const [draftQuote, setDraftQuote] = useState('');
 
   useEffect(() => {
     if (phase !== 'conjuring') return;
@@ -39,14 +45,21 @@ export function HeroReveal({ phase, heroName, bible, onBegin }: Props) {
     return () => clearInterval(t);
   }, [phase]);
 
-  const paragraphs = bible ? bible.backstory.split(/\n{2,}/).filter((p) => p.trim()) : [];
+  useEffect(() => {
+    if (bible) {
+      setDraftBackstory(bible.backstory);
+      setDraftQuote(bible.coreQuote ?? '');
+    }
+  }, [bible]);
+
+  const paragraphs = draftBackstory.split(/\n{2,}/).filter((p) => p.trim());
 
   return createPortal(
     <div className="at-reveal-backdrop" role="dialog" aria-modal="true" aria-label="Bringing your hero to life">
       {phase === 'conjuring' && (
         <div className="at-reveal-conjure">
           <div className="at-reveal-sigil" aria-hidden="true">✦</div>
-          <p className="at-reveal-conjure-name">Bringing {heroName} to life</p>
+          <p className="at-reveal-conjure-name">Composing {heroName}'s bible…</p>
           <p className="at-reveal-conjure-step" key={stepIdx}>{CONJURE_STEPS[stepIdx]}</p>
         </div>
       )}
@@ -73,14 +86,34 @@ export function HeroReveal({ phase, heroName, bible, onBegin }: Props) {
             {bible.homeland ? ` · ${bible.homeland}` : ''}
           </p>
 
-          {bible.coreQuote && <p className="at-reveal-quote">“{bible.coreQuote}”</p>}
+          {editing ? (
+            <input
+              className="at-reveal-edit at-reveal-edit-quote"
+              value={draftQuote}
+              onChange={(e) => setDraftQuote(e.target.value)}
+              placeholder="A line they'd actually say…"
+              aria-label="Core quote"
+            />
+          ) : (
+            draftQuote && <p className="at-reveal-quote">“{draftQuote}”</p>
+          )}
 
           <div className="at-reveal-backstory">
-            {paragraphs.map((para, i) => (
-              <p key={i} style={{ animationDelay: `${0.5 + i * 0.6}s` }}>
-                {para}
-              </p>
-            ))}
+            {editing ? (
+              <textarea
+                className="at-reveal-edit at-reveal-edit-backstory"
+                value={draftBackstory}
+                onChange={(e) => setDraftBackstory(e.target.value)}
+                rows={14}
+                aria-label="Backstory"
+              />
+            ) : (
+              paragraphs.map((para, i) => (
+                <p key={i} style={{ animationDelay: `${0.5 + i * 0.6}s` }}>
+                  {para}
+                </p>
+              ))
+            )}
           </div>
 
           {(bible.beliefs?.length || bible.motivations?.length) && (
@@ -103,9 +136,28 @@ export function HeroReveal({ phase, heroName, bible, onBegin }: Props) {
             </div>
           )}
 
-          <button type="button" className="at-btn at-btn-primary at-reveal-cta" onClick={onBegin}>
-            ✦ Begin {bible.name}'s chronicle →
-          </button>
+          <div className="at-reveal-actions">
+            <button
+              type="button"
+              className="at-btn at-btn-ghost at-reveal-edit-toggle"
+              onClick={() => setEditing((v) => !v)}
+            >
+              {editing ? '✓ Done editing' : '✎ Edit details'}
+            </button>
+            <button
+              type="button"
+              className="at-btn at-btn-primary at-reveal-cta"
+              onClick={() =>
+                onSave({
+                  ...bible,
+                  backstory: draftBackstory.trim() || bible.backstory,
+                  coreQuote: draftQuote.trim() || undefined,
+                })
+              }
+            >
+              ✦ Save &amp; open my Chronicle →
+            </button>
+          </div>
         </div>
       )}
     </div>,

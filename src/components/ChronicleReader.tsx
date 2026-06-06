@@ -11,13 +11,33 @@ import { isRecapEntryId, recapSessionId } from '../lib/chapterParse';
 import { computeThreads, type StoryThread } from '../lib/threadLedger';
 import { Reveal } from './Reveal';
 import ManualEntryDialog from './ManualEntryDialog';
-import { useAuth } from '../lib/auth';
+import { useAuth, ensureAnonymousSession } from '../lib/auth';
 import { consumeBringToLife } from '../lib/revealSignal';
-import { SaveChronicleModal, type AuthModalMode } from './SaveChronicleModal';
 import { HeroReveal } from './HeroReveal';
 import type { CharacterBible, HistoryEntry } from '../types';
 
 const SESSION_WINDOW_MS = 9 * 60 * 60 * 1000;
+
+// Turn a gateway/generation failure into a calm, player-facing line. Keys off
+// GatewayError.code (see GatewayProvider) — which generateFromPlayHistory wraps
+// in a PrologueError, so we unwrap `.cause` to reach the real code.
+function friendlyGenError(e: unknown): string {
+  const code =
+    (e as { code?: string } | null)?.code ??
+    (e as { cause?: { code?: string } } | null)?.cause?.code;
+  switch (code) {
+    case 'no_credit':
+      return "You've already brought your free hero to life. Add your own OpenRouter key in Settings to author more.";
+    case 'ceiling_reached':
+      return 'The free forge is resting for today — try again tomorrow, or add your own key in Settings.';
+    case 'unauthorized':
+      return 'Couldn’t reach your session. Reload the page and try again.';
+    case 'no_backend':
+      return 'Bringing heroes to life needs the cloud backend, which is switched off in this build.';
+    default:
+      return (e as Error)?.message || 'Something went wrong. Give it another try in a moment.';
+  }
+}
 
 type ReaderMode = 'latest' | 'full';
 
@@ -135,9 +155,10 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
   const [revealPhase, setRevealPhase] = useState<'idle' | 'conjuring' | 'reveal'>('idle');
   const [revealBible, setRevealBible] = useState<CharacterBible | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthModalMode>('save');
   const [pendingGenerate, setPendingGenerate] = useState(false);
+  // Set true the moment a freshly-composed hero is saved from the reveal — drives
+  // the one-time "open The Inkwell" nudge on the Chronicle they land on.
+  const [justBroughtToLife, setJustBroughtToLife] = useState(false);
 
   async function runBringToLife() {
     if (!bible) return;
@@ -155,28 +176,36 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
       setRevealBible(result.bible);
       setRevealPhase('reveal');
     } catch (e) {
-      setGenError((e as Error).message);
+      setGenError(friendlyGenError(e));
       setRevealPhase('idle');
     }
   }
 
   function handleBringToLife() {
-    // The reveal runs through the hosted gateway, which needs a real (email)
-    // account — gate on sign-in first.
-    if (auth.status !== 'authed') {
-      setAuthMode(auth.status === 'anonymous' ? 'save' : 'signin');
-      setPendingGenerate(true);
-      setAuthOpen(true);
+    // The reveal runs on the hosted gateway (Jeff's key). The anonymous session
+    // every visitor already carries is enough to spend its one free credit — no
+    // sign-in wall. See the magic first; saving to an account is a soft, later
+    // ask (the header "Save your chronicle"). Only bow out if there's genuinely
+    // no session to use.
+    if (auth.status === 'authed' || auth.status === 'anonymous') {
+      void runBringToLife();
       return;
     }
-    void runBringToLife();
+    if (auth.status === 'loading') {
+      // Session still bootstrapping — queue the run and nudge it along; the
+      // effect below fires it the moment the anonymous session resolves.
+      setPendingGenerate(true);
+      void ensureAnonymousSession();
+      return;
+    }
+    // 'disabled' — no cloud backend in this build, so the hosted reveal can't run.
+    setGenError(friendlyGenError({ code: 'no_backend' }));
   }
 
-  // After a successful sign-in, continue straight into the generation.
+  // Once a session exists (anonymous is fine), run any queued generation.
   useEffect(() => {
-    if (pendingGenerate && auth.status === 'authed') {
+    if (pendingGenerate && (auth.status === 'authed' || auth.status === 'anonymous')) {
       setPendingGenerate(false);
-      setAuthOpen(false);
       void runBringToLife();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -327,21 +356,33 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
             onClick={handleBringToLife}
             disabled={revealPhase !== 'idle'}
           >
-            {revealPhase === 'conjuring' ? '✦ Bringing them to life…' : `✦ Bring ${bible.name} to life`}
+            {revealPhase === 'conjuring' ? `✦ Composing ${bible.name}'s bible…` : `✦ Bring ${bible.name} to life`}
           </button>
         </div>
       )}
 
-      {!readOnly && (
-        <SaveChronicleModal
-          open={authOpen}
-          mode={authMode}
-          onClose={() => {
-            setAuthOpen(false);
-            setPendingGenerate(false);
-          }}
-          onSwitchMode={(m) => setAuthMode(m)}
-        />
+      {/* Just composed: land them here with one warm nudge toward writing their
+          first chapter. Reuses the reveal CTA pulse to draw the eye. */}
+      {!readOnly && justBroughtToLife && (
+        <div className="at-justborn">
+          <div className="at-justborn-body">
+            <strong className="at-justborn-title">✦ {bible.name} is alive.</strong>
+            <p className="at-justborn-sub">
+              Their backstory is written and every captured session is waiting. Open The Inkwell to
+              pen your first chapter.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="at-btn at-btn-primary at-justborn-cta"
+            onClick={() => {
+              setJustBroughtToLife(false);
+              requestTab('desk');
+            }}
+          >
+            ✦ Open The Inkwell →
+          </button>
+        </div>
       )}
 
       {!readOnly && revealPhase !== 'idle' && (
@@ -349,7 +390,12 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
           phase={revealPhase}
           heroName={bible?.name ?? 'your hero'}
           bible={revealBible}
-          onBegin={() => setRevealPhase('idle')}
+          onSave={(edited) => {
+            saveBible({ ...edited, updatedAt: Date.now() });
+            setRevealBible(edited);
+            setRevealPhase('idle');
+            setJustBroughtToLife(true);
+          }}
         />
       )}
 

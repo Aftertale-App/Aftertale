@@ -135,14 +135,21 @@ export function App() {
     initCloudSync();
   }, []);
 
-  // First-run nudge: if no key, pop the settings panel automatically to API Keys.
-  // Never on mobile — it's a reader-first surface and BYOK lives on PC. Showing
-  // a key-paste wall to a phone visitor is exactly the wrong first impression.
+  // Key nudge: pop Settings → API Keys for an established keyless player.
+  // Deliberately NOT for a brand-new / first-run arrival — the bring-to-life
+  // reveal runs on the hosted gateway and needs no key, so a key-paste wall is
+  // exactly the wrong first impression (see the magic → save → make beautiful).
+  // The key surfaces contextually at the Inkwell when they go to author.
+  // Mount-only on purpose: reading emptyRoster here and NOT re-firing means a
+  // fresh import (empty → populated) never triggers the wall mid-onboarding.
+  // Never on mobile — it's a reader-first surface and BYOK lives on PC.
   useEffect(() => {
     if (isMobile) return;
+    if (emptyRoster) return;
     if (!getKeyStatus('openrouter').hasKey) {
       setSettings({ open: true, section: 'apiKeys' });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
 
   const openrouterStatus = getKeyStatus('openrouter');

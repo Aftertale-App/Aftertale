@@ -955,6 +955,38 @@ select.at-input {
 }
 .at-coldreveal-cta { flex: 0 0 auto; }
 
+/* "Your hero is alive" nudge shown on the Chronicle right after the reveal
+   saves — one warm pull toward writing the first chapter in The Inkwell. */
+.at-justborn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 1rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(212, 163, 115, 0.5);
+  background:
+    radial-gradient(ellipse 70% 100% at 0% 0%, rgba(212, 163, 115, 0.14), transparent 70%),
+    var(--bg-inset);
+}
+.at-justborn-body { flex: 1 1 260px; min-width: 0; }
+.at-justborn-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--gold-bright);
+}
+.at-justborn-sub {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+.at-justborn-cta {
+  flex: 0 0 auto;
+  animation: at-reveal-cta-pulse 2.4s ease-in-out infinite;
+}
+
 /* ===========================================================================
    Hero reveal ceremony (HeroReveal.tsx) — the "meet your hero" moment
    =========================================================================== */
@@ -1114,6 +1146,44 @@ select.at-input {
   margin-top: 1.6rem;
   font-size: 1.05rem;
   animation: at-reveal-rise 0.8s 0.5s ease both, at-reveal-cta-pulse 2.6s 1.4s ease-in-out infinite;
+}
+
+/* Editable reveal — "read it back to yourself, then make it yours." */
+.at-reveal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 1.6rem;
+  animation: at-reveal-rise 0.8s 0.5s ease both;
+}
+.at-reveal-actions .at-reveal-cta { margin-top: 0; animation: at-reveal-cta-pulse 2.6s 1.4s ease-in-out infinite; }
+.at-reveal-edit-toggle { flex: 0 0 auto; }
+.at-reveal-edit {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: var(--fg, #ece3d2);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(212, 163, 115, 0.4);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+}
+.at-reveal-edit:focus { outline: none; border-color: var(--gold-bright); }
+.at-reveal-edit-quote {
+  margin: 1.1rem auto 0;
+  max-width: 36ch;
+  text-align: center;
+  font-style: italic;
+  color: var(--gold-bright);
+}
+.at-reveal-edit-backstory {
+  margin-top: 0.2rem;
+  text-align: left;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 12rem;
 }
 
 @keyframes at-reveal-fade { from { opacity: 0; } to { opacity: 1; } }

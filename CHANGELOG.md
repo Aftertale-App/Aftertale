@@ -7,6 +7,19 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — New-player onboarding: the sign-in wall is gone *(2026-06-06)*
+
+Starting your first hero no longer slams a **"Welcome back" sign-in modal** in
+your face mid-ceremony. The bring-to-life reveal now runs on the anonymous
+session everyone already has, so it's **keyless and wall-free**: `Start [hero]`
+→ *Composing [hero]'s bible…* → the reveal, now **editable** (tweak the backstory
+and core quote, with the AI portrait shown) → **Save & open my Chronicle** →
+your Chronicle, with a gently pulsing **Open The Inkwell** nudge toward your
+first chapter. Saving to an account is now a soft, later ask (the header "Save
+your chronicle"), never a hard stop. New players also no longer get the API-key
+panel auto-popped at them on arrival — the reveal needs no key, and the key
+surfaces contextually when you go to author.
+
 ### Fixed — "Start" launches the reveal directly; portraits actually appear *(2026-06-06)*
 
 `✦ Start [hero]` now launches the bring-to-life ceremony **immediately** instead

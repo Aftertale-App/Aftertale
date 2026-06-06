@@ -133,6 +133,15 @@ email *and* (much bigger) an OpenRouter key before the player has seen value.
 Asks then arrive **in order of payoff:** **sign in** (*save him*) → **AI**
 (*author him*). See §6 for how the AI ask is made gentle (free taste).
 
+> **Amendment (2026-06-06): no sign-in wall.** `Start [hero]` now launches the
+> bring-to-life **directly on the anonymous session** — `Composing [hero]'s
+> bible…` → an **editable reveal** (portrait + backstory you can tweak) →
+> **Save & open my Chronicle** → the Chronicle, with a pulsing **Open the
+> Inkwell** CTA. The free generation runs on the anonymous session (every
+> visitor already has one); **sign-in is demoted to a soft, later ask** (the
+> header "Save your chronicle"), never a hard stop. The old `authed`-gated
+> reveal was the broken "Welcome back" wall. Trade-off: see §6.
+
 ---
 
 ## 5. Capture mechanism (makes the reassurance true)
@@ -181,6 +190,16 @@ Beat 4's funnel becomes a slope, not a wall:
 
 Email gets the **full wow** (an authored chapter in his voice). The key/sub ask
 only appears *after* they've felt it and want more.
+
+> **Amendment (2026-06-06): free gen runs on the anonymous session.** The bounded
+> taste no longer waits for a verified email — the anonymous session spends its
+> one `free_credits` directly, so the magic moment has **no sign-in wall**. This
+> **drops the §7 "tie the credit to a normalized, verified email" protection**:
+> a determined abuser can clear storage → new anon identity → another free
+> credit. The remaining backstop is the **global 500/day ceiling** (and the
+> cheap pinned model). Accepted for Phase A's small, closed cohort; revisit
+> when the funnel opens up. Sign-in becomes the *save-it-so-it-follows-you* ask,
+> not the gate.
 
 ---
 
