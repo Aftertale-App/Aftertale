@@ -80,6 +80,20 @@ function migrateLocalStorage() {
 }
 migrateLocalStorage();
 
+// A lazy-loaded chunk failed to fetch — almost always because a new deploy
+// replaced the hashed asset while this tab was open. Reload once to pick up the
+// fresh build (time-guarded so a genuinely missing chunk can't loop forever).
+window.addEventListener('vite:preloadError', () => {
+  try {
+    const last = Number(sessionStorage.getItem('at:chunk-reload-at') ?? '0');
+    if (Date.now() - last < 10000) return;
+    sessionStorage.setItem('at:chunk-reload-at', String(Date.now()));
+  } catch {
+    // sessionStorage unavailable — fall through and reload anyway.
+  }
+  window.location.reload();
+});
+
 function Root() {
   const [hash, setHash] = useState(() => window.location.hash);
 

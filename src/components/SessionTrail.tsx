@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MODEL_CHOICES, useSelectedModelIdx } from '../lib/modelChoices';
+import { getKeyStatus } from '../lib/apiKeys';
 import { appendSessionRecapChapters, removeAddonHistoryEntriesByEventIds, removeSessionRecapEntries } from '../lib/bibleStore';
 import { parseChapters, recapSessionId } from '../lib/chapterParse';
 import { renderEntryParagraphs } from './ChronicleReader';
@@ -18,7 +19,7 @@ import {
   type ChapterLength, type ChapterLengthId,
 } from '../lib/storyBeats';
 import type { SessionRegister } from '../lib/storyBeats';
-import type { CharacterBible, HistoryEntry, LLMResponse } from '../types';
+import type { CharacterBible, HistoryEntry, LLMResponse, LLMProvider } from '../types';
 
 // Strip the LLM's markdown formatting before we display the recap as a
 // chronicle chapter. The model loves to lead with a `# Title` line and bold
@@ -83,11 +84,18 @@ async function requestCampfireRecap(
   continuity: string | null,
   innerJourney: string | null,
 ): Promise<LLMResponse> {
-  const choice = MODEL_CHOICES[modelIdx];
-  const provider = await choice.factory();
+  // BYOK users author on their own key + model; keyless users go through the
+  // hosted free gateway (the same path the cold-reveal generation uses).
+  let provider: LLMProvider;
+  if (getKeyStatus('openrouter').hasKey) {
+    provider = await MODEL_CHOICES[modelIdx].factory();
+  } else {
+    const { GatewayProvider } = await import('../providers/GatewayProvider');
+    provider = new GatewayProvider();
+  }
   return provider.chat({
     task: 'summary',
-    model: choice.pricingKey,
+    model: MODEL_CHOICES[modelIdx].pricingKey,
     maxTokens: length.maxTokens,
     temperature: 0.7,
     messages: [

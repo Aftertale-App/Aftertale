@@ -7,6 +7,15 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — Keyless users can author chapters; stale-chunk auto-reload *(2026-06-05)*
+
+The session-card "Generate session recap" always reached for the BYOK OpenRouter
+provider, so a new keyless user's first chapter died (`Failed to fetch …
+OpenRouterProvider…js`). It now routes through the free hosted gateway for
+keyless users, exactly like the cold-reveal generation. Separately, a global
+`vite:preloadError` handler now reloads once when a lazy chunk 404s — a new
+deploy landing while a tab is open no longer breaks dynamic imports mid-session.
+
 ### Changed — Drop per-chapter cost cues from session cards *(2026-06-05)*
 
 The chapter-length picker on session cards no longer shows a "~4¢" per-length
