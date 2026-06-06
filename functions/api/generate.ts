@@ -30,6 +30,11 @@ interface Env {
 const FREE_MODEL = 'openai/gpt-oss-120b';
 const FREE_PROVIDER_ORDER = ['baseten'];
 const FREE_MAX_OUTPUT_TOKENS = 2048; // the gateway owns the cap (it's our cost)
+// Input caps — output is capped above, so cap input too or cost-per-call can be
+// amplified with a giant prompt. The real prologue prompt is a single message,
+// a few thousand chars; these leave generous headroom while killing abuse.
+const MAX_MESSAGES = 24;
+const MAX_INPUT_CHARS = 20000;
 
 interface GenerateBody {
   accessToken?: string;
@@ -64,6 +69,16 @@ export const onRequestPost = async (context: {
   }
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
     return json({ error: 'bad_request', message: 'messages required' }, 400);
+  }
+  if (body.messages.length > MAX_MESSAGES) {
+    return json({ error: 'bad_request', message: 'too many messages' }, 400);
+  }
+  if (!body.messages.every((m) => typeof m?.role === 'string' && typeof m?.content === 'string')) {
+    return json({ error: 'bad_request', message: 'each message needs a string role and content' }, 400);
+  }
+  const totalChars = body.messages.reduce((n, m) => n + m.content.length, 0);
+  if (totalChars > MAX_INPUT_CHARS) {
+    return json({ error: 'bad_request', message: 'prompt too large' }, 400);
   }
 
   // 1. Bot check (only when configured).

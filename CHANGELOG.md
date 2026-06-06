@@ -20,7 +20,11 @@ lower cost. **BYOK is unchanged** for power users (browser-direct, any model).
 The new `GatewayProvider` is the client for the proxy; the metering plumbing is
 live now and drops into the cold-reveal "Bring [hero] to life" flow next.
 Turnstile bot-check is wired but stays off until configured; the daily ceiling
-bounds worst-case spend meanwhile.
+bounds worst-case spend meanwhile. Hardened after a white-box red-team: auth,
+atomic metering (incl. a 12-way concurrent double-spend race), and server-side
+model/token pinning all held; the two gaps found — anonymous sessions could
+farm the credit, and input wasn't size-capped — are now closed (anon sessions
+excluded in `consume_free_credit()`, input capped in the function).
 
 ### Changed — The Inkwell, refocused on the free-tier authoring flow *(2026-06-04)*
 
