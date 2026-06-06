@@ -36,11 +36,20 @@ const FREE_MAX_OUTPUT_TOKENS = 2048; // the gateway owns the cap (it's our cost)
 const MAX_MESSAGES = 24;
 const MAX_INPUT_CHARS = 20000;
 
+// Portrait generation (the cold-reveal "meet your hero" moment). One free
+// "bring to life" = backstory + portrait on a single credit, so the portrait
+// rides the same metered call whenever portraitPrompt is present.
+const PORTRAIT_MODEL = 'google/gemini-2.5-flash-image';
+const MAX_PORTRAIT_PROMPT_CHARS = 2000;
+
 interface GenerateBody {
   accessToken?: string;
   turnstileToken?: string;
   messages?: { role: string; content: string }[];
   temperature?: number;
+  // When present, also generate + store a hero portrait under the same credit.
+  portraitPrompt?: string;
+  portraitId?: string;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -139,17 +148,112 @@ export const onRequestPost = async (context: {
     }
 
     const choice = data.choices?.[0];
-    return json({
+    const result: Record<string, unknown> = {
       text: choice?.message?.content ?? '',
       inputTokens: data.usage?.prompt_tokens ?? 0,
       outputTokens: data.usage?.completion_tokens ?? 0,
       model: FREE_MODEL,
       finishReason: choice?.finish_reason ?? 'stop',
-    });
+    };
+
+    // Bundle: generate + store the hero portrait under the same credit. A
+    // portrait failure must NOT fail the reveal — the backstory is the payload.
+    const portraitPrompt = (body.portraitPrompt ?? '').trim();
+    if (portraitPrompt) {
+      try {
+        result.portraitUrl = await generatePortrait(
+          env,
+          accessToken,
+          portraitPrompt.slice(0, MAX_PORTRAIT_PROMPT_CHARS),
+          body.portraitId,
+        );
+      } catch (e) {
+        result.portraitError = (e as Error).message;
+      }
+    }
+
+    return json(result);
   } catch (e) {
     return json({ error: 'upstream', message: (e as Error).message }, 502);
   }
 };
+
+// Generate a hero portrait (gemini image model) and store it owner-scoped in
+// Supabase Storage. Returns the public URL. Throws on any failure — the caller
+// treats the portrait as best-effort.
+async function generatePortrait(
+  env: Env,
+  accessToken: string,
+  prompt: string,
+  portraitId: string | undefined,
+): Promise<string> {
+  const gen = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://aftertale.gg/',
+      'X-Title': 'Aftertale (hosted free)',
+    },
+    body: JSON.stringify({
+      model: PORTRAIT_MODEL,
+      modalities: ['image', 'text'],
+      messages: [
+        {
+          role: 'user',
+          content: `${prompt}\n\nSquare 1:1 head-and-shoulders character portrait. No text, no logos, no watermark.`,
+        },
+      ],
+    }),
+  });
+  const data = (await gen.json()) as {
+    choices?: { message?: { images?: { image_url?: { url?: string }; url?: string }[] } }[];
+    error?: { message?: string };
+  };
+  if (!gen.ok || data.error) throw new Error(data.error?.message ?? `image HTTP ${gen.status}`);
+  const img = data.choices?.[0]?.message?.images?.[0];
+  const dataUrl = img?.image_url?.url ?? img?.url;
+  if (!dataUrl) throw new Error('no image returned');
+  const b64 = dataUrl.includes(',') ? dataUrl.slice(dataUrl.indexOf(',') + 1) : dataUrl;
+  const bytes = base64ToBytes(b64);
+
+  const uid = subFromJwt(accessToken);
+  if (!uid) throw new Error('no uid in token');
+  const safeId = (portraitId ?? 'hero').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'hero';
+  const path = `${uid}/${safeId}.png`;
+
+  const up = await fetch(`${env.VITE_SUPABASE_URL}/storage/v1/object/portraits/${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      apikey: env.VITE_SUPABASE_ANON_KEY,
+      'Content-Type': 'image/png',
+      'x-upsert': 'true',
+    },
+    // Workers' fetch accepts a Uint8Array body at runtime; the WebWorker lib's
+    // BodyInit type is narrower, so cast.
+    body: bytes as unknown as BodyInit,
+  });
+  if (!up.ok) throw new Error(`storage upload HTTP ${up.status}`);
+  return `${env.VITE_SUPABASE_URL}/storage/v1/object/public/portraits/${path}`;
+}
+
+function subFromJwt(token: string): string | null {
+  try {
+    const part = token.split('.')[1];
+    const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string };
+    return payload.sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
 
 // Calls the metering RPC as the user. Returns the RPC verdict string, or a
 // synthetic code on transport failure.
