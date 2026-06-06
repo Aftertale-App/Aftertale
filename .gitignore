@@ -12,6 +12,8 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+# Cloudflare Pages Functions local secrets (wrangler reads this for `pages dev`)
+.dev.vars
 
 # editors
 .vscode/*

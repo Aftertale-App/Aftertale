@@ -7,6 +7,21 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — Hosted free-tier AI gateway (no key required) *(2026-06-05)*
+
+New players can author without bringing an OpenRouter key. A server-side edge
+proxy (`functions/api/generate.ts`, a Cloudflare Pages Function) runs the free
+generation on a managed key that **never touches the browser**, behind an atomic
+per-account credit and a global daily spend ceiling — both enforced in Postgres
+(`consume_free_credit()` RPC, proven `ok → no_credit`), never client-side. The
+free model is **gpt-oss-120b via OpenRouter** (pinned to Baseten for speed),
+chosen over Gemini Flash and the Llama models in a blind quality test at ~6×
+lower cost. **BYOK is unchanged** for power users (browser-direct, any model).
+The new `GatewayProvider` is the client for the proxy; the metering plumbing is
+live now and drops into the cold-reveal "Bring [hero] to life" flow next.
+Turnstile bot-check is wired but stays off until configured; the daily ceiling
+bounds worst-case spend meanwhile.
+
 ### Changed — The Inkwell, refocused on the free-tier authoring flow *(2026-06-04)*
 
 Starting a captured hero now lands on **The Inkwell** (their session cards),

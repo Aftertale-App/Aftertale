@@ -1,0 +1,19 @@
+{
+  "comment": "Standalone typecheck for the Cloudflare Pages Functions. Kept out of the app's tsc -b (which only covers src/) so the SPA build is unchanged. Run with: npm run typecheck:functions",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "WebWorker"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": [],
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["."]
+}
