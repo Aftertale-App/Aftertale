@@ -13,6 +13,7 @@
 // ============================================================================
 
 import { getSupabase } from '../lib/supabase';
+import { getTurnstileToken as defaultGetTurnstileToken } from '../lib/turnstile';
 import type { LLMProvider, LLMRequest, LLMResponse } from '../types';
 
 const GENERATE_ENDPOINT = '/api/generate';
@@ -43,10 +44,10 @@ export class GatewayProvider implements LLMProvider {
   readonly id = 'openrouter' as const;
   readonly models = ['hosted/free'] as const;
 
-  // Optional Turnstile token getter — wired when Turnstile is enabled client
-  // side. Returning '' is fine: the server only enforces the bot check when
-  // TURNSTILE_SECRET is configured.
-  constructor(private getTurnstileToken?: () => Promise<string>) {}
+  // Turnstile token getter. Defaults to the on-demand invisible widget; the
+  // server enforces the bot check only when TURNSTILE_SECRET is configured, and
+  // the getter returns '' when no site key is set, so this is safe either way.
+  constructor(private getTurnstileToken: () => Promise<string> = defaultGetTurnstileToken) {}
 
   async chat(request: LLMRequest): Promise<LLMResponse> {
     const supabase = getSupabase();
@@ -63,7 +64,7 @@ export class GatewayProvider implements LLMProvider {
       throw new GatewayError('Please sign in to use your free generation.', 'unauthorized', 401);
     }
 
-    const turnstileToken = this.getTurnstileToken ? await this.getTurnstileToken() : '';
+    const turnstileToken = await this.getTurnstileToken();
 
     const start = performance.now();
     let res: Response;
