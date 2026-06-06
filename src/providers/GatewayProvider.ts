@@ -35,6 +35,8 @@ interface GenerateResponse {
   outputTokens?: number;
   model?: string;
   finishReason?: string;
+  portraitUrl?: string;
+  portraitError?: string;
   error?: string;
   message?: string;
 }
@@ -77,6 +79,8 @@ export class GatewayProvider implements LLMProvider {
           turnstileToken,
           messages: request.messages,
           temperature: request.temperature,
+          portraitPrompt: request.imagePrompt,
+          portraitId: request.imageId,
         }),
       });
     } catch (e) {
@@ -112,6 +116,7 @@ export class GatewayProvider implements LLMProvider {
       provider: 'openrouter',
       latencyMs,
       stopReason,
+      imageUrl: payload.portraitUrl,
     };
   }
 }

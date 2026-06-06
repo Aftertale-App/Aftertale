@@ -7,6 +7,17 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — The "meet your hero" reveal ceremony + AI portraits *(2026-06-06)*
+
+"Bring [hero] to life" is now a *moment*, not a quiet page swap. A full-screen
+ceremony: a held, anticipatory beat ("reading the deeds you left behind…",
+"painting their likeness…") while the hero is authored, then the portrait paints
+in (blur→sharp) and the backstory, voice, and core quote unfurl in sequence. The
+portrait is **AI-generated from the hero's real play** (gemini-2.5-flash-image,
+square), stored owner-scoped in Supabase Storage, and **bundled with the
+backstory under the same single free credit**. The free daily ceiling tightened
+500→200 to account for the ~$0.04 image. Honors `prefers-reduced-motion`.
+
 ### Fixed — Keyless users can author chapters; stale-chunk auto-reload *(2026-06-05)*
 
 The session-card "Generate session recap" always reached for the BYOK OpenRouter

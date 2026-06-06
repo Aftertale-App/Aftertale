@@ -956,6 +956,199 @@ select.at-input {
 .at-coldreveal-cta { flex: 0 0 auto; }
 
 /* ===========================================================================
+   Hero reveal ceremony (HeroReveal.tsx) — the "meet your hero" moment
+   =========================================================================== */
+.at-reveal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  overflow-y: auto;
+  background: radial-gradient(120% 120% at 50% 0%, rgba(40, 28, 14, 0.82), rgba(10, 8, 6, 0.95));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: at-reveal-fade 0.5s ease both;
+}
+
+.at-reveal-conjure {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: var(--fg, #ece3d2);
+}
+.at-reveal-sigil {
+  font-size: clamp(3rem, 10vw, 5rem);
+  color: var(--gold-bright);
+  line-height: 1;
+  animation: at-reveal-sigil 2.6s ease-in-out infinite;
+}
+.at-reveal-conjure-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 4vw, 2rem);
+}
+.at-reveal-conjure-step {
+  margin: 0;
+  min-height: 1.4em;
+  color: var(--fg-muted);
+  font-style: italic;
+  animation: at-reveal-rise 0.6s ease both;
+}
+
+.at-reveal-card {
+  width: min(640px, 100%);
+  margin: auto;
+  text-align: center;
+  color: var(--fg, #ece3d2);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(212, 163, 115, 0.12), transparent 70%),
+    var(--bg-inset);
+  border: 1px solid rgba(212, 163, 115, 0.38);
+  border-radius: 18px;
+  padding: 2rem 1.75rem 2.25rem;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  animation: at-reveal-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.at-reveal-portrait-wrap {
+  position: relative;
+  width: clamp(160px, 42vw, 220px);
+  margin: 0 auto 1.1rem;
+  aspect-ratio: 1 / 1;
+}
+.at-reveal-portrait {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid rgba(212, 163, 115, 0.5);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  animation: at-reveal-portrait 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.at-reveal-portrait-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.5rem;
+  color: var(--gold-bright);
+  background: rgba(212, 163, 115, 0.12);
+}
+.at-reveal-portrait-glow {
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(212, 163, 115, 0.5), transparent 70%);
+  filter: blur(6px);
+  animation: at-reveal-glow 3.4s ease-in-out infinite;
+}
+
+.at-reveal-kicker {
+  margin: 0 0 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: var(--gold-bright);
+  animation: at-reveal-rise 0.6s 0.15s ease both;
+}
+.at-reveal-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 7vw, 3rem);
+  line-height: 1.05;
+  color: var(--gold-bright);
+  animation: at-reveal-rise 0.7s 0.2s ease both;
+}
+.at-reveal-sub {
+  margin: 0.35rem 0 0;
+  color: var(--fg-muted);
+  animation: at-reveal-rise 0.7s 0.3s ease both;
+}
+.at-reveal-quote {
+  margin: 1.1rem auto 0;
+  max-width: 34ch;
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--gold-bright);
+  animation: at-reveal-rise 0.7s 0.4s ease both;
+}
+.at-reveal-backstory {
+  margin: 1.4rem 0 0;
+  text-align: left;
+  line-height: 1.65;
+}
+.at-reveal-backstory p {
+  margin: 0 0 0.9rem;
+  animation: at-reveal-rise 0.8s ease both;
+}
+.at-reveal-traits {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.2rem 0 0;
+  text-align: left;
+  animation: at-reveal-rise 0.8s ease both;
+}
+.at-reveal-traits h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--gold-bright);
+}
+.at-reveal-traits ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+  color: var(--fg-muted);
+}
+.at-reveal-traits li { margin: 0 0 0.25rem; }
+.at-reveal-cta {
+  margin-top: 1.6rem;
+  font-size: 1.05rem;
+  animation: at-reveal-rise 0.8s 0.5s ease both, at-reveal-cta-pulse 2.6s 1.4s ease-in-out infinite;
+}
+
+@keyframes at-reveal-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes at-reveal-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes at-reveal-portrait {
+  from { opacity: 0; transform: scale(0.86); filter: blur(16px) saturate(0.5); }
+  to { opacity: 1; transform: scale(1); filter: none; }
+}
+@keyframes at-reveal-sigil {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.82; text-shadow: 0 0 18px rgba(212, 163, 115, 0.55); }
+  50% { transform: scale(1.12) rotate(6deg); opacity: 1; text-shadow: 0 0 42px rgba(212, 163, 115, 0.9); }
+}
+@keyframes at-reveal-glow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.72; transform: scale(1.08); }
+}
+@keyframes at-reveal-cta-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(212, 163, 115, 0); }
+  50% { box-shadow: 0 0 26px rgba(212, 163, 115, 0.5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .at-reveal-backdrop, .at-reveal-card, .at-reveal-portrait, .at-reveal-name,
+  .at-reveal-kicker, .at-reveal-sub, .at-reveal-quote, .at-reveal-backstory p,
+  .at-reveal-traits, .at-reveal-cta, .at-reveal-conjure-step,
+  .at-reveal-sigil, .at-reveal-portrait-glow {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ===========================================================================
    Tabs — grimoire chapter dividers
    =========================================================================== */
 

@@ -136,6 +136,29 @@ export function buildPlayHistoryPrompt(input: PlayHistoryInput): string {
 }
 
 /**
+ * Build an image prompt for the hero portrait — identity + a few real deeds,
+ * in a generic high-fantasy style (deliberately not any specific game's art).
+ */
+export function buildPortraitPrompt(input: PlayHistoryInput): string {
+  const { bible, sessions } = input;
+  const notable: string[] = [];
+  for (const s of sessions) {
+    for (const u of s.stats.notableUnits.slice(0, 2)) if (!notable.includes(u)) notable.push(u);
+    for (const it of s.stats.notableItems.slice(0, 1)) if (!notable.includes(it)) notable.push(it);
+    if (notable.length >= 6) break;
+  }
+  const lvl = typeof bible.level === 'number' ? `, seasoned to around level ${bible.level}` : '';
+  const deeds = notable.length ? ` Echoes of his deeds: ${notable.slice(0, 6).join(', ')}.` : '';
+  return (
+    `Painterly fantasy character portrait, head and shoulders, three-quarter view, of a ` +
+    `${bible.race} ${bible.class} (${bible.faction ?? 'unaligned'})${lvl}.` +
+    deeds +
+    ` Weathered, watchful, heroic. Earthy palette, warm dramatic rim light, ` +
+    `semi-realistic digital painting, generic high-fantasy style (not any specific game).`
+  );
+}
+
+/**
  * Generate a full CharacterBible from a captured hero's play history. Preserves
  * the hero's identity + createdAt (the addon records are keyed by createdAt) and
  * overlays the authored narrative. Persistence is the caller's job (saveBible).
@@ -155,6 +178,10 @@ export async function generateFromPlayHistory(
       messages: [{ role: 'user', content: prompt }],
       temperature: options.temperature ?? DEFAULT_TEMPERATURE,
       maxTokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
+      // Hosted gateway also paints the portrait under the same credit; BYOK
+      // providers ignore these.
+      imagePrompt: buildPortraitPrompt(input),
+      imageId: String(input.bible.createdAt),
     });
   } catch (e) {
     throw new PrologueError(`provider call failed: ${(e as Error).message}`, e);
@@ -180,6 +207,7 @@ export async function generateFromPlayHistory(
     faction: input.bible.faction ?? parsed.faction,
     level: input.bible.level,
     currentZone: input.bible.currentZone,
+    portraitUrl: response.imageUrl ?? input.bible.portraitUrl,
     needsSetup: false,
     createdAt: input.bible.createdAt, // MUST preserve — characterKey depends on it
     updatedAt: now,

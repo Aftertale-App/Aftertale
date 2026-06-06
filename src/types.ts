@@ -62,6 +62,7 @@ export interface CharacterBible {
   flaws?: string[];    // limitations, blind spots, recurring hesitations
   coreQuote?: string;  // a single sentence that distills the whole hero
   voice: string;       // how they speak — tone, vocabulary, mannerisms
+  portraitUrl?: string; // hero portrait generated at "Bring to life" (Supabase Storage)
 
   // ---- Dynamic in-world state (mutable as the hero plays) ----
   level?: number;             // current player level (1-80)
@@ -132,6 +133,10 @@ export interface LLMRequest {
   model: string;
   maxTokens?: number;
   temperature?: number;
+  // Hosted gateway only: when set, also generate + store a hero portrait under
+  // the same call. Ignored by browser-direct providers.
+  imagePrompt?: string;
+  imageId?: string;
   // Future: cacheable prefix marker for prompt caching
 }
 
@@ -145,6 +150,8 @@ export interface LLMResponse {
   latencyMs: number;
   /** Normalized stop reason. 'truncated' = hit maxTokens, 'end' = natural stop. */
   stopReason: 'end' | 'truncated' | 'other';
+  /** Public URL of a generated hero portrait, when one was requested + produced. */
+  imageUrl?: string;
 }
 
 export interface LLMProvider {

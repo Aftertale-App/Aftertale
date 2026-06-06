@@ -15,7 +15,8 @@ import { useAuth } from '../lib/auth';
 import { getKeyStatus } from '../lib/apiKeys';
 import { MODEL_CHOICES, getSelectedModelIdx } from '../lib/modelChoices';
 import { SaveChronicleModal, type AuthModalMode } from './SaveChronicleModal';
-import type { CharacterBible, HistoryEntry } from '../types';
+import { HeroReveal } from './HeroReveal';
+import type { CharacterBible, HistoryEntry, LLMProvider } from '../types';
 
 const SESSION_WINDOW_MS = 9 * 60 * 60 * 1000;
 
@@ -132,7 +133,8 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
 
   // --- Cold-reveal "Bring to life": author the full bible from real play -----
   const auth = useAuth();
-  const [generating, setGenerating] = useState(false);
+  const [revealPhase, setRevealPhase] = useState<'idle' | 'conjuring' | 'reveal'>('idle');
+  const [revealBible, setRevealBible] = useState<CharacterBible | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthModalMode>('save');
@@ -140,15 +142,15 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
 
   async function runBringToLife() {
     if (!bible) return;
-    setGenerating(true);
     setGenError(null);
+    setRevealPhase('conjuring');
     try {
       const hasKey = getKeyStatus('openrouter').hasKey;
       // Lazy-load the generation path so it stays out of the initial bundle.
       const { generateFromPlayHistory } = await import('../lib/playHistoryGenerator');
       // BYOK power users author on their own key + chosen model; everyone else
       // (the default) authors their free generation through the hosted gateway.
-      let provider;
+      let provider: LLMProvider;
       if (hasKey) {
         provider = await MODEL_CHOICES[getSelectedModelIdx()].factory();
       } else {
@@ -157,11 +159,12 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
       }
       const model = MODEL_CHOICES[getSelectedModelIdx()].pricingKey; // ignored by the gateway
       const result = await generateFromPlayHistory({ bible, sessions }, provider, { model });
-      saveBible(result.bible); // fires at:bible-updated -> reader re-renders, clears needsSetup
+      saveBible(result.bible); // persist now; the ceremony just celebrates it
+      setRevealBible(result.bible);
+      setRevealPhase('reveal');
     } catch (e) {
       setGenError((e as Error).message);
-    } finally {
-      setGenerating(false);
+      setRevealPhase('idle');
     }
   }
 
@@ -320,9 +323,9 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
             type="button"
             className="at-btn at-btn-primary at-coldreveal-cta"
             onClick={handleBringToLife}
-            disabled={generating}
+            disabled={revealPhase !== 'idle'}
           >
-            {generating ? '✦ Bringing them to life…' : `✦ Bring ${bible.name} to life`}
+            {revealPhase === 'conjuring' ? '✦ Bringing them to life…' : `✦ Bring ${bible.name} to life`}
           </button>
         </div>
       )}
@@ -336,6 +339,15 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
             setPendingGenerate(false);
           }}
           onSwitchMode={(m) => setAuthMode(m)}
+        />
+      )}
+
+      {!readOnly && revealPhase !== 'idle' && (
+        <HeroReveal
+          phase={revealPhase}
+          heroName={bible?.name ?? 'your hero'}
+          bible={revealBible}
+          onBegin={() => setRevealPhase('idle')}
         />
       )}
 
