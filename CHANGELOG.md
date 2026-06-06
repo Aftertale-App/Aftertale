@@ -7,6 +7,19 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — "Bring [hero] to life": the cold-reveal free generation *(2026-06-05)*
+
+The cold-reveal CTA now actually authors. For a captured-but-unwritten hero,
+**"Bring [name] to life"** generates a full Character Bible — backstory,
+beliefs, motivations, fears, flaws, voice, core quote — **grounded in their real
+recorded play** (zones, quests, notable foes, even deaths). Keyless players sign
+in by email (reusing the existing modal) and it runs free through the hosted
+gateway (gpt-oss-120b) with a Turnstile token; BYOK users author browser-direct
+on their own key + model. A new play-history prompt builder
+(`src/lib/playHistoryGenerator.ts`) reuses the interview path's bible schema, so
+the result drops straight into the reader and clears the cold-reveal banner. The
+generation path is lazy-loaded so it stays out of the initial bundle.
+
 ### Added — Hosted free-tier AI gateway (no key required) *(2026-06-05)*
 
 New players can author without bringing an OpenRouter key. A server-side edge

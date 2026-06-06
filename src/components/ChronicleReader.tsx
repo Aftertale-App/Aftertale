@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { loadBible, clearAddonHistoryEntries, removeAddonHistoryEntriesByEventIds, deleteHistoryEntry } from '../lib/bibleStore';
+import { loadBible, saveBible, clearAddonHistoryEntries, removeAddonHistoryEntriesByEventIds, deleteHistoryEntry } from '../lib/bibleStore';
 import { DEV_TOOLS_ENABLED } from '../lib/devTools';
 import { loadAddonEventRecords, clearAddonEventRecords, removeAddonEventRecords, type AddonEventRecord } from '../lib/addonEventStore';
 import {
@@ -11,6 +11,10 @@ import { isRecapEntryId, recapSessionId } from '../lib/chapterParse';
 import { computeThreads, type StoryThread } from '../lib/threadLedger';
 import { Reveal } from './Reveal';
 import ManualEntryDialog from './ManualEntryDialog';
+import { useAuth } from '../lib/auth';
+import { getKeyStatus } from '../lib/apiKeys';
+import { MODEL_CHOICES, getSelectedModelIdx } from '../lib/modelChoices';
+import { SaveChronicleModal, type AuthModalMode } from './SaveChronicleModal';
 import type { CharacterBible, HistoryEntry } from '../types';
 
 const SESSION_WINDOW_MS = 9 * 60 * 60 * 1000;
@@ -125,6 +129,63 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
   const visibleChapters = useMemo(() => buildChapters(visibleEntries), [visibleEntries]);
   const insight = bible ? buildInsight(bible, visibleEntries, entries, visibleChapters.length) : null;
   const hasStoryData = entries.length > 0 || sessions.length > 0;
+
+  // --- Cold-reveal "Bring to life": author the full bible from real play -----
+  const auth = useAuth();
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthModalMode>('save');
+  const [pendingGenerate, setPendingGenerate] = useState(false);
+
+  async function runBringToLife() {
+    if (!bible) return;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const hasKey = getKeyStatus('openrouter').hasKey;
+      // Lazy-load the generation path so it stays out of the initial bundle.
+      const { generateFromPlayHistory } = await import('../lib/playHistoryGenerator');
+      // BYOK power users author on their own key + chosen model; everyone else
+      // (the default) authors their free generation through the hosted gateway.
+      let provider;
+      if (hasKey) {
+        provider = await MODEL_CHOICES[getSelectedModelIdx()].factory();
+      } else {
+        const { GatewayProvider } = await import('../providers/GatewayProvider');
+        provider = new GatewayProvider();
+      }
+      const model = MODEL_CHOICES[getSelectedModelIdx()].pricingKey; // ignored by the gateway
+      const result = await generateFromPlayHistory({ bible, sessions }, provider, { model });
+      saveBible(result.bible); // fires at:bible-updated -> reader re-renders, clears needsSetup
+    } catch (e) {
+      setGenError((e as Error).message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function handleBringToLife() {
+    // The free hosted path needs a real (email) account; BYOK is browser-direct.
+    const hasKey = getKeyStatus('openrouter').hasKey;
+    if (!hasKey && auth.status !== 'authed') {
+      setAuthMode(auth.status === 'anonymous' ? 'save' : 'signin');
+      setPendingGenerate(true);
+      setAuthOpen(true);
+      return;
+    }
+    void runBringToLife();
+  }
+
+  // After a successful sign-in, continue straight into the generation.
+  useEffect(() => {
+    if (pendingGenerate && auth.status === 'authed') {
+      setPendingGenerate(false);
+      setAuthOpen(false);
+      void runBringToLife();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingGenerate, auth.status]);
 
   // Arc Map active-pill tracking: watch each rendered chapter heading and mark
   // the most-visible one as active. The pill list highlights it so the user
@@ -245,15 +306,37 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
               We remembered every step below. Bring {bible.name} to life — author their backstory
               and pen these chapters in their own voice.
             </p>
+            {genError && (
+              <p
+                className="at-coldreveal-error"
+                role="alert"
+                style={{ color: '#e06c6c', marginTop: '0.5rem', fontSize: '0.9rem' }}
+              >
+                Couldn’t bring them to life: {genError}
+              </p>
+            )}
           </div>
           <button
             type="button"
             className="at-btn at-btn-primary at-coldreveal-cta"
-            onClick={() => window.dispatchEvent(new CustomEvent('at:request-tab', { detail: 'desk' }))}
+            onClick={handleBringToLife}
+            disabled={generating}
           >
-            ✦ Bring {bible.name} to life
+            {generating ? '✦ Bringing them to life…' : `✦ Bring ${bible.name} to life`}
           </button>
         </div>
+      )}
+
+      {!readOnly && (
+        <SaveChronicleModal
+          open={authOpen}
+          mode={authMode}
+          onClose={() => {
+            setAuthOpen(false);
+            setPendingGenerate(false);
+          }}
+          onSwitchMode={(m) => setAuthMode(m)}
+        />
       )}
 
       <div className="at-chronicle-modebar" role="tablist" aria-label="Chronicle view">
