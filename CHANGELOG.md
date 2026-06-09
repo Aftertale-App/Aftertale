@@ -7,6 +7,26 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — Imported heroes get their real race/class/faction (no more "Alliance Unknown Adventurer") *(2026-06-09)*
+
+A Horde Orc Rogue questing in Durotar was importing as an *Alliance Unknown
+Adventurer* — lore-breaking nonsense. The multi-alt importer's character-registry
+reader was pulling identity fields (`name`/`race`/`class`/`faction`/`realm`)
+flat off each `characters[guid]` record, but the addon nests them under
+`identity`. Every lookup missed, so each hero fell back to the defaults
+(Alliance / Unknown / Adventurer); only the name survived, because it comes from
+the event stream. The reader now reads `value.identity.*` (with a flat fallback
+for legacy captures). Also fixed the test fixture, which used the wrong flat
+shape — which is why 49 green checks never caught this. The fixture now matches
+what the addon actually writes.
+
+### Changed — Reveal CTA reads "Enter [Hero]'s Chronicle" *(2026-06-09)*
+
+The "meet your hero" reveal's closing button was "Save & open my Chronicle" —
+clunky wording with inconsistent casing. It now reads "✦ Enter [Hero]'s
+Chronicle →", which names the hero and matches the casing used everywhere else
+the Chronicle is referenced.
+
 ### Fixed — Anonymous players can finally spend their free generation *(2026-06-09)*
 
 The last link in the broken "bring to life" chain: the server-side metering

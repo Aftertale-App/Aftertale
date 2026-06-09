@@ -182,7 +182,7 @@ export function HeroReveal({ phase, heroName, bible, onSave, errorMessage, onRet
                 })
               }
             >
-              ✦ Save &amp; open my Chronicle →
+              ✦ Enter {bible.name}'s Chronicle →
             </button>
           </div>
         </div>

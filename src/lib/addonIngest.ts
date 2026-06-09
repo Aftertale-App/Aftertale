@@ -100,13 +100,19 @@ function readCharacterRegistry(db: { [k: string]: LuaValue } | null): Map<string
   if (!db || !isObj(db.characters)) return registry;
   for (const [guid, value] of Object.entries(db.characters)) {
     if (!isObj(value)) continue;
+    // The addon nests identity under `value.identity` (name/race/class/faction/
+    // realm). Reading those fields flat off `value` (the old bug) left every
+    // imported hero as Alliance / Unknown Adventurer because the lookups all
+    // missed. Tolerate a flat shape too, for any legacy capture that wrote the
+    // fields directly on the record.
+    const identity = isObj(value.identity) ? value.identity : value;
     registry.set(guid, {
       guid,
-      name: asString(value.name),
-      realm: asString(value.realm),
-      wowClass: asString(value.class) ?? asString(value.classFile),
-      wowRace: asString(value.race) ?? asString(value.raceFile),
-      faction: asFaction(value.faction),
+      name: asString(identity.name),
+      realm: asString(identity.realm),
+      wowClass: asString(identity.class) ?? asString(identity.classFile),
+      wowRace: asString(identity.race) ?? asString(identity.raceFile),
+      faction: asFaction(identity.faction),
     });
   }
   return registry;

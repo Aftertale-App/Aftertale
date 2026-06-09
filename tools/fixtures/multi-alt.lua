@@ -8,7 +8,13 @@ AftertaleDB = {
 ["project"] = "Retail",
 },
 ["characters"] = {
+-- Identity is nested under `identity`, matching what the addon actually
+-- writes (see a real Aftertale.lua characters table). The importer reads
+-- from value.identity.*, so a flat shape here would not catch regressions.
 ["Player-100-AAAA0001"] = {
+["sightings"] = 5,
+["identity"] = {
+["guid"] = "Player-100-AAAA0001",
 ["name"] = "Thaldris",
 ["realm"] = "Earthen Ring",
 ["class"] = "Druid",
@@ -16,8 +22,13 @@ AftertaleDB = {
 ["race"] = "Night Elf",
 ["raceFile"] = "NightElf",
 ["faction"] = "Alliance",
+["sex"] = 2,
+},
 },
 ["Player-100-BBBB0002"] = {
+["sightings"] = 4,
+["identity"] = {
+["guid"] = "Player-100-BBBB0002",
 ["name"] = "Grukmar",
 ["realm"] = "Earthen Ring",
 ["class"] = "Warrior",
@@ -25,8 +36,13 @@ AftertaleDB = {
 ["race"] = "Orc",
 ["raceFile"] = "Orc",
 ["faction"] = "Horde",
+["sex"] = 2,
+},
 },
 ["Player-100-CCCC0003"] = {
+["sightings"] = 2,
+["identity"] = {
+["guid"] = "Player-100-CCCC0003",
 ["name"] = "Coinpurse",
 ["realm"] = "Earthen Ring",
 ["class"] = "Mage",
@@ -34,6 +50,8 @@ AftertaleDB = {
 ["race"] = "Gnome",
 ["raceFile"] = "Gnome",
 ["faction"] = "Alliance",
+["sex"] = 2,
+},
 },
 },
 ["events"] = {
