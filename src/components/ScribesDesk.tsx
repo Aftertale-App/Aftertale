@@ -254,7 +254,7 @@ export function ScribesDesk() {
 
           {!bible && (
             <div className="at-callout" style={{ padding: '0.75rem 1rem' }}>
-              Roll or select a character first — The Inkwell needs a bible to know whose voice it's writing in.
+              Roll or select a character first — The Inkwell needs a codex to know whose voice it's writing in.
             </div>
           )}
       </div>
@@ -540,7 +540,7 @@ export const TIERS: TierDef[] = [
       '10 heroes',
       'ePub & PDF export — put it on a Kindle, send it to your dad, save it for your daughter',
       "Chapter regeneration — didn't love a chapter? Try another take. Keep the best one.",
-      'Hero bible polish — AI helps you deepen and evolve your character as the story grows',
+      'Hero codex polish — AI helps you deepen and evolve your character as the story grows',
       "Saga memory — your hero's arc carries forward across every chapter, automatically",
     ],
     cta: 'Keep the book',
