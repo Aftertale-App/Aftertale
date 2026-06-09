@@ -7,6 +7,20 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — One narrative voice: close third person everywhere *(2026-06-09)*
+
+Chapters could flip between third person ("The dust clung to Futony's boots
+as he made his way") and first person ("I arrived at Grol'dom Farm") from one
+session to the next, because no prose prompt actually pinned a point of view
+— one allowed "second or third person," another asked for first person, and
+the session-recap prompt said nothing at all. The chronicle is a novel, so
+every prose producer (session recaps, story-beat notes, both backstory
+generators, the interview wizard, Loremaster polish) now writes close third
+person, past tense. Loremaster polish also converts first-person manual notes
+("I killed Hogger") into the chronicle voice. NPC chat keeps first person —
+that's spoken dialogue. Existing chapters keep their original text; regenerate
+a session to bring it in line.
+
 ### Fixed — Pronouns are now stated, never guessed from the hero's name *(2026-06-09)*
 
 A female hero could come back from "Bring to life" as somebody's "youngest

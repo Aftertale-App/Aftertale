@@ -119,7 +119,7 @@ const SYSTEM_PROMPT = [
   'Hard rules:',
   '- 80 to 150 words. One paragraph. No headings, no bullets, no lists.',
   '- Use ONLY the facts in the event block plus the hero voice. Do not invent NPCs, outcomes, locations, gear, or dialogue not present in the input.',
-  '- Hero is the subject; second-person ("you") or third-person are both fine, but stay consistent within the paragraph.',
+  '- Close third person, past tense: the hero by name and stated pronouns ("Magnus held the line"). NEVER first person ("I") and NEVER second person ("you") — the chronicle is a novel, not a diary, and every entry must match.',
   '- No meta references: never mention the app, the addon, prompts, models, UI, the player, or the chronicle itself. Stay diegetic.',
   '- Forbidden phrases: destiny, prophecy, chosen one, ancient evil, called to adventure, the wider world beckoned.',
   '- Plain prose. No markdown. No quotes around the whole paragraph.',

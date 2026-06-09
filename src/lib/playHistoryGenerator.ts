@@ -15,7 +15,7 @@ import type { ChronicleSession } from './sessionHistory';
 import { parsePrologueResponse, PrologueError } from './prologueGenerator';
 import { pronounLine, pronouns } from './pronouns';
 
-export const PLAY_HISTORY_PROMPT_VERSION = 2;
+export const PLAY_HISTORY_PROMPT_VERSION = 3;
 
 export interface PlayHistoryInput {
   bible: CharacterBible;
@@ -104,7 +104,9 @@ export function buildPlayHistoryPrompt(input: PlayHistoryInput): string {
     'Output rules:',
     '  - Strict JSON. No prose before or after, no markdown fences.',
     '  - backstory: 3 paragraphs, roughly 450-550 words — a developed origin with',
-    '    room to breathe, not a highlight reel. Specific proper nouns. The origin',
+    '    room to breathe, not a highlight reel. Close third person, past tense',
+    '    (the hero by name and stated pronouns; never "I" or "you").',
+    '    Specific proper nouns. The origin',
     '    that explains who they became; end on an unresolved hook that the recorded',
     '    adventures begin to answer. Creative embellishment is welcome as long as',
     '    it stays consistent with the recorded deeds.',

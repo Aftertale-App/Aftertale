@@ -21,7 +21,7 @@ import type { IngestedCharacter } from './characterIngest';
 import type { InspireMeIntel } from './inspireMePrompt';
 import { pronounLine } from './pronouns';
 
-export const PROLOGUE_PROMPT_VERSION = 2;
+export const PROLOGUE_PROMPT_VERSION = 3;
 
 export class PrologueError extends Error {
   constructor(message: string, public cause?: unknown) {
@@ -125,9 +125,11 @@ export function buildProloguePrompt(input: PrologueInput): string {
     '',
     'Output rules:',
     '  - Strict JSON. No prose before or after, no markdown fences.',
-    '  - backstory: 2-3 paragraphs, 180-280 words total. Specific proper nouns',
-    '    (named NPCs, places, objects). Embody traits through action and word',
-    '    choice. Never name the traits. End on an unresolved hook.',
+    '  - backstory: 2-3 paragraphs, 180-280 words total, close third person,',
+    '    past tense (the hero by name and stated pronouns; never "I" or "you").',
+    '    Specific proper nouns (named NPCs, places, objects). Embody traits',
+    '    through action and word choice. Never name the traits. End on an',
+    '    unresolved hook.',
     '  - beliefs: 3-5 short imperative phrases (e.g. "Coin earned is coin owed").',
     '  - motivations: 3-5 concrete pulls forward (a person to find, a debt to',
     '    settle, a craft to master). No "destiny" / "chosen one" / "ancient evil".',

@@ -478,7 +478,7 @@ export function CharacterCreation() {
       '    faction     ("Alliance" or "Horde", copy from identity)',
       '    age         (number)  \u2014 OPTIONAL; omit if unknown',
       '    homeland    (string)  \u2014 OPTIONAL; omit if unknown',
-      '    backstory   (string, 1\u20133 paragraphs of narrative prose)',
+      '    backstory   (string, 1\u20133 paragraphs of narrative prose in close third person, past tense \u2014 the hero by name, never "I" or "you")',
       '    beliefs     (array of 3\u20136 short strings \u2014 what they hold true)',
       '    motivations (array of 2\u20134 short strings \u2014 what drives them now)',
       '    fears       (array of 3\u20135 short strings \u2014 what they dread becoming, losing, or failing at; concrete, not generic)',

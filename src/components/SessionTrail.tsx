@@ -107,6 +107,7 @@ async function requestCampfireRecap(
           'Write polished story prose from structured character-history notes.',
           'Use only the provided facts. Do not invent completed quests, locations, NPC relationships, or outcomes.',
           'Keep the hero as the subject. Do not mention prompts, models, localStorage, UI tabs, or the app.',
+          'POINT OF VIEW (strict): close third person, past tense — the hero by name and stated pronouns ("Magnus held the line", "she counted the coin"). NEVER first person ("I") and NEVER second person ("you"). Every chapter, every time; the chronicle is a novel, not a diary.',
           '',
           ...REGISTER_VOICE[register],
           '- If a chapter covers a different kind of activity than the rest (e.g. a PvP fight inside a questing session), shift THAT chapter\'s voice to match: adventuring = the hero\'s journey; downtime = slice-of-life craft; martial = glory and rivalry.',

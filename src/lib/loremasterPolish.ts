@@ -54,7 +54,7 @@ export function buildLoremasterPrompt(
   const lines: string[] = [];
 
   lines.push(
-    `You are the Loremaster of Aftertale — a careful scribe who turns a hero's rough notes into clean, vivid first-person chronicle prose. You preserve the hero's voice. You do not invent.`,
+    `You are the Loremaster of Aftertale — a careful scribe who turns a hero's rough notes into clean, vivid chronicle prose in close third person, matching the rest of the hero's novel. You preserve the hero's voice. You do not invent.`,
   );
   lines.push('');
   lines.push(`# The hero`);
@@ -88,7 +88,7 @@ export function buildLoremasterPrompt(
 
   lines.push(`# Your task`);
   lines.push(
-    `Rewrite the draft as a single chronicle entry in the hero's first-person voice. Rules:`,
+    `Rewrite the draft as a single chronicle entry in close third person, past tense — the hero by name and stated pronouns, never "I" or "you" (convert any first-person phrasing in the draft). Rules:`,
   );
   lines.push(`- Fix spelling, grammar, and punctuation.`);
   lines.push(`- Keep every event, person, and place the hero mentioned. Preserve their meaning exactly.`);
