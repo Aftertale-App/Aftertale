@@ -7,6 +7,16 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — Turnstile actually solves (dropped the removed `size: invisible`) *(2026-06-09)*
+
+With the CSP unblocked, the Turnstile script loaded but then threw
+*`Invalid value for parameter "size" … got "invisible"`* — Cloudflare removed
+the `invisible` size, so the widget never solved and bring-to-life died 30s
+later on a "Turnstile timed out." We now render with `appearance:
+'interaction-only'` and no `size`; invisibility is a property of the widget
+**mode** on the sitekey (set it to *Invisible*/*Managed* in the Turnstile
+dashboard), not a render param.
+
 ### Fixed — A failed "bring to life" no longer strands new players on the Chronicle *(2026-06-09)*
 
 When the bring-to-life ceremony failed for *any* reason — gateway down, rate

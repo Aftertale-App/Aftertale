@@ -92,7 +92,14 @@ export async function getTurnstileToken(): Promise<string> {
     try {
       widgetId = ts.render(container, {
         sitekey: SITE_KEY,
-        size: 'invisible',
+        // NOTE: there is no `size: 'invisible'` — Cloudflare removed it and the
+        // render() now throws "expected compact/flexible/normal, got invisible".
+        // Invisibility is a property of the widget *mode* configured on the
+        // sitekey in the Turnstile dashboard (set it to "Invisible"/"Managed").
+        // `appearance: 'interaction-only'` keeps the widget hidden unless a
+        // challenge genuinely needs interaction, so there's no visible flash in
+        // our off-screen container.
+        appearance: 'interaction-only',
         callback: (token: string) => finish(() => resolve(token)),
         'error-callback': () => finish(() => reject(new Error('Turnstile challenge failed.'))),
         'timeout-callback': () => finish(() => reject(new Error('Turnstile timed out.'))),
