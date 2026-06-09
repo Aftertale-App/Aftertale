@@ -13,6 +13,7 @@ import {
   updateBibleByKey,
 } from './bibleStore';
 import { ingestChroniclesSavedVariables } from './savedVariablesIngest';
+import { normalizeCharacters } from './addonSchema';
 import { parseSavedVariables, type LuaValue } from './luaSavedVariables';
 
 export interface ImportCharacter {
@@ -83,11 +84,6 @@ interface CharacterRegistryEntry {
   faction?: 'Alliance' | 'Horde' | 'Neutral';
 }
 
-function asFaction(v: LuaValue | undefined): 'Alliance' | 'Horde' | 'Neutral' | undefined {
-  const s = asString(v);
-  return s === 'Alliance' || s === 'Horde' || s === 'Neutral' ? s : undefined;
-}
-
 function getAftertaleDb(content: string): { db: { [k: string]: LuaValue } | null; rawEvents: AddonEvent[] } {
   const parsed = parseSavedVariables(content);
   const db = parsed.AftertaleDB ?? (parsed as Record<string, LuaValue>).ChroniclesOfAzerothDB;
@@ -96,23 +92,18 @@ function getAftertaleDb(content: string): { db: { [k: string]: LuaValue } | null
 }
 
 function readCharacterRegistry(db: { [k: string]: LuaValue } | null): Map<string, CharacterRegistryEntry> {
+  // Identity normalization (nested `identity` vs. legacy flat) lives in the
+  // canonical layer so this reader and characterIngest.ts can never disagree
+  // about the schema — see src/lib/addonSchema.ts and docs/addon-sv-format.md.
   const registry = new Map<string, CharacterRegistryEntry>();
-  if (!db || !isObj(db.characters)) return registry;
-  for (const [guid, value] of Object.entries(db.characters)) {
-    if (!isObj(value)) continue;
-    // The addon nests identity under `value.identity` (name/race/class/faction/
-    // realm). Reading those fields flat off `value` (the old bug) left every
-    // imported hero as Alliance / Unknown Adventurer because the lookups all
-    // missed. Tolerate a flat shape too, for any legacy capture that wrote the
-    // fields directly on the record.
-    const identity = isObj(value.identity) ? value.identity : value;
-    registry.set(guid, {
-      guid,
-      name: asString(identity.name),
-      realm: asString(identity.realm),
-      wowClass: asString(identity.class) ?? asString(identity.classFile),
-      wowRace: asString(identity.race) ?? asString(identity.raceFile),
-      faction: asFaction(identity.faction),
+  for (const rec of normalizeCharacters(db)) {
+    registry.set(rec.guid, {
+      guid: rec.guid,
+      name: rec.identity.name,
+      realm: rec.identity.realm,
+      wowClass: rec.identity.class,
+      wowRace: rec.identity.race,
+      faction: rec.identity.faction,
     });
   }
   return registry;

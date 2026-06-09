@@ -14,7 +14,10 @@
     "cost:probe": "node tools/cost-probe.mjs",
     "auth:smoke": "node tools/auth-smoke.mjs",
     "sync:smoke": "node tools/cloud-sync-smoke.mjs",
-    "classify:smoke": "lua tools/classify-smoke.lua"
+    "classify:smoke": "lua tools/classify-smoke.lua",
+    "test:import": "npx vite-node tools/test-import-fanout.mjs",
+    "test:golden": "npx vite-node tools/test-golden-fixtures.mjs",
+    "test:ingest": "npm run test:import && npm run test:golden"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",

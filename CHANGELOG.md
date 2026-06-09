@@ -7,6 +7,30 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Added — Addon SavedVariables format contract + canonical normalization layer *(2026-06-09)*
+
+Groundwork so the addon can grow new capture features for years without
+breaking imports. The addon (producer) and web app (consumer) version-skew, and
+a single `Aftertale.lua` accumulates many schema generations at once — so the
+plan is: tolerant reader, one normalization layer, version-stamp forward /
+shape-sniff backward, and golden fixtures from real files.
+
+- **`docs/addon-sv-format.md`** — the format contract + evolution policy both
+  codebases reference (field changelog, the four principles, change rules).
+- **`src/lib/addonSchema.ts`** — single canonical layer for raw-Lua → canonical
+  shapes. Both registry readers (`addonIngest`, `characterIngest`) now route
+  through it, so they can't disagree about the schema again (that disagreement
+  was the root of yesterday's "Alliance Unknown Adventurer" bug).
+- **Addon (schema 4):** every event now carries a `v` writer-version stamp, and
+  `meta.capabilities` declares which capture features this build supports — so
+  the reader can tell "couldn't capture" from "nothing happened." Purely
+  additive; old files still load.
+- **Golden-fixture harness** (`tools/test-golden-fixtures.mjs`,
+  `npm run test:golden`) — runs the canonical layer against real-shaped captures,
+  one per addon era. The old hand-authored fixture used a shape the addon never
+  writes, which is why a green test suite missed the import bug; fixtures now
+  match reality.
+
 ### Fixed — Imported heroes get their real race/class/faction (no more "Alliance Unknown Adventurer") *(2026-06-09)*
 
 A Horde Orc Rogue questing in Durotar was importing as an *Alliance Unknown

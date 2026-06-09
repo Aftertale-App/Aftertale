@@ -16,7 +16,28 @@ local CHAT_TAG = "|cFFFFD700[Aftertale]|r"
 -- Schema version for AftertaleDB. Bump when shape changes in a
 -- way old saves can't be loaded by new code. migrate() runs once per load
 -- and walks db.schemaVersion forward to CURRENT_SCHEMA.
-local CURRENT_SCHEMA = 3
+--
+-- v4: every event record now carries `v = CURRENT_SCHEMA` (the writer's schema
+--     version), and db.meta gains a `capabilities` manifest. Both are purely
+--     additive — the web reader tolerates their absence on older records — so
+--     the 3 -> 4 migration is a no-op beyond the version stamp. See
+--     docs/addon-sv-format.md (the producer/consumer format contract).
+local CURRENT_SCHEMA = 4
+
+-- Capability manifest, written into db.meta.capabilities. It tells the web
+-- reader which capture features THIS build supports and at what version, so it
+-- can distinguish "feature absent because this build couldn't capture it" from
+-- "feature absent because nothing happened". Bump a number when a feature's
+-- captured shape changes; add a key when a new capability ships. 0 = declared
+-- but not yet built (e.g. Tier B PvP).
+local CAPABILITIES = {
+  identity    = 2,  -- characters[guid].identity (nested name/race/class/faction)
+  events      = 4,  -- per-event v stamp + per-login session ids
+  professions = 1,  -- Tier A: first/rank/session rollups
+  wealth      = 1,  -- Tier A: gold milestones (narrated, not numeric)
+  duels       = 1,  -- Tier A: /duel result + opponent
+  pvp         = 0,  -- Tier B: battlegrounds/arenas/world-PvP — not built yet
+}
 
 ------------------------------------------------------------------------
 -- Compat shims
@@ -58,8 +79,9 @@ end
 --
 -- AftertaleDB = {
 --   meta = { version, project, build, characterName, realm, startedAt,
---            chatLogEnabled, combatLogEnabled },
---   events = { { id, t, ts, event, char, charName, args = {...}, enrichment? }, ... },
+--            chatLogEnabled, combatLogEnabled, schemaVersion, capabilities },
+--   events = { { id, t, ts, event, session, v, char, charName, args = {...}, enrichment? }, ... },
+--   v is the writer's schema version (CURRENT_SCHEMA); absent on pre-v4 events.
 --   char is the player GUID and canonical character identity.
 --   counts = { [eventName] = number },
 --   combatLogSampleRate = 50,
@@ -177,6 +199,9 @@ local function migrate(db)
   if (from or 0) < 3 and db.config and db.config.maxEvents == 5000 then
     db.config.maxEvents = 25000
   end
+  -- v3 -> v4: per-event `v` stamp + meta.capabilities. Purely additive — old
+  -- events keep working without `v`, and the manifest is (re)written on load —
+  -- so there is nothing to transform here; just stamp the version forward.
   db.schemaVersion = CURRENT_SCHEMA
   if NS and NS.Logger then
     NS.Logger:info(string.format("schema migrated %s -> %s",
@@ -617,6 +642,7 @@ local function recordEvent(db, event, ...)
     ts = date("%Y-%m-%dT%H:%M:%S"),
     event = event,
     session = db.currentSessionId,
+    v = CURRENT_SCHEMA,
     char = UnitGUID("player") or nil,
     charName = UnitName("player") or nil,
     args = args,
@@ -692,6 +718,7 @@ local function emitBeat(db, beatEvent, enrichment, summary)
     ts = date("%Y-%m-%dT%H:%M:%S"),
     event = beatEvent,
     session = db.currentSessionId,
+    v = CURRENT_SCHEMA,
     char = UnitGUID("player") or nil,
     charName = UnitName("player") or nil,
     args = { summary or "" },
@@ -1076,6 +1103,11 @@ frame:SetScript("OnEvent", function(self, event, ...)
     db.meta.startedAt = db.meta.startedAt or date("%Y-%m-%dT%H:%M:%S")
     db.meta.characterName = UnitName("player")
     db.meta.realm = GetRealmName()
+    -- Mirror the schema version into meta and publish the capability manifest
+    -- so the web reader can branch on what this build supports without sniffing
+    -- event shapes. See docs/addon-sv-format.md.
+    db.meta.schemaVersion = CURRENT_SCHEMA
+    db.meta.capabilities = CAPABILITIES
 
     if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
       C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)

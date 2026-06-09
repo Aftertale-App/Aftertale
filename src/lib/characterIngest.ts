@@ -9,6 +9,7 @@
  */
 
 import type { LuaValue } from './luaSavedVariables';
+import { normalizeCharacterRecord } from './addonSchema';
 
 export type Classification = 'brand-new' | 'allied-race' | 'boosted' | 'pre-existing' | 'pending';
 export type OnboardingState = 'pending' | 'seeded' | 'complete' | 'skipped';
@@ -111,15 +112,19 @@ export function ingestCharactersFromParsed(parsed: Record<string, LuaValue>): In
       result.warnings.push(`record at guid=${guid} is not a table; skipping`);
       continue;
     }
-    const identity = asObject(rec.identity);
+    // Identity (nested `identity` vs. legacy flat) is normalized in the shared
+    // canonical layer so this reader and addonIngest.ts agree — see
+    // src/lib/addonSchema.ts and docs/addon-sv-format.md.
+    const canonical = normalizeCharacterRecord(guid, rec);
     const firstSeen = asObject(rec.firstSeen);
-    if (!identity || !firstSeen) {
+    if (!canonical || !firstSeen) {
       result.warnings.push(`record at guid=${guid} missing identity/firstSeen; skipping`);
       continue;
     }
+    const id = canonical.identity;
     const coordsObj = asObject(firstSeen.coords);
     const lastSeenObj = asObject(rec.lastSeen);
-    const identityName = asString(identity.name, '');
+    const identityName = id.name ?? '';
     const derived =
       eventSnapshots.get(guid) ??
       (identityName ? eventSnapshotsByName.get(identityName.toLowerCase()) : undefined);
@@ -149,14 +154,14 @@ export function ingestCharactersFromParsed(parsed: Record<string, LuaValue>): In
     const character: IngestedCharacter = {
       guid,
       identity: {
-        name: asString(identity.name, '(unknown)'),
-        realm: asString(identity.realm),
-        class: asString(identity.class, '(unknown)'),
-        classFile: asString(identity.classFile) || undefined,
-        race: asString(identity.race, '(unknown)'),
-        raceFile: asString(identity.raceFile) || undefined,
-        sex: asNumber(identity.sex, 1),
-        faction: asString(identity.faction, 'Neutral'),
+        name: id.name ?? '(unknown)',
+        realm: id.realm ?? '',
+        class: id.class ?? '(unknown)',
+        classFile: id.classFile,
+        race: id.race ?? '(unknown)',
+        raceFile: id.raceFile,
+        sex: id.sex ?? 1,
+        faction: id.faction ?? 'Neutral',
       },
       firstSeen: {
         timestamp: asNumber(firstSeen.timestamp),
