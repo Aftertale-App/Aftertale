@@ -7,6 +7,18 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — Anonymous players can finally spend their free generation *(2026-06-09)*
+
+The last link in the broken "bring to life" chain: the server-side metering
+RPC (`consume_free_credit`) still rejected anonymous sessions — a leftover from
+before the keyless redesign, when the free taste required a real (email) account.
+With the new onboarding the anonymous session *is* the intended path, so every
+new player hit a 401 ("Couldn't reach your session"). Migration
+`20260609170000_free_tier_allow_anonymous` drops the `is_anonymous` rejection.
+Anti-farming now rests on the Turnstile bot check, the per-profile credit
+(1 free generation), and the 200/day global ceiling — so Turnstile enforcement
+on the gateway is doing the load-bearing work the wall used to.
+
 ### Fixed — Turnstile actually solves (dropped the removed `size: invisible`) *(2026-06-09)*
 
 With the CSP unblocked, the Turnstile script loaded but then threw
