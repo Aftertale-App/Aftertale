@@ -7,6 +7,18 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — "Bible" → "Codex" in all player-facing copy *(2026-06-09)*
+
+The character's identity/personality doc was called a "bible" (a screenwriting
+term) in the UI — including the reveal's centerpiece line, "Composing [hero]'s
+bible…". The religious connotation is off-key for the product, so every
+customer-visible string is now "codex" (reveal, character creation, the
+cold-reveal CTA, landing page, NPC chat, legal pages, settings, spend bar).
+Internal code names (the `CharacterBible` type, `bibleStore`, the `at.bible.*`
+storage keys, the cloud `bible` table) are deliberately unchanged — they're
+invisible plumbing, and renaming them would mean migrating every existing
+hero's stored data for zero user benefit.
+
 ### Added — Addon SavedVariables format contract + canonical normalization layer *(2026-06-09)*
 
 Groundwork so the addon can grow new capture features for years without

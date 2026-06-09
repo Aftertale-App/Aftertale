@@ -409,7 +409,7 @@ function NpcChatInner() {
       <div className="at-panel">
         <h2>NPC chat</h2>
         <p className="at-callout-danger" style={{ marginTop: '0.75rem' }}>
-          You need a character bible before you can talk to anyone. Head over to the
+          You need a character codex before you can talk to anyone. Head over to the
           <strong> Character </strong>tab and roll a hero first.
         </p>
       </div>

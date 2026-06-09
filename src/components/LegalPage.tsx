@@ -41,7 +41,7 @@ export function PrivacyPage() {
         <li>You bring your own AI key (OpenRouter). It's stored only in your
           browser and is sent only to OpenRouter when you generate prose.</li>
         <li>If you choose to save your chronicle to an account, we store your
-          hero bibles and chapters so they survive a new device. That's it.</li>
+          hero codexes and chapters so they survive a new device. That's it.</li>
         <li>We never collect your World of Warcraft login, Battle.net
           credentials, or payment information.</li>
       </ul>
@@ -58,7 +58,7 @@ export function PrivacyPage() {
       <h2>What the web app sends, and to whom</h2>
       <p>
         When you generate a chapter, the relevant game events and your hero
-        bible are sent to <strong>OpenRouter</strong>, which routes the request
+        codex are sent to <strong>OpenRouter</strong>, which routes the request
         to the AI model you've selected (e.g. Anthropic, OpenAI, Google). This is
         the only way to turn your events into prose. Your OpenRouter API key is
         stored in your browser's <code>localStorage</code> and is transmitted
@@ -121,7 +121,7 @@ export function TermsPage() {
 
       <h2>Your chronicles are yours</h2>
       <p>
-        You own the hero bibles and chronicles you create with Aftertale. We
+        You own the hero codexes and chronicles you create with Aftertale. We
         claim no ownership over your content. We store it only to provide the
         service (e.g. backing it up to your account if you choose to sign in).
       </p>

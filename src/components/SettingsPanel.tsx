@@ -440,7 +440,7 @@ function DataSection() {
     <SectionShell
       title="Data"
       kicker="Local storage"
-      blurb="Everything Aftertale stores lives in this browser. Your character bible and manual chronicle entries are never touched by the actions below."
+      blurb="Everything Aftertale stores lives in this browser. Your character codex and manual chronicle entries are never touched by the actions below."
     >
       <div className="at-callout" style={{ padding: '0.75rem 1rem', marginBottom: '1rem' }}>
         <div
@@ -486,7 +486,7 @@ function DataSection() {
           <span className="at-desk-dangerzone-label">⚠ Danger zone</span>
           <span className="at-desk-dangerzone-hint">
             Wipes <strong>session events &amp; enrichments</strong> from this browser. Your character
-            bible (name, class, level, story) and manual chronicle entries are preserved.
+            codex (name, class, level, story) and manual chronicle entries are preserved.
           </span>
         </div>
         <div className="at-desk-dangerzone-actions">
@@ -497,7 +497,7 @@ function DataSection() {
             onClick={purgeCharacter}
             title={
               characterKey
-                ? `Wipe session events + enrichments for ${characterName ?? 'the active character'} (bible & manual entries preserved)`
+                ? `Wipe session events + enrichments for ${characterName ?? 'the active character'} (codex & manual entries preserved)`
                 : 'No active character'
             }
           >
@@ -509,7 +509,7 @@ function DataSection() {
             type="button"
             className={`at-btn at-btn-danger at-btn-danger-strong${armed === 'all' ? ' at-btn-danger-armed' : ''}`}
             onClick={purgeAll}
-            title="Wipe session events + enrichments for EVERY character on this device (bibles & manual entries preserved)"
+            title="Wipe session events + enrichments for EVERY character on this device (codexes & manual entries preserved)"
           >
             {armed === 'all'
               ? '⚠ Click again to confirm — ALL characters'

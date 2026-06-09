@@ -361,7 +361,7 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
             onClick={handleBringToLife}
             disabled={revealPhase !== 'idle'}
           >
-            {revealPhase === 'conjuring' ? `✦ Composing ${bible.name}'s bible…` : `✦ Bring ${bible.name} to life`}
+            {revealPhase === 'conjuring' ? `✦ Composing ${bible.name}'s codex…` : `✦ Bring ${bible.name} to life`}
           </button>
         </div>
       )}

@@ -81,7 +81,7 @@ export function CharacterSelector() {
 
   function handleDelete(entry: BibleRosterEntry) {
     const ok = window.confirm(
-      `Delete ${entry.name} permanently?\n\nThis erases the character bible AND all NPC conversations for this hero. This cannot be undone.`,
+      `Delete ${entry.name} permanently?\n\nThis erases the character codex AND all NPC conversations for this hero. This cannot be undone.`,
     );
     if (!ok) return;
     deleteBible(entry.key);

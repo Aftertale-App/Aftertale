@@ -68,7 +68,7 @@ export function HeroReveal({ phase, heroName, bible, onSave, errorMessage, onRet
       {phase === 'conjuring' && (
         <div className="at-reveal-conjure">
           <div className="at-reveal-sigil" aria-hidden="true">✦</div>
-          <p className="at-reveal-conjure-name">Composing {heroName}'s bible…</p>
+          <p className="at-reveal-conjure-name">Composing {heroName}'s codex…</p>
           <p className="at-reveal-conjure-step" key={stepIdx}>{CONJURE_STEPS[stepIdx]}</p>
         </div>
       )}

@@ -139,7 +139,7 @@ export function CharacterTab() {
 
       {savedDraft && mode === 'auto' && (
         <div className="at-callout at-callout-success" style={{ marginBottom: '1rem' }}>
-          <strong>Got it.</strong> We pulled <em>{savedDraft.character.identity.name}</em> from your save data. Generate the prologue & bible to bring them to life.
+          <strong>Got it.</strong> We pulled <em>{savedDraft.character.identity.name}</em> from your save data. Generate the prologue & codex to bring them to life.
         </div>
       )}
 
@@ -175,7 +175,7 @@ export function CharacterTab() {
                 onClick={handleGeneratePrologue}
                 disabled={generating}
               >
-                {generating ? 'Generating prologue…' : '✦ Generate prologue & bible'}
+                {generating ? 'Generating prologue…' : '✦ Generate prologue & codex'}
               </button>
               <button
                 type="button"
@@ -261,7 +261,7 @@ export function CharacterTab() {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', justifyContent: 'center' }}>
                 <button type="button" className="at-btn at-btn-primary" onClick={handleAcceptBible}>
-                  ✓ Accept & save bible
+                  ✓ Accept & save codex
                 </button>
                 <button
                   type="button"

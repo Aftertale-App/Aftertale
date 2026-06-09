@@ -140,7 +140,7 @@ function DevSpendStrip({
   function handlePurgeOldRecords() {
     const ok = window.confirm(
       `Remove spend-tracking buckets older than ${SPEND_RETENTION_DAYS} days?\n\n` +
-        'Recent spend records, character bibles, NPC chats, and API keys will not be touched.',
+        'Recent spend records, character codexes, NPC chats, and API keys will not be touched.',
     );
     if (!ok) return;
     const removed = purgeOldRecords();

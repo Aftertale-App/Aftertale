@@ -561,7 +561,7 @@ export function CharacterCreation() {
       if (firstRes.stopReason === 'truncated') {
         setRawBibleText(firstRes.text);
         setParseErrors([
-          'The bible generation was cut off at the model\u2019s output cap (4096 tokens).',
+          'The codex generation was cut off at the model\u2019s output cap (4096 tokens).',
           'The JSON is incomplete. Either finish it by hand below, or click "Retry with the LLM"',
           'to start over (consider switching to a larger model like Claude Opus or GPT-5).',
         ]);
@@ -761,7 +761,7 @@ export function CharacterCreation() {
 
       {step === 'generating' && (
         <p className="at-creation-waiting at-hero-anim">
-          The loremaster is composing your bible…
+          The loremaster is composing your codex…
         </p>
       )}
 
@@ -886,7 +886,7 @@ function WelcomeView({
         </button>
         <p className="at-welcome-roll-hint">
           A 5–7 question interview with the Loremaster builds a unique Character
-          Bible from your answers.
+          Codex from your answers.
         </p>
       </div>
 
@@ -1070,7 +1070,7 @@ function CharacterSheet({
           </button>
         )}
         <button className="at-btn at-btn-secondary" onClick={onEdit}>
-          Edit bible
+          Edit codex
         </button>
         <button className="at-btn at-btn-secondary" onClick={onRollAnother}>
           Roll another hero
@@ -1493,7 +1493,7 @@ function InterviewView(p: InterviewViewProps) {
               disabled={!p.canGenerate || p.generatingAnswer}
               title={p.canGenerate ? '' : `Answer at least ${MIN_TURNS_BEFORE_GENERATE} questions first`}
             >
-              I&apos;m ready — generate the bible
+              I&apos;m ready — generate the codex
             </button>
             <button
               className="at-btn at-btn-secondary"
@@ -1515,7 +1515,7 @@ function InterviewView(p: InterviewViewProps) {
 
       {p.atMax && (
         <p style={{ color: 'var(--fg-muted)', marginTop: '1.25rem', fontStyle: 'italic', fontFamily: 'var(--font-body)' }}>
-          Max turns reached — composing your bible…
+          Max turns reached — composing your codex…
         </p>
       )}
     </div>
@@ -1733,7 +1733,7 @@ function ReviewView({
           onClick={onSave}
           disabled={!validateBible(bible)}
         >
-          ◆ {isEditing ? 'Save changes' : 'Save bible'}
+          ◆ {isEditing ? 'Save changes' : 'Save codex'}
         </button>
         <button className="at-btn at-btn-secondary" onClick={onStartOver}>
           {isEditing ? 'Cancel' : 'Start over'}
@@ -1864,7 +1864,7 @@ function CreationIntro({
     return (
       <StepIntro
         kicker="✦ The quill is moving"
-        headline="Composing the bible"
+        headline="Composing the codex"
       />
     );
   }

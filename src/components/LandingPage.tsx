@@ -59,7 +59,7 @@ const PHASE_A_BANNER_KEY = 'at.phaseA.bannerDismissed';
 // the Companion magic moment and is restored when PHASE_A_MODE is off.
 const ONBOARD_STEPS_PHASE_A = [
   { title: 'Start free', body: "Open Aftertale and create your hero. Paste your own AI key (OpenRouter) — the free tier runs on your key, so you stay in control of the cost." },
-  { title: 'Shape your hero', body: 'Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero bible you can refine.' },
+  { title: 'Shape your hero', body: 'Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero codex you can refine.' },
   { title: 'Install the addon', body: 'Download the Aftertale addon and let it run while you play. It records your story moments to a local file — it never controls your character or touches the game.' },
   { title: 'Bring your session in', body: "After you play, drop your SavedVariables file into Aftertale's Inkwell. That's the one manual step the free tier asks of you." },
   { title: 'Read the chapter', body: 'Hit Enrich and read your chapter: your session, written as prose with your hero at the center of it.' },
@@ -67,7 +67,7 @@ const ONBOARD_STEPS_PHASE_A = [
 
 const ONBOARD_STEPS_FULL = [
   { title: 'Start free', body: 'Create your account in under a minute. No credit card required. One hero is enough to begin the tale.' },
-  { title: 'Shape your hero', body: 'Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero bible you can refine.' },
+  { title: 'Shape your hero', body: 'Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero codex you can refine.' },
   { title: 'Connect your game', body: 'Install the capture addon. It watches for story moments while you play. It never controls your character or changes the game.' },
   { title: 'Play normally', body: 'Quest, wander, get distracted, chase something shiny. Aftertale captures the shape of the session in the background.' },
   { title: 'Read the chapter', body: 'When the session ends, your first Aftertale is waiting: a personalized chapter written from the hero you brought to life.' },
@@ -266,7 +266,7 @@ export function LandingPage() {
           </Reveal>
           <div className="at-how-grid">
             <Reveal variant="up" delay={0}><HowStep n={1} title="Play" body="Your session creates the raw material: quests, places, victories, detours, and quiet little moments." /></Reveal>
-            <Reveal variant="up" delay={120}><HowStep n={2} title="Aftertale writes" body="Your hero bible gives those events memory, voice, and meaning." /></Reveal>
+            <Reveal variant="up" delay={120}><HowStep n={2} title="Aftertale writes" body="Your hero codex gives those events memory, voice, and meaning." /></Reveal>
             <Reveal variant="up" delay={240}><HowStep n={3} title="Read" body="Each session becomes another chapter in a living chronicle." /></Reveal>
           </div>
         </div>
@@ -762,7 +762,7 @@ function BackstoryPanel() {
           <p className="at-panel-kicker">The backstory</p>
           <h3 className="at-backstory-headline">Before the road, before the hammer.</h3>
           <p className="at-backstory-sub">
-            Four memories from Magnus's hero bible. Aftertale folds them into future
+            Four memories from Magnus's hero codex. Aftertale folds them into future
             chapters so the past keeps returning where it matters.
           </p>
         </div>
