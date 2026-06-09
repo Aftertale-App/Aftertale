@@ -40,8 +40,10 @@
   Cross-Origin-Resource-Policy: same-origin
 
   # --- Content Security Policy ---
-  # script-src: 'self' only. No inline scripts, no eval. (Vite's prod build
-  #   outputs hashed module scripts only — fine without 'unsafe-inline'.)
+  # script-src: 'self' + Cloudflare Turnstile (challenges.cloudflare.com loads
+  #   the invisible-widget api.js used by the hosted free-gen gateway). No inline
+  #   scripts, no eval. (Vite's prod build outputs hashed module scripts only —
+  #   fine without 'unsafe-inline'.)
   # style-src: 'self' + Google Fonts CSS + 'unsafe-inline' because React /
   #   our CSS-in-JS sprinkle inline `style=` attributes. Removing the inline
   #   relaxation would require nonces or a refactor.
@@ -50,11 +52,13 @@
   #   image previews). https: would loosen this if we ever embed third-party
   #   art — keep tight until then.
   # connect-src: 'self' + OpenRouter + Supabase (REST + Realtime websocket).
+  # frame-src: Cloudflare Turnstile renders its challenge in an iframe; without
+  #   this the widget is blocked (default-src 'self' would deny it).
   # frame-ancestors 'none' replaces X-Frame-Options for modern browsers.
   # base-uri / form-action 'self' shut down common XSS pivots.
   # object-src 'none' kills Flash/Java relics.
   # upgrade-insecure-requests covers anything that slips through with http://.
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://openrouter.ai https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://openrouter.ai https://*.supabase.co wss://*.supabase.co; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
 
 # --- Hashed assets: cache hard, they're content-addressed ---
 /assets/*

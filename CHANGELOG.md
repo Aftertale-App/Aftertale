@@ -7,7 +7,17 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
-### Fixed — New-player onboarding: the sign-in wall is gone *(2026-06-06)*
+### Fixed — "Bring to life" no longer dies on a CSP block *(2026-06-09)*
+
+Starting a captured hero on the live site failed with *"Couldn't bring them to
+life: provider call failed: Could not load the Turnstile script,"* stranding new
+players on the captured-saga skeleton. The hosted free-gen gateway mints a
+Cloudflare Turnstile token before each call, but our production CSP only allowed
+`script-src 'self'` — so the Turnstile `api.js` (and its challenge iframe) were
+blocked outright. The CSP in `public/_headers` now allows
+`challenges.cloudflare.com` in both `script-src` and `frame-src`. The Start →
+Chronicle → reveal-ceremony routing was already correct; the gateway call dying
+mid-flight was the whole problem.
 
 Starting your first hero no longer slams a **"Welcome back" sign-in modal** in
 your face mid-ceremony. The bring-to-life reveal now runs on the anonymous
