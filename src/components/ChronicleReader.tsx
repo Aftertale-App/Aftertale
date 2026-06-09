@@ -152,7 +152,7 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
 
   // --- Cold-reveal "Bring to life": author the full bible from real play -----
   const auth = useAuth();
-  const [revealPhase, setRevealPhase] = useState<'idle' | 'conjuring' | 'reveal'>('idle');
+  const [revealPhase, setRevealPhase] = useState<'idle' | 'conjuring' | 'reveal' | 'error'>('idle');
   const [revealBible, setRevealBible] = useState<CharacterBible | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const [pendingGenerate, setPendingGenerate] = useState(false);
@@ -176,8 +176,11 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
       setRevealBible(result.bible);
       setRevealPhase('reveal');
     } catch (e) {
+      // Stay on the full-screen ceremony surface in an 'error' phase rather than
+      // dropping back to 'idle' — 'idle' exposes the dense Chronicle reader
+      // skeleton, which is meaningless to a brand-new hero who just hit Start.
       setGenError(friendlyGenError(e));
-      setRevealPhase('idle');
+      setRevealPhase('error');
     }
   }
 
@@ -198,8 +201,10 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
       void ensureAnonymousSession();
       return;
     }
-    // 'disabled' — no cloud backend in this build, so the hosted reveal can't run.
+    // 'disabled' — no cloud backend in this build, so the hosted reveal can't
+    // run. Surface it on the ceremony overlay (not the bare Chronicle skeleton).
     setGenError(friendlyGenError({ code: 'no_backend' }));
+    setRevealPhase('error');
   }
 
   // Once a session exists (anonymous is fine), run any queued generation.
@@ -395,6 +400,15 @@ export function ChronicleReader({ demoBible = null, readOnly: readOnlyProp = fal
             setRevealBible(edited);
             setRevealPhase('idle');
             setJustBroughtToLife(true);
+          }}
+          errorMessage={genError}
+          onRetry={() => void runBringToLife()}
+          onDismiss={() => {
+            // Leave the ceremony cleanly — clear the error and send them back to
+            // the Heroes hub rather than stranding them on the Chronicle skeleton.
+            setRevealPhase('idle');
+            setGenError(null);
+            requestTab('character');
           }}
         />
       )}

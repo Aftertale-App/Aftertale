@@ -1032,6 +1032,22 @@ select.at-input {
   animation: at-reveal-rise 0.6s ease both;
 }
 
+/* Error phase — the ceremony stalled. Calm, centered, with retry + escape.
+   Reuses the conjure column layout so it sits in the same held space. */
+.at-reveal-error {
+  max-width: 30rem;
+}
+.at-reveal-sigil-still {
+  animation: none;
+  opacity: 0.7;
+  text-shadow: 0 0 18px rgba(212, 163, 115, 0.4);
+}
+.at-reveal-error-msg {
+  margin: 0;
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
 .at-reveal-card {
   width: min(640px, 100%);
   margin: auto;

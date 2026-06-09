@@ -7,6 +7,17 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — A failed "bring to life" no longer strands new players on the Chronicle *(2026-06-09)*
+
+When the bring-to-life ceremony failed for *any* reason — gateway down, rate
+limit, timeout, the Turnstile block above — it dropped the player back onto the
+dense Chronicle reader skeleton ("captured, not yet written") with a small red
+error line. To a brand-new player who just clicked **Start**, that page is
+meaningless. The ceremony now has a dedicated **error phase**: it stays on the
+full-screen reveal surface with a calm "*[Hero] is still waiting*" message, a
+prominent **✦ Try again**, and a **← Back to my heroes** escape that routes to
+the hub. The player never sees the bare Chronicle on failure.
+
 ### Fixed — "Bring to life" no longer dies on a CSP block *(2026-06-09)*
 
 Starting a captured hero on the live site failed with *"Couldn't bring them to
