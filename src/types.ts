@@ -77,6 +77,12 @@ export interface CharacterBible {
   realm?: string;
   wowClass?: string;
   wowRace?: string;
+  /**
+   * WoW UnitSex from the import: 2 = male, 3 = female (absent = unknown,
+   * e.g. bibles created before this field existed). Stated explicitly in
+   * generation prompts so pronouns are never inferred from the name.
+   */
+  sex?: number;
 
   /**
    * True for a "draft" hero light-created straight from WoW identity during a

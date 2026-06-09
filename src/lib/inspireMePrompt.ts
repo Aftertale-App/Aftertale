@@ -36,6 +36,7 @@ import {
   type PersonalityProfile,
   type TraitBucketId,
 } from './personalityTraits';
+import { pronouns } from './pronouns';
 
 export const INSPIRE_ME_PROMPT_VERSION = 1;
 
@@ -101,16 +102,6 @@ export interface InspireMeSuggestion {
 
 export interface InspireMeResponse {
   suggestions: InspireMeSuggestion[];
-}
-
-/**
- * Human-readable pronouns derived from UnitSex. Used in the prompt so
- * the LLM doesn't have to infer.
- */
-function pronouns(sex: 1 | 2 | 3): { subject: string; object: string; possessive: string } {
-  if (sex === 2) return { subject: 'he', object: 'him', possessive: 'his' };
-  if (sex === 3) return { subject: 'she', object: 'her', possessive: 'her' };
-  return { subject: 'they', object: 'them', possessive: 'their' };
 }
 
 /**

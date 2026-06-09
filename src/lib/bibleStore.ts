@@ -644,6 +644,8 @@ export function createStubBibleFromCharacter(c: {
   wowRace?: string;
   faction?: 'Alliance' | 'Horde' | 'Neutral';
   level?: number;
+  /** WoW UnitSex: 2 male, 3 female. Anything else is stored as unknown. */
+  sex?: number;
 }): CharacterBible {
   migrateLegacyIfPresent();
   // createdAt doubles as the roster key, so guarantee uniqueness even when
@@ -666,6 +668,7 @@ export function createStubBibleFromCharacter(c: {
     realm: optionalTrimmed(c.realm),
     wowClass: optionalTrimmed(c.wowClass),
     wowRace: optionalTrimmed(c.wowRace),
+    sex: c.sex === 2 || c.sex === 3 ? c.sex : undefined,
     needsSetup: true,
     // A freshly-imported stub is *captured*, not started — it holds identity +
     // moments but stays out of the dropdown until the player begins it.

@@ -20,6 +20,7 @@ import {
   type NpcThread,
 } from '../lib/npcChatStore';
 import { NPC_CATALOG, type NpcEntry } from '../lib/npcCatalog';
+import { pronounLine } from '../lib/pronouns';
 import { DEV_TOOLS_ENABLED } from '../lib/devTools';
 import type { CharacterBible, ChatMessage, LLMProvider } from '../types';
 
@@ -304,7 +305,9 @@ function NpcChatInner() {
     const myRequestId = ++requestIdRef.current;
 
     const heroAssistSystem = [
-      `You are roleplaying as ${bible.name}, a ${bible.race} ${bible.class} of the ${bible.faction}.`,
+      `You are roleplaying as ${bible.name}, a ${bible.race} ${bible.class} of the ${bible.faction}${
+        pronounLine(bible.sex) ? ` (${pronounLine(bible.sex)})` : ''
+      }.`,
       `You are in conversation with ${npc.name} (${npc.title}) at ${npc.zone}.`,
       '',
       'Stay deep in character. Use natural speech \u2014 fragments, regional cadence,',

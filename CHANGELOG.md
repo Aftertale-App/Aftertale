@@ -7,6 +7,17 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Fixed — Pronouns are now stated, never guessed from the hero's name *(2026-06-09)*
+
+A female hero could come back from "Bring to life" as somebody's "youngest
+son" — with a female portrait. The addon has always captured `UnitSex`, but
+the import dropped it before it reached the codex, so the prose model and the
+portrait model each guessed gender from the character's name (and could guess
+differently). Sex now flows from SavedVariables into the codex, every
+generation prompt (origin story, play-history reveal, portrait, session
+recaps, NPC chat, Loremaster polish) states the hero's pronouns explicitly,
+and re-importing backfills the field on heroes created before the fix.
+
 ### Changed — "Bible" → "Codex" in all player-facing copy *(2026-06-09)*
 
 The character's identity/personality doc was called a "bible" (a screenwriting

@@ -13,8 +13,9 @@
 import type { LLMProvider, CharacterBible } from '../types';
 import type { ChronicleSession } from './sessionHistory';
 import { parsePrologueResponse, PrologueError } from './prologueGenerator';
+import { pronounLine, pronouns } from './pronouns';
 
-export const PLAY_HISTORY_PROMPT_VERSION = 1;
+export const PLAY_HISTORY_PROMPT_VERSION = 2;
 
 export interface PlayHistoryInput {
   bible: CharacterBible;
@@ -91,6 +92,10 @@ export function buildPlayHistoryPrompt(input: PlayHistoryInput): string {
     `Character: ${bible.name}, a ${bible.race} ${bible.class} (${bible.faction ?? 'unaligned'})${
       typeof bible.level === 'number' ? `, level ${bible.level}` : ''
     }.`,
+    pronounLine(bible.sex)
+      ? `Pronouns: ${pronounLine(bible.sex)}. Use these consistently everywhere ` +
+        `(son/daughter, brother/sister, etc.) — never infer gender from the name.`
+      : '',
     bible.currentZone ? `Last seen: ${bible.currentZone}.` : '',
     '',
     'Recorded adventures (their real play, oldest first):',
@@ -148,10 +153,13 @@ export function buildPortraitPrompt(input: PlayHistoryInput): string {
     if (notable.length >= 6) break;
   }
   const lvl = typeof bible.level === 'number' ? `, seasoned to around level ${bible.level}` : '';
-  const deeds = notable.length ? ` Echoes of his deeds: ${notable.slice(0, 6).join(', ')}.` : '';
+  const p = pronouns(bible.sex);
+  const deeds = notable.length
+    ? ` Echoes of ${p.possessive} deeds: ${notable.slice(0, 6).join(', ')}.`
+    : '';
   return (
     `Painterly fantasy character portrait, head and shoulders, three-quarter view, of a ` +
-    `${bible.race} ${bible.class} (${bible.faction ?? 'unaligned'})${lvl}.` +
+    `${p.noun ? `${p.noun} ` : ''}${bible.race} ${bible.class} (${bible.faction ?? 'unaligned'})${lvl}.` +
     deeds +
     ` Weathered, watchful, heroic. Earthy palette, warm dramatic rim light, ` +
     `semi-realistic digital painting, generic high-fantasy style (not any specific game).`

@@ -12,6 +12,7 @@ import { loadSessionRecaps, removeSessionRecap, saveSessionRecap, SESSION_RECAPS
 import { entryId } from '../lib/chronicleExport';
 import { eventFactLine, type ChronicleSession } from '../lib/sessionHistory';
 import { getSeedMode, type SeedMode } from '../lib/featureFlags';
+import { pronounLine } from '../lib/pronouns';
 import {
   beatGlyph, beatLabel, pickStoryBeats,
   sessionNarrativeScore, recommendChapterLength,
@@ -882,6 +883,7 @@ function buildSessionRecapPrompt(bible: CharacterBible, session: ChronicleSessio
 
   return [
     `Hero: ${bible.name}, ${bible.faction} ${bible.race} ${bible.class}`,
+    pronounLine(bible.sex) ? `Pronouns: ${pronounLine(bible.sex)}` : null,
     typeof bible.level === 'number' ? `Current level: ${bible.level}` : null,
     bible.currentZone ? `Current zone: ${bible.currentZone}` : null,
     bible.homeland ? `Homeland: ${bible.homeland}` : null,

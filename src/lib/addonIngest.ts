@@ -23,6 +23,8 @@ export interface ImportCharacter {
   wowClass?: string;
   wowRace?: string;
   faction?: 'Alliance' | 'Horde' | 'Neutral';
+  /** WoW UnitSex: 2 male, 3 female (absent = unknown). */
+  sex?: number;
   eventCount: number;
 }
 
@@ -49,7 +51,7 @@ export interface CommitResult {
   refreshed: number;
   skipped: number;
   characterKey: string;
-  biblePatch?: Partial<Pick<CharacterBible, 'level' | 'currentZone'>>;
+  biblePatch?: Partial<Pick<CharacterBible, 'level' | 'currentZone' | 'sex'>>;
 }
 
 function characterKey(createdAt: number): string {
@@ -82,6 +84,7 @@ interface CharacterRegistryEntry {
   wowClass?: string;
   wowRace?: string;
   faction?: 'Alliance' | 'Horde' | 'Neutral';
+  sex?: number;
 }
 
 function getAftertaleDb(content: string): { db: { [k: string]: LuaValue } | null; rawEvents: AddonEvent[] } {
@@ -104,6 +107,7 @@ function readCharacterRegistry(db: { [k: string]: LuaValue } | null): Map<string
       wowClass: rec.identity.class,
       wowRace: rec.identity.race,
       faction: rec.identity.faction,
+      sex: rec.identity.sex,
     });
   }
   return registry;
@@ -148,6 +152,7 @@ export function planImport(content: string): ImportPlan {
       wowClass: registered?.wowClass,
       wowRace: registered?.wowRace,
       faction: registered?.faction,
+      sex: registered?.sex,
       eventCount: 1,
     });
   }
@@ -221,6 +226,13 @@ export function commitImport(plan: ImportPlan, opts: CommitOptions): CommitResul
     }
     if (latest.zone && latest.zone !== opts.bible.currentZone) {
       biblePatch.currentZone = latest.zone;
+    }
+    // Backfill sex on bibles minted before the field existed.
+    if (!opts.bible.sex) {
+      const observed = plan.characters.find(
+        (c) => accepted.has(c.guid) && (c.sex === 2 || c.sex === 3),
+      );
+      if (observed) biblePatch.sex = observed.sex;
     }
     if (Object.keys(biblePatch).length > 0) {
       updateActiveBible(biblePatch);
@@ -317,6 +329,11 @@ export function commitImportAll(plan: ImportPlan, opts: CommitAllOptions = {}): 
 
     const existing = findBibleByCharacterGuid(guid);
     if (existing) {
+      // Backfill sex on bibles minted before the field existed, so pronoun
+      // guidance reaches their future generations without recreating them.
+      if (!existing.sex && (character.sex === 2 || character.sex === 3)) {
+        updateBibleByKey(String(existing.createdAt), { sex: character.sex });
+      }
       targetKeyByGuid.set(guid, {
         guid,
         name: character.name,
@@ -344,6 +361,7 @@ export function commitImportAll(plan: ImportPlan, opts: CommitAllOptions = {}): 
       wowRace: character.wowRace,
       faction: character.faction,
       level: maxLevelForGuid(plan, guid),
+      sex: character.sex,
     });
     targetKeyByGuid.set(guid, {
       guid,

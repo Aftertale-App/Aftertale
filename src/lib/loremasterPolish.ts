@@ -8,6 +8,7 @@
  */
 
 import type { CharacterBible, LLMProvider } from '../types';
+import { pronounLine } from './pronouns';
 
 export interface LoremasterContext {
   /** The hero's bible — gives the polish its voice + faction context. */
@@ -59,6 +60,8 @@ export function buildLoremasterPrompt(
   lines.push(`# The hero`);
   lines.push(`- Name: ${bible.name}`);
   lines.push(`- Race / Class: ${bible.race} ${bible.class}`);
+  const pl = pronounLine(bible.sex);
+  if (pl) lines.push(`- Pronouns: ${pl}`);
   lines.push(`- Faction: ${bible.faction}`);
   if (bible.homeland) lines.push(`- Homeland: ${bible.homeland}`);
   if (bible.voice) lines.push(`- Voice: ${bible.voice}`);

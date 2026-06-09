@@ -8,6 +8,7 @@
 import type { AddonEvent } from './addonEvents';
 import type { CharacterBible, LLMResponse } from '../types';
 import { MODEL_CHOICES } from './modelChoices';
+import { pronounLine } from './pronouns';
 import { eventFactLine } from './sessionHistory';
 
 export interface EnrichEventResult {
@@ -18,6 +19,7 @@ export interface EnrichEventResult {
 function bibleHeader(bible: CharacterBible): string {
   return [
     `Hero: ${bible.name}, ${bible.faction} ${bible.race} ${bible.class}`,
+    pronounLine(bible.sex) ? `Pronouns: ${pronounLine(bible.sex)}` : null,
     typeof bible.level === 'number' ? `Level: ${bible.level}` : null,
     bible.currentZone ? `Current zone: ${bible.currentZone}` : null,
     bible.coreQuote ? `Hero's truth: ${bible.coreQuote}` : null,

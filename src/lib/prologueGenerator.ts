@@ -19,8 +19,9 @@ import {
 } from './personalityTraits';
 import type { IngestedCharacter } from './characterIngest';
 import type { InspireMeIntel } from './inspireMePrompt';
+import { pronounLine } from './pronouns';
 
-export const PROLOGUE_PROMPT_VERSION = 1;
+export const PROLOGUE_PROMPT_VERSION = 2;
 
 export class PrologueError extends Error {
   constructor(message: string, public cause?: unknown) {
@@ -94,6 +95,7 @@ export function buildProloguePrompt(input: PrologueInput): string {
   const subzone =
     character.lastSeen?.subzoneText ?? character.firstSeen.subzoneText ?? '';
   const where = subzone ? `${zone} (${subzone})` : zone;
+  const pl = pronounLine(id.sex);
 
   return [
     'You are the chronicler for a personalized World of Warcraft RPG novel.',
@@ -102,6 +104,12 @@ export function buildProloguePrompt(input: PrologueInput): string {
     'so make it specific, internally consistent, and free of generic fantasy cliche.',
     '',
     `Character: ${id.name}, a ${id.race} ${id.class} (${id.faction ?? 'unaligned'}), level ${lvl}.`,
+    ...(pl
+      ? [
+          `Pronouns: ${pl}. Use these consistently everywhere (son/daughter, ` +
+            `brother/sister, etc.) — never infer gender from the name.`,
+        ]
+      : []),
     `Observed location: ${where}.`,
     `Classification: ${character.classification}.`,
     `Lane guidance: ${LANE_VOICE[character.classification]}`,
@@ -272,9 +280,11 @@ export async function generatePrologue(
   // Carry over observed in-world snapshot, but the LLM-provided faction
   // wins (race + class are already pinned by the input, but the model
   // may normalize spelling -- accept its normalization).
+  const sex = input.character.identity.sex;
   const bible: CharacterBible = {
     ...parsed,
     name: input.character.identity.name, // pin to observed name
+    sex: sex === 2 || sex === 3 ? sex : undefined,
     level: input.character.lastSeen?.level ?? input.character.firstSeen.level,
     currentZone:
       input.character.lastSeen?.zoneText ?? input.character.firstSeen.zoneText ?? undefined,
