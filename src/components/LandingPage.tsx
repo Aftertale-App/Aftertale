@@ -32,11 +32,18 @@ void (null as RevealVariant | null);
 
 
 
+// Jeff, 2026-06-10: the Friends & Family window never surfaces pricing or
+// BYOK on the marketing page. Hides the tier/pricing section, the Pricing nav
+// link, plan-related FAQ entries, and plan footer links. BYOK itself is being
+// scoped for full removal (docs/byok-removal-scope.md) — don't flip this back
+// without revisiting that doc.
+const SHOW_PLANS = false;
+
 const NAV_LINKS = [
   { label: 'Get started', href: '#onboard' },
   { label: 'How it works', href: '#how' },
   { label: 'Features', href: '#features' },
-  { label: 'Pricing', href: '#pricing' },
+  ...(SHOW_PLANS ? [{ label: 'Pricing', href: '#pricing' }] : []),
   { label: 'FAQ', href: '#faq' },
 ];
 
@@ -58,7 +65,7 @@ const PHASE_A_BANNER_KEY = 'at.phaseA.bannerDismissed';
 // Phase A (no auto-capture, no push). The full-launch version below promises
 // the Companion magic moment and is restored when PHASE_A_MODE is off.
 const ONBOARD_STEPS_PHASE_A = [
-  { title: 'Start free', body: "Open Aftertale and create your hero. Paste your own AI key (OpenRouter) — the free tier runs on your key, so you stay in control of the cost." },
+  { title: 'Start free', body: 'Open Aftertale and create your hero. No account, no payment, nothing to configure — your first hero comes to life on the house.' },
   { title: 'Shape your hero', body: 'Tell Aftertale who they are, where they came from, and what they carry. Or let AI draft a starting hero codex you can refine.' },
   { title: 'Install the addon', body: 'Download the Aftertale addon and let it run while you play. It records your story moments to a local file — it never controls your character or touches the game.' },
   { title: 'Bring your session in', body: "After you play, drop your SavedVariables file into Aftertale's Inkwell. That's the one manual step the free tier asks of you." },
@@ -156,8 +163,8 @@ export function LandingPage() {
           </div>
           <p className="at-trust at-hero-anim" style={{ animationDelay: '620ms' }}>
             {PHASE_A_MODE
-              ? 'The free tier is always free · Bring your own key · One hero to begin the tale'
-              : 'Free forever · Bring your own key · One hero to begin the tale'}
+              ? 'The free tier is always free · No account needed to start · One hero to begin the tale'
+              : 'Free forever · No account needed to start · One hero to begin the tale'}
           </p>
         </div>
       </section>
@@ -282,14 +289,15 @@ export function LandingPage() {
             <Reveal variant="up" delay={0}><FeatureTile title="Automatic session capture" body="Let Aftertale gather the important beats of play without turning your evening into homework." /></Reveal>
             <Reveal variant="up" delay={80}><FeatureTile title="Your AI storyteller" body="Each session becomes narrative prose that treats your hero like a protagonist, not a spreadsheet row." /></Reveal>
             <Reveal variant="up" delay={160}><FeatureTile title="Living cloud chronicle" body="Your chapters gather in one private library, building a long-form record of your adventures over time." /></Reveal>
-            <Reveal variant="up" delay={240}><FeatureTile comingSoon={PHASE_A_MODE} title="Chapter-ready alerts" body="Paid plans can send a push when a new chapter is ready, right when the magic lands." /></Reveal>
-            <Reveal variant="up" delay={320}><FeatureTile comingSoon={PHASE_A_MODE} title="Many heroes remembered" body="Track more than one character — alt, main, experiment, or recurring disaster — with the right plan." /></Reveal>
-            <Reveal variant="up" delay={400}><FeatureTile comingSoon={PHASE_A_MODE} title="Export finished sagas" body="Chronicler and Loremaster can export polished chapters as ePub or PDF artifacts worth keeping." /></Reveal>
+            <Reveal variant="up" delay={240}><FeatureTile comingSoon={PHASE_A_MODE} title="Chapter-ready alerts" body="A push notification the moment a new chapter is ready, right when the magic lands." /></Reveal>
+            <Reveal variant="up" delay={320}><FeatureTile comingSoon={PHASE_A_MODE} title="Many heroes remembered" body="Track more than one character — alt, main, experiment, or recurring disaster." /></Reveal>
+            <Reveal variant="up" delay={400}><FeatureTile comingSoon={PHASE_A_MODE} title="Export finished sagas" body="Export polished chapters as ePub or PDF artifacts worth keeping." /></Reveal>
           </div>
         </div>
       </section>
 
-      {/* ---------- Tier pitch ---------- */}
+      {/* ---------- Tier pitch (hidden while SHOW_PLANS is off) ---------- */}
+      {SHOW_PLANS && (
       <section className="at-section" id="pricing">
         <div className="at-container">
           <Reveal variant="up">
@@ -334,6 +342,7 @@ export function LandingPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ---------- FAQ ---------- */}
       <section className="at-section" id="faq">
@@ -370,8 +379,18 @@ export function LandingPage() {
             </p>
           </div>
           <div className="at-footer-cols">
-            <FooterCol heading="Product" links={['How it works', 'Features', 'Pricing', 'Free tier', 'Companion', 'Loremaster']} />
-            <FooterCol heading="Resources" links={['Getting started', 'Supported games', 'Privacy guide', 'BYOK setup', 'Export help', 'Contact support']} />
+            <FooterCol
+              heading="Product"
+              links={SHOW_PLANS
+                ? ['How it works', 'Features', 'Pricing', 'Free tier', 'Companion', 'Loremaster']
+                : ['How it works', 'Features', 'Free tier']}
+            />
+            <FooterCol
+              heading="Resources"
+              links={SHOW_PLANS
+                ? ['Getting started', 'Supported games', 'Privacy guide', 'BYOK setup', 'Export help', 'Contact support']
+                : ['Getting started', 'Supported games', 'Privacy guide', 'Contact support']}
+            />
             <FooterCol heading="Company" links={['About Aftertale', 'Roadmap', 'Changelog', 'Community', 'Press', 'Careers']} />
           </div>
         </div>
@@ -910,22 +929,26 @@ function ChapterPanel() {
 
 const FAQS = [
   ...(PHASE_A_MODE
-    ? [{ q: 'What stage is Aftertale at?', a: "Aftertale is in early testing. The free tier is live today: you bring your own AI key, install the capture addon, play, drop your session file in, and read your chapter. The paid Companion tier — automatic capture and a chapter pushed to your phone after you log out — is on the way later this year. We'd rather show you exactly what works now than promise what isn't ready." }]
+    ? [{ q: 'What stage is Aftertale at?', a: "Aftertale is in early testing. The free tier is live today: install the capture addon, play, drop your session file in, and read your chapter. Automatic capture — a chapter arriving on its own after you log out — is on the way. We'd rather show you exactly what works now than promise what isn't ready." }]
     : []),
   { q: 'Which games does Aftertale support?', a: PHASE_A_MODE
       ? "Aftertale currently supports World of Warcraft, with capture across Retail, Classic Era (including Hardcore and Season of Discovery), Cataclysm Classic, and Mists of Pandaria Classic. Aftertale is built as a game-agnostic storytelling layer, so additional games are on the roadmap. We avoid promising support for specific future titles until the capture, privacy, and writing experience meet the standard."
       : "Aftertale is live today for World of Warcraft, with full capture support across Retail, Classic Era (including Hardcore and Season of Discovery), Cataclysm Classic, and Mists of Pandaria Classic. Aftertale is built as a game-agnostic storytelling layer, so additional games are on the roadmap. We avoid promising support for specific future titles until the capture, privacy, and writing experience meet the standard." },
   { q: 'What happens if I don’t save my chronicle?', a: "Your hero lives in the browser you started them in. As long as you don't clear your browser data, they're safe — but they won't follow you to a new device, a different browser, an incognito window, or a fresh machine. 'Save your chronicle' ties your hero to an email so they survive a cleared cache, a phone upgrade, or signing in anywhere else. The save is the moment your chronicle stops being browser-bound." },
-  { q: 'Is my data private?', a: 'Your chronicle is treated as personal creative data. Aftertale is designed around your heroes, sessions, chapters, and account, not public feeds by default. Public hero pages are only part of the Loremaster identity tier, and publishing is an intentional choice, not a surprise.' },
-  { q: 'What does BYOK mean?', a: 'BYOK means "bring your own key." On the Free tier, you provide your own AI API key and run the artisan path manually. It keeps the free tier sustainable while giving you control over model usage, cost, and experimentation.' },
-  { q: 'What is the difference between Free and Companion?', a: PHASE_A_MODE
-      ? 'Free — live today — is for the hands-on player: one hero, your own AI key, and a manual flow where you bring your session file in and generate the chapter yourself. Companion is the coming paid tier ($12/month) that adds the magic moment: automatic capture, cloud processing, push notifications, and more heroes, so your chapter arrives after play without the manual step. Companion ships later this year.'
-      : 'Free is for the hands-on player: one hero, manual flow, and your own AI key. Companion is the magic moment tier at $12/month: auto-capture, cloud processing, push notifications, and up to three heroes, so your chapter can arrive after play without extra ritual.' },
-  { q: 'Can I cancel and keep my data?', a: 'Yes. Your story should not vanish because a billing cycle ended. If you cancel, you retain access to your existing chronicle and exported files where your tier supports exports. Paid features like automation, additional heroes, generation, and public pages may stop or downgrade after cancellation.' },
+  { q: 'Is my data private?', a: 'Your chronicle is treated as personal creative data. Aftertale is designed around your heroes, sessions, chapters, and account, not public feeds by default. Public hero pages are a planned, opt-in feature — publishing is an intentional choice, not a surprise.' },
+  ...(SHOW_PLANS
+    ? [
+        { q: 'What does BYOK mean?', a: 'BYOK means "bring your own key." On the Free tier, you provide your own AI API key and run the artisan path manually. It keeps the free tier sustainable while giving you control over model usage, cost, and experimentation.' },
+        { q: 'What is the difference between Free and Companion?', a: PHASE_A_MODE
+            ? 'Free — live today — is for the hands-on player: one hero, your own AI key, and a manual flow where you bring your session file in and generate the chapter yourself. Companion is the coming paid tier ($12/month) that adds the magic moment: automatic capture, cloud processing, push notifications, and more heroes, so your chapter arrives after play without the manual step. Companion ships later this year.'
+            : 'Free is for the hands-on player: one hero, manual flow, and your own AI key. Companion is the magic moment tier at $12/month: auto-capture, cloud processing, push notifications, and up to three heroes, so your chapter can arrive after play without extra ritual.' },
+        { q: 'Can I cancel and keep my data?', a: 'Yes. Your story should not vanish because a billing cycle ended. If you cancel, you retain access to your existing chronicle and exported files where your tier supports exports. Paid features like automation, additional heroes, generation, and public pages may stop or downgrade after cancellation.' },
+      ]
+    : []),
   { q: 'Can I read on my phone?', a: PHASE_A_MODE
-      ? 'Yes — if you save your chronicle to an account, it reads on your phone wherever you sign in. Push notifications when a new chapter is ready are part of the coming Companion tier; for now you open the app to read.'
-      : 'Yes. Aftertale is designed around the "new chapter ready" moment, which often happens away from the desk. Companion and higher tiers support push notifications, and your cloud chronicle is meant to be readable wherever you are signed in, including your phone.' },
-  { q: 'What AI models do you use?', a: 'Aftertale uses modern large language models selected for narrative quality, reliability, and cost balance. Free uses your own key, so the provider depends on what you connect. Paid tiers use hosted generation, and model choices may evolve as better storytelling options become available.' },
+      ? 'Yes — if you save your chronicle to an account, it reads on your phone wherever you sign in. Push notifications when a new chapter is ready are planned; for now you open the app to read.'
+      : 'Yes. Aftertale is designed around the "new chapter ready" moment, which often happens away from the desk. Push notifications are planned, and your cloud chronicle is meant to be readable wherever you are signed in, including your phone.' },
+  { q: 'What AI models do you use?', a: 'Aftertale uses modern large language models selected for narrative quality, reliability, and cost balance. Model choices may evolve as better storytelling options become available.' },
 ];
 
 function Faq() {

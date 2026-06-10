@@ -7,6 +7,17 @@ Phase 1 ships.
 
 ## [Unreleased] — Phase 0 shipped 🎉
 
+### Changed — Pricing and BYOK removed from the marketing page *(2026-06-10)*
+
+The Friends & Family window never surfaces pricing or bring-your-own-key, so
+the landing page no longer does either. Behind a new `SHOW_PLANS = false`
+flag in `LandingPage.tsx`: the tier/pricing section, the Pricing nav link,
+the BYOK / tier-comparison / cancellation FAQ entries, and the plan-related
+footer links are all hidden. Copy that referenced keys or named paid tiers
+(onboarding step 1, the hero trust line, feature tiles, remaining FAQ
+answers) now describes the free experience without them. Full BYOK removal
+from the app itself is scoped in `docs/byok-removal-scope.md`.
+
 ### Fixed — One narrative voice: close third person everywhere *(2026-06-09)*
 
 Chapters could flip between third person ("The dust clung to Futony's boots

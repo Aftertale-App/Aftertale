@@ -257,6 +257,18 @@ with spaces. Locking this in any future Lua-snippet generator (web side too).
 
 ## Backlog — small follow-ups
 
+- [ ] **Weekly "your story is waiting" email.** *(added 2026-06-10, Jeff-approved
+  from the UX audit)* The product currently has zero mechanisms that reach a
+  player outside the app — nothing earns a return visit after day 1. Cheapest
+  real retention hook: a scheduled Supabase edge function + one email template,
+  sent weekly only when a signed-in player has unwritten sessions:
+  *"Futony has 3 sessions waiting to be written — the last ended at level 14
+  in Westfall."* Requires: per-user unwritten-session counts queryable
+  server-side (events are localStorage-only in Phase A, so either sync session
+  summaries to the cloud or derive from the synced recap/bible bundle), an
+  unsubscribe link, and send-time batching. Not Phase A — cohort is 10 people
+  Jeff can ping by hand; build before public free launch (Phase B).
+
 - [ ] **Bible-depth nudge.** The chapter engine's character arc ("The longer
   road" closing) draws on the bible's Hero's Truth / fears / flaws. A sparse
   bible degrades gracefully (we skip the arc section) — but the player should
