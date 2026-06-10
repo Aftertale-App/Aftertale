@@ -535,7 +535,7 @@ function HeroExhibit() {
 
       <div className="at-exhibit-track" ref={trackRef}>
         <ExhibitPage type="hero" />
-        <ExhibitPage type="truth" />
+        <ExhibitPage type="truth" onNext={() => go(2)} />
         <ExhibitPage type="voice" />
         <ExhibitPage type="backstory" />
         <ExhibitPage type="chapter" />
@@ -560,11 +560,11 @@ function HeroExhibit() {
   );
 }
 
-function ExhibitPage({ type }: { type: typeof EXHIBIT_PAGES[number] }) {
+function ExhibitPage({ type, onNext }: { type: typeof EXHIBIT_PAGES[number]; onNext?: () => void }) {
   return (
     <div className={`at-exhibit-page at-exhibit-page-${type}`}>
       {type === 'hero' && <IdentityPanel />}
-      {type === 'truth' && <QuotePanel />}
+      {type === 'truth' && <QuotePanel onNext={onNext} />}
       {type === 'voice' && <VoicePanel />}
       {type === 'backstory' && <BackstoryPanel />}
       {type === 'chapter' && <ChapterPanel />}
@@ -690,7 +690,7 @@ function IdentityPanel() {
   );
 }
 
-function QuotePanel() {
+function QuotePanel({ onNext }: { onNext?: () => void }) {
   return (
     <PanelFrame variant="quote">
       <div className="at-quote-layout">
@@ -704,24 +704,52 @@ function QuotePanel() {
         <blockquote className="at-quote-text">
           <span className="at-drop-quote">&ldquo;</span>The forge does not lie.<span className="at-drop-quote at-drop-quote-close">&rdquo;</span>
         </blockquote>
-        <p className="at-quote-attrib">— Magnus Brunn</p>
+        <p className="at-quote-attrib">Magnus Brunn</p>
         <div className="at-quote-flourish at-quote-flourish-bottom" aria-hidden>
           <svg viewBox="0 0 240 20" width="180" height="14">
             <path d="M 0 10 L 100 10 M 120 4 Q 122 10 120 16 M 140 10 L 240 10" stroke="#c79bf0" strokeWidth="1" fill="none" opacity="0.7" />
             <circle cx="120" cy="10" r="3" fill="#c79bf0" opacity="0.8" />
           </svg>
         </div>
-        <p className="at-quote-context">
-          Every hero in Aftertale carries a truth at their center. Not a slogan. Not a
-          stat block. Something the story can return to when the road gets dark.
-        </p>
-        <div className="at-quote-gloss">
-          <p className="at-quote-context at-quote-context-gloss">
-            For Magnus, it is this: fire reveals what metal is. Pressure reveals what men
-            are. The forge does not flatter, excuse, or forgive.
+        <div className="at-truth-prose">
+          <p>Magnus learned that at an anvil, not in a chapel.</p>
+          <p>
+            Heat the iron. Strike it. Listen to the sound it makes. Good metal tells you
+            when it can take more. Bad metal tells you too, usually after it has already
+            cost you the work.
           </p>
-          <p className="at-quote-context at-quote-context-coda">It only shows what holds.</p>
+          <p>
+            Calder used to know by sound alone. He could hear a weak seam before Magnus
+            could see it. He would grin across the forge, tap the hammer once against the
+            anvil, and say the metal was telling on itself.
+          </p>
+          <p>Then the lower shaft fell in, and the mountain told on everyone.</p>
+          <p>
+            It told the families waiting outside how little prayer could move stone. It
+            told the foreman how cheap a warning sign had been. It told Magnus that some
+            silences were heavier than any ore cart.
+          </p>
+          <p>After that, he stopped trusting speeches.</p>
+          <p>
+            Now he reads the road the same way he once read iron. A loose grip on a sword.
+            A commander with clean gloves. A farmer who keeps looking at the tree line
+            while he talks. Small things tell on people if you have the patience to notice.
+          </p>
+          <p>Aftertale keeps those things in the story.</p>
+          <p>
+            When Magnus takes work at a road camp, the chronicle remembers the mine that
+            took his brother. When he reaches for the Light, it remembers the forge where
+            he first felt it answer. When someone calls him brave, it remembers that he
+            has never cared much for the word.
+          </p>
+          <p>Magnus does not think of himself as brave.</p>
+          <p>He thinks of himself as useful.</p>
         </div>
+        {onNext && (
+          <button type="button" className="at-btn at-btn-secondary at-truth-next" onClick={onNext}>
+            Read the next chapter
+          </button>
+        )}
       </div>
     </PanelFrame>
   );
@@ -2266,6 +2294,20 @@ const landingStyles = `
     line-height: 1.65;
     font-style: italic;
   }
+  .at-truth-prose {
+    margin: 1.75rem 0 0;
+    text-align: left;
+    font-family: 'Crimson Pro', 'Georgia', serif;
+    font-size: 16.5px;
+    line-height: 1.65;
+    color: var(--at-text-soft);
+  }
+  .at-truth-prose p { margin: 0 0 0.85rem; break-inside: avoid; }
+  .at-truth-prose p:last-child { margin-bottom: 0; }
+  @media (min-width: 860px) {
+    .at-truth-prose { columns: 2; column-gap: 2.75rem; }
+  }
+  .at-truth-next { align-self: center; margin-top: 1.75rem; }
 
   /* ---- Voice panel ---- */
   .at-voice-layout {
