@@ -176,8 +176,7 @@ export function LandingPage() {
             <p className="at-kicker at-kicker-center">✦ Meet a hero</p>
             <h2 className="at-section-h2 at-section-h2-center">This is Magnus Brunn.<br />This is his Aftertale.</h2>
             <p className="at-section-sub-center">
-              Scroll through five pages: who he is, how he speaks, what shaped him, and the
-              chapter Aftertale wrote from one quiet hour of play.
+              The quest log forgets what it felt like. Aftertale does not.
             </p>
           </Reveal>
           <Reveal variant="scale" delay={150}>
@@ -644,7 +643,7 @@ function IdentityPanel() {
         <div className="at-identity-card at-identity-card-portrait">
           <img
             src={assetUrl('magnus-card.jpg')}
-            alt="Magnus Brunn — Hero, Saga in progress. Forgesworn, Iron-bound, Mid-saga."
+            alt="Magnus Brunn — Hero, Saga in progress. Forgesworn, Iron-bound, Mid-chapter."
             className="at-identity-portrait"
             loading="lazy"
           />
@@ -654,24 +653,35 @@ function IdentityPanel() {
         <div className="at-identity-meta">
           <p className="at-panel-kicker">Meet the hero</p>
           <h3 className="at-identity-name">Magnus<br />Brunn</h3>
-          <p className="at-identity-rolecall">Dwarf · Paladin of the Forgelight</p>
+          <p className="at-identity-rolecall">Dwarf · Paladin · Chronicle in Progress</p>
+
+          <div className="at-identity-intro">
+            <p>
+              Magnus Brunn is a dwarf of the cold mountain roads, old enough to know when a
+              purse is too light and stubborn enough to take the work anyway.
+            </p>
+            <p>
+              His chronicle grows chapter by chapter as he travels, fights, turns in jobs,
+              sleeps badly at inns, and keeps walking when the sensible thing would be to go home.
+            </p>
+          </div>
 
           <div className="at-identity-stats-stacked">
             <div className="at-stat-row">
               <span className="at-stat-label">From</span>
-              <span className="at-stat-value">The deep mountain kingdoms, where iron remembers every hand that shaped it.</span>
+              <span className="at-stat-value">The mountain halls, where the wind gets through every crack and forgefire is the difference between work and misery.</span>
             </div>
             <div className="at-stat-row">
               <span className="at-stat-label">Carries</span>
-              <span className="at-stat-value">His brother Calder's hammer, worn smooth at the grip and heavy with old silence.</span>
+              <span className="at-stat-value">Calder’s hammer, worn smooth at the grip by his brother’s hand before it became his own.</span>
             </div>
             <div className="at-stat-row">
-              <span className="at-stat-label">Vow</span>
-              <span className="at-stat-value">Hold the line. Name the cowards. Leave no road unmended.</span>
+              <span className="at-stat-label">Believes</span>
+              <span className="at-stat-value">The forge does not lie.</span>
             </div>
             <div className="at-stat-row">
-              <span className="at-stat-label">Chapter</span>
-              <span className="at-stat-value">Thirty-five · The Road from Mirewatch</span>
+              <span className="at-stat-label">Current chapter</span>
+              <span className="at-stat-value">Thirty-five · Trouble at the Old Mine</span>
             </div>
           </div>
         </div>
@@ -2163,8 +2173,20 @@ const landingStyles = `
     font-size: 16px;
     letter-spacing: 0.05em;
     color: var(--at-accent-strong);
-    margin: 0 0 1.5rem;
+    margin: 0 0 1.25rem;
     font-style: italic;
+  }
+  .at-identity-intro {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0 0 1.5rem;
+  }
+  .at-identity-intro p {
+    margin: 0;
+    font-family: 'Crimson Pro', 'Georgia', serif;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--at-text-soft);
   }
   .at-identity-stats-stacked {
     display: flex;
